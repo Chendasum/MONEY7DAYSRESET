@@ -1,49 +1,61 @@
-const User = require("../models/User");
-const KhmerQuoteGenerator = require("../services/khmer-quotes");
+const User = require("../models/User"); // Assuming User model is available for user data
+const KhmerQuoteGenerator = require("../services/khmer-quotes"); // Import the KhmerQuoteGenerator service
 
-const quoteGenerator = new KhmerQuoteGenerator();
+const quoteGenerator = new KhmerQuoteGenerator(); // Instantiate the quote generator
 
 /**
- * Handle /quote command - show daily motivational quote
+ * Handles the /quote command: Shows a daily motivational quote.
+ * Requires user to be paid.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function dailyQuote(msg, bot) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
   try {
-    // Get user data
-    const user = await User.findOne({ telegramId: userId });
+    // Get user data to check payment status
+    const user = await User.findOne({ telegram_id: userId  });
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
 
-    // Check if user has paid (quotes are premium feature)
-    if (!user.isPaid) {
-      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញាប្រចាំថ្ងៃ សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។");
+    // Check if user has paid (quotes are considered a premium feature)
+    if (!user.is_paid) {
+      await bot.sendMessage(
+        chatId,
+        "🔒 សម្រង់ប្រាជ្ញាប្រចាំថ្ងៃ សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។",
+      );
       return;
     }
 
-    // Get daily quote
+    // Get the daily quote from the generator
     const quoteData = quoteGenerator.getDailyQuote();
+    // Format the quote for Telegram display
     const formattedQuote = quoteGenerator.formatQuote(quoteData);
 
     await bot.sendMessage(chatId, formattedQuote);
 
-    // Update last active
+    // Update user's last active timestamp
     await User.findOneAndUpdate(
-      { telegramId: userId },
-      { lastActive: new Date() }
+      { telegram_id: userId  },
+      { lastActive: new Date() },
     );
-
   } catch (error) {
     console.error("Error in daily quote command:", error);
-    await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។");
+    await bot.sendMessage(
+      chatId,
+      "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។",
+    ); // Improved error message
   }
 }
 
 /**
- * Handle /wisdom command - show random wisdom quote
+ * Handles the /wisdom command: Shows a random wisdom quote from any category.
+ * Requires user to be paid.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function randomWisdom(msg, bot) {
   const chatId = msg.chat.id;
@@ -51,38 +63,46 @@ async function randomWisdom(msg, bot) {
 
   try {
     // Get user data
-    const user = await User.findOne({ telegramId: userId });
+    const user = await User.findOne({ telegram_id: userId  });
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
 
     // Check if user has paid
-    if (!user.isPaid) {
-      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។");
+    if (!user.is_paid) {
+      await bot.sendMessage(
+        chatId,
+        "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។",
+      );
       return;
     }
 
-    // Get random wisdom quote
+    // Get a random wisdom quote
     const quoteData = quoteGenerator.getRandomWisdom();
     const formattedQuote = quoteGenerator.formatQuote(quoteData);
 
     await bot.sendMessage(chatId, formattedQuote);
 
-    // Update last active
+    // Update user's last active timestamp
     await User.findOneAndUpdate(
-      { telegramId: userId },
-      { lastActive: new Date() }
+      { telegram_id: userId  },
+      { lastActive: new Date() },
     );
-
   } catch (error) {
     console.error("Error in wisdom command:", error);
-    await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។");
+    await bot.sendMessage(
+      chatId,
+      "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។",
+    ); // Improved error message
   }
 }
 
 /**
- * Handle /quote_categories command - show available quote categories
+ * Handles the /quote_categories command: Shows available quote categories and usage instructions.
+ * Requires user to be paid.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function showCategories(msg, bot) {
   const chatId = msg.chat.id;
@@ -90,21 +110,24 @@ async function showCategories(msg, bot) {
 
   try {
     // Get user data
-    const user = await User.findOne({ telegramId: userId });
+    const user = await User.findOne({ telegram_id: userId  });
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
 
     // Check if user has paid
-    if (!user.isPaid) {
-      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។");
+    if (!user.is_paid) {
+      await bot.sendMessage(
+        chatId,
+        "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។",
+      );
       return;
     }
 
-    // Get quote statistics
+    // Get statistics about available quotes and categories
     const stats = quoteGenerator.getQuoteStats();
-    
+
     let categoriesMessage = `📚 ប្រភេទសម្រង់ប្រាជ្ញា:
 
 🏛️ ប្រាជ្ញាប្រពៃណី (${stats.traditional} សម្រង់)
@@ -131,20 +154,26 @@ async function showCategories(msg, bot) {
 
     await bot.sendMessage(chatId, categoriesMessage);
 
-    // Update last active
+    // Update user's last active timestamp
     await User.findOneAndUpdate(
-      { telegramId: userId },
-      { lastActive: new Date() }
+      { telegram_id: userId  },
+      { lastActive: new Date() },
     );
-
   } catch (error) {
     console.error("Error in categories command:", error);
-    await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។");
+    await bot.sendMessage(
+      chatId,
+      "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។",
+    ); // Improved error message
   }
 }
 
 /**
- * Handle category-specific quote commands
+ * Handles category-specific quote commands (e.g., /quote_traditional).
+ * Requires user to be paid.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
+ * @param {string} category - The specific category of quotes to retrieve.
  */
 async function categoryQuote(msg, bot, category) {
   const chatId = msg.chat.id;
@@ -152,75 +181,85 @@ async function categoryQuote(msg, bot, category) {
 
   try {
     // Get user data
-    const user = await User.findOne({ telegramId: userId });
+    const user = await User.findOne({ telegram_id: userId  });
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
 
     // Check if user has paid
-    if (!user.isPaid) {
-      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។");
+    if (!user.is_paid) {
+      await bot.sendMessage(
+        chatId,
+        "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។",
+      );
       return;
     }
 
-    // Get quote by category
+    // Get a quote from the specified category
     const quoteData = quoteGenerator.getQuoteByCategory(category);
     const formattedQuote = quoteGenerator.formatQuote(quoteData);
 
     await bot.sendMessage(chatId, formattedQuote);
 
-    // Update last active
+    // Update user's last active timestamp
     await User.findOneAndUpdate(
-      { telegramId: userId },
-      { lastActive: new Date() }
+      { telegram_id: userId  },
+      { lastActive: new Date() },
     );
-
   } catch (error) {
     console.error("Error in category quote command:", error);
-    await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។");
+    await bot.sendMessage(
+      chatId,
+      "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។",
+    ); // Improved error message
   }
 }
 
 /**
- * Get quote for milestone celebration
- * @param {Object} bot - Bot instance
- * @param {number} chatId - Chat ID
- * @param {string} milestone - Milestone type
+ * Sends a motivational quote for a specific user milestone (e.g., day completion, payment confirmation).
+ * This function is typically called by other modules (e.g., daily.js, payment.js).
+ * @param {Object} bot - The Telegram bot instance.
+ * @param {number} chatId - The chat ID to send the message to.
+ * @param {string} milestone - The type of milestone (e.g., 'day_complete', 'payment_confirmed').
  */
 async function sendMilestoneQuote(bot, chatId, milestone) {
   try {
     const quoteData = quoteGenerator.getMilestoneQuote(milestone);
     const formattedQuote = quoteGenerator.formatQuote(quoteData);
-    
+
     await bot.sendMessage(chatId, formattedQuote);
   } catch (error) {
     console.error("Error sending milestone quote:", error);
+    // No user-facing message here as this is an internal function
   }
 }
 
 /**
- * Get quote for specific day lesson
- * @param {Object} bot - Bot instance
- * @param {number} chatId - Chat ID
- * @param {number} dayNumber - Day number (1-7)
+ * Sends a quote relevant to a specific day's lesson.
+ * This function is typically called by the daily lesson module.
+ * @param {Object} bot - The Telegram bot instance.
+ * @param {number} chatId - The chat ID to send the message to.
+ * @param {number} dayNumber - The day number (1-7) for which to get the quote.
  */
 async function sendDayQuote(bot, chatId, dayNumber) {
   try {
     const quoteData = quoteGenerator.getQuoteForDay(dayNumber);
     const formattedQuote = quoteGenerator.formatQuote(quoteData);
-    
+
     await bot.sendMessage(chatId, formattedQuote);
   } catch (error) {
     console.error("Error sending day quote:", error);
+    // No user-facing message here as this is an internal function
   }
 }
 
+// Export all functions that need to be accessible from other modules (e.g., index.js)
 module.exports = {
   dailyQuote,
   randomWisdom,
   showCategories,
   categoryQuote,
   sendMilestoneQuote,
-  sendDayQuote
+  sendDayQuote,
 };
