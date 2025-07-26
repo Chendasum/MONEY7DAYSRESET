@@ -102,25 +102,101 @@ try {
   console.log("⚠️ Using fallback service modules");
 }
 
-// === UTILITY FUNCTIONS ===
-async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4000) {
+// === ADVANCED LONG MESSAGE UTILITY FUNCTIONS ===
+const MAX_MESSAGE_LENGTH = 4096;
+
+/**
+ * Split a long message into smaller chunks that fit Telegram's character limit
+ * Preserves Khmer text formatting and line breaks
+ */
+function splitMessage(message, maxLength = 3500) { // Use 3500 to be safe with Khmer characters
+  if (message.length <= maxLength) {
+    return [message];
+  }
+
+  const chunks = [];
+  let currentChunk = '';
+  
+  // Split by lines first to preserve formatting
+  const lines = message.split('\n');
+  
+  for (const line of lines) {
+    // If a single line is too long, split it by words
+    if (line.length > maxLength) {
+      if (currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      
+      const words = line.split(' ');
+      for (const word of words) {
+        if ((currentChunk + ' ' + word).length > maxLength) {
+          if (currentChunk) {
+            chunks.push(currentChunk.trim());
+            currentChunk = word;
+          } else {
+            // Single word is too long, force split
+            chunks.push(word.substring(0, maxLength));
+            currentChunk = word.substring(maxLength);
+          }
+        } else {
+          currentChunk += (currentChunk ? ' ' : '') + word;
+        }
+      }
+    } else {
+      // Check if adding this line would exceed limit
+      if ((currentChunk + '\n' + line).length > maxLength) {
+        if (currentChunk) {
+          chunks.push(currentChunk.trim());
+          currentChunk = line;
+        } else {
+          chunks.push(line);
+        }
+      } else {
+        currentChunk += (currentChunk ? '\n' : '') + line;
+      }
+    }
+  }
+  
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  return chunks;
+}
+
+/**
+ * Send a potentially long message as multiple chunks with proper Khmer support
+ */
+async function sendLongMessage(bot, chatId, text, options = {}, delay = 800) {
   try {
-    if (text.length <= chunkSize) {
-      return await bot.sendMessage(chatId, text, options);
+    const chunks = splitMessage(text, 3500); // Optimized for Khmer
+    
+    console.log(`📝 Sending long message in ${chunks.length} chunks to chat ${chatId}`);
+    
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        await bot.sendMessage(chatId, chunks[i], options);
+        console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+        
+        // Add delay between chunks to avoid rate limiting
+        if (i < chunks.length - 1 && delay > 0) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        console.error(`❌ Error sending chunk ${i + 1}/${chunks.length}:`, error);
+        throw error;
+      }
     }
     
-    const chunks = [];
-    for (let i = 0; i < text.length; i += chunkSize) {
-      chunks.push(text.slice(i, i + chunkSize));
-    }
-    
-    for (const chunk of chunks) {
-      await bot.sendMessage(chatId, chunk, options);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
-    }
+    console.log(`🎉 Successfully sent all ${chunks.length} chunks`);
   } catch (error) {
-    console.error("Error sending long message:", error);
-    await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។");
+    console.error("❌ Error in sendLongMessage:", error);
+    try {
+      await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមទាក់ទង @Chendasum");
+    } catch (fallbackError) {
+      console.error("❌ Failed to send error message:", fallbackError);
+    }
   }
 }
 
@@ -154,10 +230,7 @@ function isDuplicateMessage(msg) {
     });
   }
 
-  return false;
-}
 
-// === INITIALIZE BOT ===
 let bot = null;
 const accessControl = new AccessControl();
 const conversionOptimizer = new ConversionOptimizer();
@@ -348,21 +421,19 @@ if (process.env.BOT_TOKEN) {
             return;
           }
 
-          // Try to call full daily handler or fallback
+          // Try to call full daily handler or use built-in content
           try {
             const match = [null, day.toString()];
             await dailyCommands.handle(msg, match, bot);
-            console.log(`✅ [DAY${day}] Full content delivered`);
+            console.log(`✅ [DAY${day}] Full content delivered via handler`);
           } catch (handlerError) {
             console.error(`Handler error for day ${day}:`, handlerError);
-            const dayMessage = `📚 ថ្ងៃទី ${day} - កម្មវិធីពេញលេញ
-
-🎯 សូមស្វាគមន៍! អ្នកបានទូទាត់រួចហើយ
-
-មាតិកាថ្ងៃទី ${day} នឹងត្រូវបានផ្ញើមកអ្នកឆាប់ៗនេះ។
-
-📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
-            await bot.sendMessage(msg.chat.id, dayMessage);
+            console.log(`🔄 [DAY${day}] Using built-in content fallback`);
+            
+            // Built-in daily content with sendLongMessage support
+            const dayContent = getDailyContent(day);
+            await sendLongMessage(bot, msg.chat.id, dayContent, { parse_mode: "Markdown" });
+            console.log(`✅ [DAY${day}] Built-in content delivered successfully`);
           }
         } catch (error) {
           console.error(`❌ [DAY${day}] Error:`, error.message);
