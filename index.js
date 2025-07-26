@@ -1,6 +1,33 @@
 /**
- * 7-Day Money Flow Reset™ — FULL FEATURE, RAILWAY-READY
- * Combines your halffull index + full features from index102.js
+ * 7-Day Money Flow Reset™ Bot — FULL FEATURE, RAILWAY-READY
+ * --------------------------------------------------------
+ * This file merges:
+ *  - indexlast-Work halffull.js (Railway-compatible skeleton)
+ *  - index102.js (full feature set: 7-Day + 30-Day, marketing hub, admin suite, tools/templates, etc.)
+ *
+ * Features
+ * --------
+ * ✔ Webhook mode with auto delete/set on every boot (APP_URL + /webhook/SECRET)
+ * ✔ Duplicate-message protection (webhook safe)
+ * ✔ Daily cron (09:00) + ContentScheduler service
+ * ✔ Full command matrix:
+ *    - /start, /help, /pricing, /payment
+ *    - /day1 - /day7 (core program)
+ *    - /extended8 - /extended30 (30-day extension)
+ *    - /vip, /vip_program_info, "VIP APPLY"
+ *    - Admin suite: /admin_menu, /admin_help, /admin_users, /admin_progress, /admin_analytics, ... (complete)
+ *    - Progress & badges: /progress, /badges, /milestones, /streak
+ *    - Marketing hub: /marketing_hub, /post_success_story, /roi_analysis, ...
+ *    - Free tools & quiz: /financial_quiz, /calculate_daily, /find_leaks, /savings_potential, /income_analysis
+ *    - Tools & templates: /admin_daily_template, /admin_weekly_template, ...
+ *
+ * ENV (Railway variables)
+ * -----------------------
+ * BOT_TOKEN=xxxxxxxxxxxxxxxx
+ * APP_URL=https://<your-service>.up.railway.app
+ * WEBHOOK_SECRET=some-long-secret
+ * ADMIN_CHAT_ID=484389665
+ * PORT=3000 (Railway provides automatically, keep fallback)
  */
 
 require("dotenv").config();
@@ -9,67 +36,81 @@ const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
 const bodyParser = require("body-parser");
-const fs = require("fs");
-const path = require("path");
 
-// ---------- Safety Checks ----------
-const { BOT_TOKEN, APP_URL, ADMIN_CHAT_ID, WEBHOOK_SECRET = "secret" } = process.env;
+// ---------- Sanity checks ----------
+const {
+  BOT_TOKEN,
+  APP_URL,
+  ADMIN_CHAT_ID,
+  WEBHOOK_SECRET = "secret",
+  PORT = 3000,
+} = process.env;
+
 if (!BOT_TOKEN) {
-  console.error("❌ BOT_TOKEN missing. Add it to Railway Variables.");
+  console.error("❌ BOT_TOKEN missing. Please set in Railway variables.");
   process.exit(1);
 }
 if (!APP_URL) {
-  console.warn("⚠️ APP_URL not set. Webhook won't be auto-registered. Set it to your Railway public URL.");
+  console.warn("⚠️ APP_URL is not set. Webhook auto-registration will be skipped.");
 }
 
 // ---------- UTF-8 / Khmer Safe ----------
 process.env.NODE_ICU_DATA = process.env.NODE_ICU_DATA || "/usr/share/nodejs/node-icu-data";
 process.env.LANG = process.env.LANG || "en_US.UTF-8";
 
-// ---------- Models ----------
-let User, Progress;
-try { User = require("./models/User"); } catch (e) { console.log("⚠️ models/User missing"); }
-try { Progress = require("./models/Progress"); } catch (e) { console.log("⚠️ models/Progress missing"); }
-
-// ---------- Commands (try/catch so bot never dies) ----------
-function safeRequire(p, label) {
-  try { return require(p); } catch (e) { console.log(`⚠️ ${label} missing: ${p}`); return null; }
+// ---------- Helpers ----------
+function safeRequire(path, label) {
+  try {
+    return require(path);
+  } catch (e) {
+    console.log(`⚠️ Missing or failed to load ${label}: ${path}`);
+    return null;
+  }
 }
 
-const startCommand       = safeRequire("./commands/start", "start.js");
-const dailyCommands      = safeRequire("./commands/daily", "daily.js");
-const paymentCommands    = safeRequire("./commands/payment", "payment.js");
-const vipCommands        = safeRequire("./commands/vip", "vip.js");
-const adminCommands      = safeRequire("./commands/admin", "admin.js");
-const badgesCommands     = safeRequire("./commands/badges", "badges.js");
-const quotesCommands     = safeRequire("./commands/quotes", "quotes.js");
-const bookingCommands    = safeRequire("./commands/booking", "booking.js");
-const tierFeatures       = safeRequire("./commands/tier-features", "tier-features.js");
-const marketingCommands  = safeRequire("./commands/marketing", "marketing.js");
-const marketingContent   = safeRequire("./commands/marketing-content", "marketing-content.js");
-const extendedContent    = safeRequire("./commands/extended-content", "extended-content.js");
-const thirtyDayAdmin     = safeRequire("./commands/30day-admin", "30day-admin.js");
-const previewCommands    = safeRequire("./commands/preview", "preview.js");
-const freeTools          = safeRequire("./commands/free-tools", "free-tools.js");
-const financialQuiz      = safeRequire("./commands/financial-quiz", "financial-quiz.js");
-const toolsTemplates     = safeRequire("./commands/tools-templates", "tools-templates.js");
-const progressTracker    = safeRequire("./commands/progress-tracker", "progress-tracker.js");
+function isTrue(val) {
+  return val === true || val === "t" || val === "true" || val === 1 || val === "1";
+}
+
+// ---------- Models ----------
+const User = safeRequire("./models/User", "models/User");
+const Progress = safeRequire("./models/Progress", "models/Progress");
+
+// ---------- Commands ----------
+const startCommand     = safeRequire("./commands/start", "commands/start");
+const dailyCommands    = safeRequire("./commands/daily", "commands/daily");
+const paymentCommands  = safeRequire("./commands/payment", "commands/payment");
+const vipCommands      = safeRequire("./commands/vip", "commands/vip");
+const adminCommands    = safeRequire("./commands/admin", "commands/admin");
+const badgesCommands   = safeRequire("./commands/badges", "commands/badges");
+const quotesCommands   = safeRequire("./commands/quotes", "commands/quotes");
+const bookingCommands  = safeRequire("./commands/booking", "commands/booking");
+const tierFeatures     = safeRequire("./commands/tier-features", "commands/tier-features");
+const marketingContent = safeRequire("./commands/marketing-content", "commands/marketing-content");
+const extendedContent  = safeRequire("./commands/extended-content", "commands/extended-content");
+const thirtyDayAdmin   = safeRequire("./commands/30day-admin", "commands/30day-admin");
+const previewCommands  = safeRequire("./commands/preview", "commands/preview");
+const freeTools        = safeRequire("./commands/free-tools", "commands/free-tools");
+const financialQuiz    = safeRequire("./commands/financial-quiz", "commands/financial-quiz");
+const toolsTemplates   = safeRequire("./commands/tools-templates", "commands/tools-templates");
+const progressTracker  = safeRequire("./commands/progress-tracker", "commands/progress-tracker");
 
 // ---------- Services ----------
-const scheduler              = safeRequire("./services/scheduler", "services/scheduler.js");
-const analytics              = safeRequire("./services/analytics", "services/analytics.js");
-const celebrations           = safeRequire("./services/celebrations", "services/celebrations.js");
-const progressBadgesService  = safeRequire("./services/progress-badges", "services/progress-badges.js");
-const emojiReactions         = safeRequire("./services/emoji-reactions", "services/emoji-reactions.js");
-const AccessControl          = safeRequire("./services/access-control", "services/access-control.js");
-const ContentScheduler       = safeRequire("./services/content-scheduler", "services/content-scheduler.js");
-const ConversionOptimizer    = safeRequire("./services/conversion-optimizer", "services/conversion-optimizer.js");
+const scheduler            = safeRequire("./services/scheduler", "services/scheduler");
+const analytics            = safeRequire("./services/analytics", "services/analytics");
+const celebrations         = safeRequire("./services/celebrations", "services/celebrations");
+const progressBadges       = safeRequire("./services/progress-badges", "services/progress-badges");
+const emojiReactions       = safeRequire("./services/emoji-reactions", "services/emoji-reactions");
+const AccessControl        = safeRequire("./services/access-control", "services/access-control");
+const ContentScheduler     = safeRequire("./services/content-scheduler", "services/content-scheduler");
+const ConversionOptimizer  = safeRequire("./services/conversion-optimizer", "services/conversion-optimizer");
 
 // ---------- Utils ----------
 let sendLongMessage;
-try { ({ sendLongMessage } = require("./utils/message-splitter")); }
-catch (e) {
-  console.log("⚠️ utils/message-splitter missing, using fallback");
+try {
+  ({ sendLongMessage } = require("./utils/message-splitter"));
+} catch (e) {
+  console.log("⚠️ utils/message-splitter missing - using fallback");
   sendLongMessage = async (bot, chatId, text, options = {}, chunk = 4000) => {
     if (text.length <= chunk) return bot.sendMessage(chatId, text, options);
     for (let i = 0; i < text.length; i += chunk) {
@@ -80,7 +121,7 @@ catch (e) {
 
 const MESSAGE_CHUNK_SIZE = 800;
 
-// ---------- Duplicate Prevention ----------
+// ---------- Duplicate Prevention (webhook safe) ----------
 const processedMessages = new Set();
 const lastProcessTime = {};
 function isDuplicateMessage(msg) {
@@ -94,7 +135,7 @@ function isDuplicateMessage(msg) {
   lastProcessTime[id] = now;
   if (processedMessages.size > 50) {
     const cutoff = now - 30000;
-    Object.keys(lastProcessTime).forEach(key => {
+    Object.keys(lastProcessTime).forEach((key) => {
       if (lastProcessTime[key] < cutoff) {
         processedMessages.delete(key);
         delete lastProcessTime[key];
@@ -113,32 +154,16 @@ app.use((_, res, next) => {
   next();
 });
 
-// Health
 app.get("/", (_, res) => res.send("OK"));
 app.get("/health", (_, res) => res.json({ ok: true, ts: Date.now() }));
 
-// Telegram
+// Telegram bot
 const bot = new TelegramBot(BOT_TOKEN, { webHook: true, onlyFirstMatch: true });
-const WEBHOOK_PATH = `/webhook/${WEBHOOK_SECRET || "secret"}`;
-if (APP_URL) {
-  // Register webhook at boot
-  (async () => {
-    try {
-      await bot.deleteWebHook();
-      console.log("🧹 Old webhook deleted");
-    } catch (e) {
-      console.log("Webhook delete failed (ok):", e.message);
-    }
-    try {
-      const url = `${APP_URL}${WEBHOOK_PATH}`;
-      const ok = await bot.setWebHook(url);
-      console.log("✅ Webhook set:", ok, url);
-    } catch (e) {
-      console.error("❌ setWebHook failed:", e.message);
-    }
-  })();
-}
 
+const WEBHOOK_PATH = `/webhook/${WEBHOOK_SECRET}`;
+const WEBHOOK_URL = APP_URL ? `${APP_URL}${WEBHOOK_PATH}` : null;
+
+// POST webhook endpoint
 app.post(WEBHOOK_PATH, async (req, res) => {
   try {
     await bot.processUpdate(req.body);
@@ -149,8 +174,24 @@ app.post(WEBHOOK_PATH, async (req, res) => {
   }
 });
 
-// ---------- Access / Conversion (safe fallbacks) ----------
-const accessControl = AccessControl ? new AccessControl() : { 
+// Auto-register webhook
+(async function ensureWebhook() {
+  if (!WEBHOOK_URL) {
+    console.warn("⚠️ APP_URL is not set. Skipping webhook registration.");
+    return;
+  }
+  try {
+    await bot.deleteWebHook({ drop_pending_updates: true });
+    console.log("🧹 Old webhook deleted");
+    const ok = await bot.setWebHook(WEBHOOK_URL);
+    console.log("✅ Webhook set to", WEBHOOK_URL, ok);
+  } catch (e) {
+    console.error("❌ Failed to register webhook:", e.message);
+  }
+})();
+
+// ---------- Access & Conversion (safe fallbacks) ----------
+const accessControl = AccessControl ? new AccessControl() : {
   getTierSpecificHelp: async () => "Help not available.",
   getTierSpecificFAQ: async () => "FAQ not available."
 };
@@ -167,30 +208,50 @@ if (scheduler) {
     }
   });
 }
-let contentScheduler;
+
 if (ContentScheduler) {
   try {
-    contentScheduler = new ContentScheduler(bot);
+    const contentScheduler = new ContentScheduler(bot);
     contentScheduler.start();
   } catch (e) {
-    console.error("ContentScheduler init error:", e);
+    console.error("ContentScheduler init error:", e.message);
   }
 }
 
 console.log("🤖 Bot online — 7-Day + 30-Day automation READY!");
 
-// ============ COMMANDS ============
+// ---------- Helpers ----------
+const ADMIN_ID = parseInt(ADMIN_CHAT_ID || "0", 10);
+const SECONDARY_ADMIN_ID = 484389665;
+function isAdmin(userId) {
+  return [ADMIN_ID, SECONDARY_ADMIN_ID].includes(Number(userId));
+}
+
+async function ensurePaidOrReply(bot, msg, notPaidText = "🔒 សូមទូទាត់មុន ដើម្បីចូលប្រើមុខងារនេះ។ ប្រើ /pricing") {
+  if (!User) return true; // If no DB, allow (dev mode)
+  const user = await User.findOne?.({ telegram_id: msg.from.id });
+  const paid = isTrue(user?.is_paid);
+  if (!user || !paid) {
+    await bot.sendMessage(msg.chat.id, notPaidText);
+    return false;
+  }
+  return true;
+}
+
+// =========================================================
+//                     COMMAND HANDLERS
+// =========================================================
 
 // /start
 bot.onText(/\/start/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (startCommand?.handle) return startCommand.handle(msg, bot);
-    await bot.sendMessage(msg.chat.id,
-      `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™
+    const fallback = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
 
-💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ
-👉 /pricing | /payment`);
+💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ
+👉 /pricing  |  /payment  |  /help`;
+    await bot.sendMessage(msg.chat.id, fallback);
   } catch (e) {
     console.error("[/start] error:", e);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការចាប់ផ្តើម។");
@@ -209,7 +270,7 @@ bot.onText(/\/help/i, async (msg) => {
   }
 });
 
-// /pricing (emergency fallback + delegated)
+// /pricing
 bot.onText(/\/pricing/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
@@ -231,11 +292,11 @@ bot.onText(/\/pricing/i, async (msg) => {
     if (paymentCommands?.pricing) await paymentCommands.pricing(msg, bot);
   } catch (e) {
     console.error("[/pricing] error:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ ទាក់ទង @Chendasum");
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
   }
 });
 
-// /payment (emergency + delegated)
+// /payment
 bot.onText(/\/payment/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
@@ -253,7 +314,7 @@ Reference: BOT${msg.from.id}
     if (paymentCommands?.instructions) await paymentCommands.instructions(msg, bot);
   } catch (e) {
     console.error("[/payment] error:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ ទាក់ទង @Chendasum");
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
   }
 });
 
@@ -261,23 +322,16 @@ Reference: BOT${msg.from.id}
 bot.onText(/^\/day$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const chatId = msg.chat.id;
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) {
-      return bot.sendMessage(chatId, "🔒 សូមទូទាត់មុន (/pricing) ដើម្បីចូលកម្មវិធី។");
-    }
-
+    if (!(await ensurePaidOrReply(bot, msg))) return;
     const intro = `✨ 7-Day Money Flow Reset™ ✨
 
 👉 ចាប់ផ្តើម Day 1: /day1
 📈 ពិនិត្យវឌ្ឍនភាព: /progress`;
-    await sendLongMessage(bot, chatId, intro, {}, MESSAGE_CHUNK_SIZE);
-
+    await sendLongMessage(bot, msg.chat.id, intro, {}, MESSAGE_CHUNK_SIZE);
     if (Progress?.findOne) {
       const progress = await Progress.findOne({ user_id: msg.from.id }) || {};
       if (progress.currentDay && progress.currentDay > 1) {
-        await bot.sendMessage(chatId, `📊 អ្នកកំពុងនៅថ្ងៃ: /day${progress.currentDay}`);
+        await bot.sendMessage(msg.chat.id, `📊 អ្នកកំពុងនៅថ្ងៃ: /day${progress.currentDay}`);
       }
     }
   } catch (e) {
@@ -290,14 +344,8 @@ bot.onText(/^\/day$/i, async (msg) => {
 bot.onText(/\/day([1-7])/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) {
-      return bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុន (/pricing) ដើម្បីចូលកម្មវិធី។");
-    }
+    if (!(await ensurePaidOrReply(bot, msg))) return;
     if (dailyCommands?.handle) return dailyCommands.handle(msg, match, bot);
-
-    // fallback
     await bot.sendMessage(msg.chat.id, `📚 ថ្ងៃទី ${match[1]} — មាតិកាពេញលេញកំពុងត្រូវបានរៀបចំ។`);
   } catch (e) {
     console.error("[/dayX] error:", e);
@@ -313,11 +361,7 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
     return bot.sendMessage(msg.chat.id, "❌ សម្រាប់ថ្ងៃ 8-30 ប៉ុណ្ណោះ");
   }
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) {
-      return bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុន (/pricing) ដើម្បីចូលប្រើមាតិកាបន្ថែម។");
-    }
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 សូមទូទាត់មុន ដើម្បីចូលប្រើមាតិកាបន្ថែម។ /pricing"))) return;
     if (extendedContent?.handleExtendedDay) {
       return extendedContent.handleExtendedDay(msg, bot, day);
     }
@@ -332,21 +376,12 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
 bot.onText(/\/vip$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) {
-      return bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុន (/pricing) ដើម្បីចូល VIP។");
-    }
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីទទួលសិទ្ធិ VIP"))) return;
     if (vipCommands?.info) return vipCommands.info(msg, bot);
-
-    const vipMessage = `👑 VIP Program
-• 1-on-1
-• Capital Strategy
-• Priority Support
-
-តម្លៃ: $197
-@Chendasum`;
-    await bot.sendMessage(msg.chat.id, vipMessage);
+    const vipFallback = `👑 VIP Program
+• 1-on-1 • Capital Strategy • Priority Support
+តម្លៃ: $197 — @Chendasum`;
+    await bot.sendMessage(msg.chat.id, vipFallback);
   } catch (e) {
     console.error("[/vip] error:", e);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -356,11 +391,7 @@ bot.onText(/\/vip$/i, async (msg) => {
 bot.onText(/\/vip_program_info/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) {
-      return bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុន (/pricing) ដើម្បីចូល VIP។");
-    }
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីទទួលសិទ្ធិ VIP"))) return;
     if (vipCommands?.info) return vipCommands.info(msg, bot);
     await bot.sendMessage(msg.chat.id, "👑 VIP Info Coming Soon");
   } catch (e) {
@@ -369,16 +400,12 @@ bot.onText(/\/vip_program_info/i, async (msg) => {
   }
 });
 
-// VIP APPLY (message text)
+// VIP APPLY
 bot.on("message", async (msg) => {
   if (isDuplicateMessage(msg)) return;
   if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
     try {
-      const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-      const isPaid = user?.is_paid === true || user?.is_paid === "t";
-      if (!user || !isPaid) {
-        return bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុន (/pricing) ដើម្បីចូល VIP។");
-      }
+      if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីទទួលសិទ្ធិ VIP"))) return;
       if (vipCommands?.apply) return vipCommands.apply(msg, bot);
       await bot.sendMessage(msg.chat.id, "✅ VIP APPLY បានទទួល! @Chendasum នឹងទំនាក់ទំនងអ្នក");
     } catch (e) {
@@ -388,13 +415,7 @@ bot.on("message", async (msg) => {
   }
 });
 
-// ===== Admin Suite =====
-function isAdmin(userId) {
-  const adminId = parseInt(ADMIN_CHAT_ID || "0");
-  const secondary = 484389665;
-  return [adminId, secondary].includes(Number(userId));
-}
-
+// ---------- Admin Suite ----------
 bot.onText(/\/admin_menu|\/admin$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   if (!isAdmin(msg.from.id)) {
@@ -424,15 +445,15 @@ bot.onText(/\/admin_menu|\/admin$/i, async (msg) => {
 • /admin_export
 • /admin_photos [UserID]
 
-🆘 Help:
-• /admin_help
-• /whoami
-
 🧰 Tools & Templates:
 • /admin_daily_template
 • /admin_weekly_template
 • /admin_engagement_checklist
-• /admin_onboarding_template`;
+• /admin_onboarding_template
+
+🆘 Help:
+• /admin_help
+• /whoami`;
   await bot.sendMessage(msg.chat.id, menu);
 });
 
@@ -453,132 +474,48 @@ bot.onText(/\/whoami/i, async (msg) => {
   await bot.sendMessage(msg.chat.id, `🧍 You are ${msg.from.id} (${msg.from.username || "-"})\nAdmin: ${isAdmin(msg.from.id) ? "YES" : "NO"}`);
 });
 
-bot.onText(/\/admin_users/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.showUsers?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
+// Admin routed to adminCommands if exists:
+const adminRoute = (regex, fn) => {
+  bot.onText(regex, async (msg, match) => {
+    if (isDuplicateMessage(msg)) return;
+    if (!isAdmin(msg.from.id)) return;
+    try {
+      if (typeof fn === "function") {
+        await fn(msg, match, bot);
+      } else {
+        await bot.sendMessage(msg.chat.id, "⚠️ This admin command is not available.");
+      }
+    } catch (e) {
+      console.error("Admin command error:", e);
+      await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+    }
+  });
+};
 
-bot.onText(/\/admin_progress (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.checkProgress?.(msg, match, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
+adminRoute(/\/admin_users/i, adminCommands?.showUsers);
+adminRoute(/\/admin_progress (.+)/i, adminCommands?.checkProgress);
+adminRoute(/\/admin_analytics/i, adminCommands?.showAnalytics);
+adminRoute(/\/admin_activity/i, adminCommands?.showActivity);
+adminRoute(/\/admin_followup/i, adminCommands?.showFollowup);
+adminRoute(/\/admin_confirm_payment (.+)/i, adminCommands?.confirmPayment);
+adminRoute(/\/admin_message (.+)/i, adminCommands?.sendMessage);
+adminRoute(/\/admin_export/i, adminCommands?.exportData);
 
-bot.onText(/\/admin_analytics/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.showAnalytics?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
+// ---------- Progress Tracking (Admin) ----------
+adminRoute(/\/admin_stuck/i, progressTracker?.showStuckUsers);
+adminRoute(/\/admin_completion/i, progressTracker?.showCompletionRates);
+adminRoute(/\/admin_completed/i, progressTracker?.showCompletedUsers);
+adminRoute(/\/admin_remind (.+)/i, progressTracker?.sendManualReminder);
+adminRoute(/\/admin_uploads/i, progressTracker?.showUploadTracking);
+adminRoute(/\/admin_photos (.+)/i, progressTracker?.showUserPhotos);
 
-bot.onText(/\/admin_activity/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.showActivity?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
+// ---------- Tools & Templates ----------
+adminRoute(/\/admin_daily_template/i, toolsTemplates?.generateDailyTemplate);
+adminRoute(/\/admin_weekly_template/i, toolsTemplates?.generateWeeklyTemplate);
+adminRoute(/\/admin_engagement_checklist/i, toolsTemplates?.generateEngagementChecklist);
+adminRoute(/\/admin_onboarding_template/i, toolsTemplates?.generateOnboardingTemplate);
 
-bot.onText(/\/admin_followup/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.showFollowup?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_confirm_payment (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.confirmPayment?.(msg, match, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_message (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.sendMessage?.(msg, match, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_export/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await adminCommands?.exportData?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-// Progress Tracker (admin)
-bot.onText(/\/admin_stuck/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await progressTracker?.showStuckUsers?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_completion/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await progressTracker?.showCompletionRates?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_completed/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await progressTracker?.showCompletedUsers?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_remind (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await progressTracker?.sendManualReminder?.(msg, match, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_uploads/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await progressTracker?.showUploadTracking?.(msg, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_photos (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await progressTracker?.showUserPhotos?.(msg, match, bot); }
-  catch (e) { console.error(e); await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-// Tools & Templates
-bot.onText(/\/admin_daily_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await toolsTemplates?.generateDailyTemplate?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-bot.onText(/\/admin_weekly_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await toolsTemplates?.generateWeeklyTemplate?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-bot.onText(/\/admin_engagement_checklist/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await toolsTemplates?.generateEngagementChecklist?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-bot.onText(/\/admin_onboarding_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await toolsTemplates?.generateOnboardingTemplate?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-// Marketing Hub
+// ---------- Marketing Hub ----------
 bot.onText(/\/marketing_hub/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try { await marketingContent?.marketingHub?.(msg, bot); }
@@ -625,7 +562,13 @@ bot.onText(/\/referral_program/i, async (msg) => {
   catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
 });
 
-// Preview
+// ---------- 30-Day Admin ----------
+adminRoute(/\/admin_content_stats/i, thirtyDayAdmin?.contentStats);
+adminRoute(/\/admin_bulk_send/i, thirtyDayAdmin?.sendBulkContent);
+adminRoute(/\/admin_content_calendar/i, thirtyDayAdmin?.contentCalendar);
+adminRoute(/\/admin_scheduler_status/i, thirtyDayAdmin?.schedulerStatus);
+
+// ---------- Preview System ----------
 bot.onText(/\/preview$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try { await previewCommands?.preview?.(msg, bot); }
@@ -662,7 +605,7 @@ bot.onText(/\/preview_transformation/i, async (msg) => {
   catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
 });
 
-// Free Tools & Quiz
+// ---------- Financial Quiz & Free Tools ----------
 bot.onText(/\/financial_quiz|\/health_check/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try { await financialQuiz?.startQuiz?.(msg, bot); }
@@ -689,13 +632,11 @@ bot.onText(/\/income_analysis/i, async (msg) => {
   catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
 });
 
-// Badges / Progress
+// ---------- Badges / Progress ----------
 bot.onText(/\/badges/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) return bot.sendMessage(msg.chat.id, "🔒 /pricing");
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីមើល badges"))) return;
     await badgesCommands?.showBadges?.(msg, bot);
   } catch (e) {
     console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -704,9 +645,7 @@ bot.onText(/\/badges/i, async (msg) => {
 bot.onText(/\/progress/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) return bot.sendMessage(msg.chat.id, "🔒 /pricing");
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីមើលការរីកចម្រើន"))) return;
     await badgesCommands?.showProgress?.(msg, bot);
   } catch (e) {
     console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -715,9 +654,7 @@ bot.onText(/\/progress/i, async (msg) => {
 bot.onText(/\/milestones/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) return bot.sendMessage(msg.chat.id, "🔒 /pricing");
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីមើលសមិទ្ធផល"))) return;
     await badgesCommands?.showMilestones?.(msg, bot);
   } catch (e) {
     console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -726,45 +663,16 @@ bot.onText(/\/milestones/i, async (msg) => {
 bot.onText(/\/streak/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await (User?.findOne?.({ telegram_id: msg.from.id }) || null);
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-    if (!user || !isPaid) return bot.sendMessage(msg.chat.id, "🔒 /pricing");
+    if (!(await ensurePaidOrReply(bot, msg, "🔒 /pricing ដើម្បីមើល streak"))) return;
     await badgesCommands?.showStreak?.(msg, bot);
   } catch (e) {
     console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
   }
 });
 
-// 30-Day Admin
-bot.onText(/\/admin_content_stats/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await thirtyDayAdmin?.contentStats?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-bot.onText(/\/admin_bulk_send/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await thirtyDayAdmin?.sendBulkContent?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-bot.onText(/\/admin_content_calendar/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await thirtyDayAdmin?.contentCalendar?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-bot.onText(/\/admin_scheduler_status/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  if (!isAdmin(msg.from.id)) return;
-  try { await thirtyDayAdmin?.schedulerStatus?.(msg, bot); }
-  catch (e) { console.error(e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
 // ---------- Start Express ----------
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server listening on ${PORT}`);
+  console.log(`🚀 Server listening on :${PORT}`);
 });
 
 // ---------- Crash Safety ----------
