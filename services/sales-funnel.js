@@ -193,11 +193,11 @@ class SalesFunnel {
   async getSalesAnalytics() {
     try {
       const totalUsers = await User.countDocuments();
-      const paidUsers = await User.countDocuments({ isPaid: true });
+      const paidUsers = await User.countDocuments({ is_paid: true });
       const conversionRate = totalUsers > 0 ? (paidUsers / totalUsers * 100).toFixed(2) : 0;
 
       const tierBreakdown = await User.aggregate([
-        { $match: { isPaid: true } },
+        { $match: { is_paid: true } },
         { $group: { _id: '$tier', count: { $sum: 1 }, revenue: { $sum: '$tierPrice' } } }
       ]);
 
