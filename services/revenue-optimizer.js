@@ -318,7 +318,7 @@ ${userName} សូមចែករំលែកបទពិសោធន៍រប�
         { telegramId },
         { 
           $push: { testimonials: testimonial },
-          lastActive: new Date()
+          last_active: new Date()
         }
       );
 
@@ -363,7 +363,7 @@ ${userName} សូមចែករំលែកបទពិសោធន៍រប�
 
       users.forEach(user => {
         const tier = user.tier || 'essential';
-        const tierPrice = user.tierPrice || 47;
+        const tierPrice = user.tier_price || 47;
         
         stats.tiers[tier]++;
         stats.revenue[tier] += tierPrice;
