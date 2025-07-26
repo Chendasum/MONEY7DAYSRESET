@@ -1,232 +1,316 @@
-const cron = require("node-cron");
-const User = require("../models/User");
-const { getExtendedContent } = require("../commands/extended-content");
+/**
+ * Micro-Celebration Animations Service
+ * This service adds engaging celebration animations for various user achievements
+ * within the Telegram bot, using emoji patterns and custom messages.
+ */
 
-class ContentScheduler {
-  constructor(bot) {
-    this.bot = bot;
-    this.isRunning = false;
-  }
-
-  start() {
-    if (this.isRunning) {
-      console.log("⚠️ Content scheduler already running");
-      return;
-    }
-
-    console.log("🔄 Starting 30-day content scheduler...");
-
-    // Daily content delivery at 9 AM Cambodia time
-    cron.schedule("0 9 * * *", async () => {
-      await this.sendDailyContent();
-    }, {
-      timezone: "Asia/Phnom_Penh"
-    });
-
-    // Evening motivation at 6 PM Cambodia time  
-    cron.schedule("0 18 * * *", async () => {
-      await this.sendEveningMotivation();
-    }, {
-      timezone: "Asia/Phnom_Penh"
-    });
-
-    // Weekly review on Sundays at 8 PM
-    cron.schedule("0 20 * * 0", async () => {
-      await this.sendWeeklyReview();
-    }, {
-      timezone: "Asia/Phnom_Penh"
-    });
-
-    this.isRunning = true;
-    console.log("✅ 30-day content scheduler started successfully");
-    console.log("   • Daily content: 9:00 AM Cambodia time");
-    console.log("   • Evening motivation: 6:00 PM Cambodia time"); 
-    console.log("   • Weekly review: Sunday 8:00 PM Cambodia time");
-  }
-
-  stop() {
-    cron.destroy();
-    this.isRunning = false;
-    console.log("⏹️ Content scheduler stopped");
-  }
-
-  async sendDailyContent() {
-    try {
-      const users = await User.findAll();
-      const activeUsers = users.filter(user => user.is_paid && user.isActive);
-
-      console.log(`📤 Sending daily content to ${activeUsers.length} users...`);
-
-      for (const user of activeUsers) {
-        try {
-          const currentDay = this.calculateUserDay(user);
-          
-          if (currentDay > 7 && currentDay <= 37) {
-            // Extended content (Days 8-37)
-            const extendedDay = currentDay - 7;
-            const content = await getExtendedContent(extendedDay);
-            
-            if (content) {
-              await this.bot.sendMessage(
-                user.telegram_id,
-                `🌅 ថ្ងៃល្អ ${user.first_name}!\n\n${content.message}`
-              );
-              
-              // Update user progress
-              if (!user.extendedProgress) {
-                user.extendedProgress = {};
-              }
-              user.extendedProgress[`day${extendedDay}`] = new Date();
-              await user.save();
-            }
-          } else if (currentDay > 37) {
-            // Graduation message
-            await this.sendGraduationMessage(user);
-          }
-
-          // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-        } catch (userError) {
-          console.error(`Error sending to user ${user.telegram_id}:`, userError);
-        }
-      }
-
-      console.log("✅ Daily content delivery completed");
-
-    } catch (error) {
-      console.error("❌ Error in daily content delivery:", error);
-    }
-  }
-
-  async sendEveningMotivation() {
-    try {
-      const users = await User.findAll();
-
-      const motivationMessages = [
-        "💪 ថ្ងៃនេះអ្នកបានធ្វើអ្វីខ្លះដើម្បីកែលម្អហិរញ្ញវត្ថុ?",
-        "🎯 ការអនុវត្តតិចៗរាល់ថ្ងៃ នាំទៅរកលទ្ធផលធំ!",
-        "💰 រំលឹក: ពិនិត្យមើលចំណាយថ្ងៃនេះ និងកត់ត្រាវា",
-        "🌟 ការវិនិយោគក្នុងចំណេះដឹង ផ្តល់ផលប្រាក់ល្អបំផុត",
-        "📊 តើអ្នកកំពុងតាមគោលដៅហិរញ្ញវត្ថុដែរឬទេ?",
-        "🔥 រក្សាទម្លាប់ល្អ! ថ្ងៃស្អែកបន្តធ្វើបានកាន់តែល្អ",
-        "💡 ពិចារណាមើល: តើមានចំណាយអ្វីដែលអាចកាត់បន្ថយបាន?"
-      ];
-
-      const randomMessage = motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
-
-      // Filter paid and active users
-      const activeUsers = users.filter(user => user.is_paid && user.isActive);
-
-      for (const user of activeUsers) {
-        try {
-          await this.bot.sendMessage(
-            user.telegram_id,
-            `🌆 សម្រាកពេលល្ងាច ${user.first_name}\n\n${randomMessage}\n\n💬 ចែករំលែកបទពិសោធន៍: @Chendasum`
-          );
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-        } catch (userError) {
-          console.error(`Error sending evening motivation to ${user.telegram_id}:`, userError);
-        }
-      }
-
-      console.log("✅ Evening motivation sent");
-
-    } catch (error) {
-      console.error("❌ Error sending evening motivation:", error);
-    }
-  }
-
-  async sendWeeklyReview() {
-    try {
-      const users = await User.findAll();
-      const activeUsers = users.filter(user => user.is_paid && user.isActive);
-
-      for (const user of activeUsers) {
-        try {
-          const currentDay = this.calculateUserDay(user);
-          const weekNumber = Math.ceil((currentDay - 7) / 7);
-
-          if (currentDay > 7 && currentDay <= 37) {
-            const reviewMessage = `📊 ការពិនិត្យរកច្ចុប្បន្ន សប្តាហ៍ទី ${weekNumber}
-
-🎯 អ្វីដែលអ្នកបានសម្រេច:
-• បានរៀនមេរៀនថ្មីៗ
-• បានអនុវត្តទម្លាប់ហិរញ្ញវត្ថុ
-• បានកែលម្អការគ្រប់គ្រងលុយ
-
-📈 សម្រាប់សប្តាហ៍ក្រោយ:
-• បន្តអនុវត្តអ្វីដែលរៀនបាន
-• ពង្រីកចំណេះដឹងថ្មី
-• កំណត់គោលដៅថ្មី
-
-💪 រក្សាវាបន្ត ${user.first_name}! អ្នកកំពុងធ្វើបានល្អ!
-
-📞 ចង់ពិគ្រោះបន្ថែម? ទាក់ទង @Chendasum`;
-
-            await this.bot.sendMessage(user.telegram_id, reviewMessage);
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-        } catch (userError) {
-          console.error(`Error sending weekly review to ${user.telegram_id}:`, userError);
-        }
-      }
-
-      console.log("✅ Weekly reviews sent");
-
-    } catch (error) {
-      console.error("❌ Error sending weekly reviews:", error);
-    }
-  }
-
-  async sendGraduationMessage(user) {
-    const graduationMessage = `🎓 ជូនពរ ${user.first_name}! អ្នកបានបញ្ចប់កម្មវិធី 30 ថ្ងៃ!
-
-🏆 អ្វីដែលអ្នកបានសម្រេច:
-• បញ្ចប់កម្មវិធី 7-Day Money Flow Reset™
-• រៀនបានចំណេះដឹងហិរញ្ញវត្ថុ 30 ថ្ងៃ
-• បង្កើតទម្លាប់ហិរញ្ញវត្ថុដ៏រឹងមាំ
-• កែលម្អការគ្រប់គ្រងលុយកាន់តែប្រសើរ
-
-🚀 ជំហានបន្ទាប់:
-• បន្តអនុវត្តអ្វីដែលរៀនបាន
-• ចែករំលែកបទពិសោធន៍ជាមួយអ្នកដទៃ
-• ពិចារណា VIP Capital Strategy ប្រសិនបើចង់ទៅកម្រិតខ្ពស់
-
-👑 ចាប់អារម្មណ៍ VIP Capital Strategy?
-សរសេរ "CAPITAL CLARITY" ដើម្បីដឹងព័ត៌មានលម្អិត
-
-💝 អរគុណ ${user.first_name} ដែលជឿទុកចិត្តយើង!
-📞 ទំនាក់ទំនង: @Chendasum`;
-
-    await this.bot.sendMessage(user.telegram_id, graduationMessage);
-  }
-
-  calculateUserDay(user) {
-    if (!user.payment_date) return 1;
-    
-    const paymentDate = new Date(user.payment_date);
-    const today = new Date();
-    const diffTime = today - paymentDate;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return Math.max(1, diffDays);
-  }
-
-  getStatus() {
-    return {
-      isRunning: this.isRunning,
-      nextExecutions: {
-        dailyContent: "9:00 AM Cambodia time",
-        eveningMotivation: "6:00 PM Cambodia time",
-        weeklyReview: "Sunday 8:00 PM Cambodia time"
-      }
+class CelebrationService {
+  constructor() {
+    // Define different animation patterns and emojis for various celebration types
+    this.animations = {
+      dayComplete: {
+        emojis: ["🎉", "✨", "🌟", "🎊", "🏆", "💫"],
+        patterns: [
+          "🎉✨🎉✨🎉✨🎉",
+          "🌟💫🌟💫🌟💫🌟",
+          "🎊🏆🎊🏆🎊🏆🎊",
+          "✨🎉🌟🎊💫🏆✨",
+        ],
+      },
+      paymentConfirmed: {
+        emojis: ["💰", "🎯", "🚀", "⭐", "🔥", "💎"],
+        patterns: [
+          "💰🎯🚀💰🎯🚀💰",
+          "⭐🔥💎⭐🔥💎⭐",
+          "🚀💰🎯🔥💎⭐🚀",
+          "💎🔥⭐💰🎯🚀💎",
+        ],
+      },
+      programComplete: {
+        emojis: ["🏆", "🎊", "🌟", "🎉", "💫", "👑"],
+        patterns: [
+          "🏆🎊🌟🎉💫👑🏆",
+          "🌟🎉🏆💫🎊👑🌟",
+          "🎊👑🏆🌟💫🎉🎊",
+          "💫🏆🎉🌟🎊👑💫",
+        ],
+      },
+      vipUpgrade: {
+        emojis: ["👑", "💎", "⭐", "🔥", "🚀", "🌟"],
+        patterns: [
+          "👑💎⭐🔥🚀🌟👑",
+          "💎🌟👑⭐🔥🚀💎",
+          "⭐🚀🔥👑💎🌟⭐",
+          "🔥👑🌟💎⭐🚀🔥",
+        ],
+      },
+      milestone: {
+        emojis: ["🎯", "🌟", "💫", "✨", "🎉", "🏅"],
+        patterns: [
+          "🎯🌟💫✨🎉🏅🎯",
+          "🌟🎉🏅💫✨🎯🌟",
+          "💫🎯🌟🏅🎉✨💫",
+          "✨🏅🎉🎯🌟💫✨",
+        ],
+      },
     };
+  }
+
+  /**
+   * Creates a full animated celebration message with a header, main message, and footer.
+   * @param {string} type - The type of celebration (e.g., 'dayComplete', 'paymentConfirmed').
+   * @param {string} message - The main content of the celebration message.
+   * @param {Object} options - Optional animation settings, e.g., { duration: 'short' | 'normal' | 'long' }.
+   * @returns {string} The complete formatted animated message.
+   */
+  createCelebration(type, message, options = {}) {
+    // Fallback to 'milestone' animation if the specified type is not found
+    const animation = this.animations[type] || this.animations.milestone;
+    const pattern = this.getRandomPattern(animation.patterns); // Select a random emoji pattern
+    const duration = options.duration || "normal"; // Default duration is 'normal'
+
+    let celebrationText = "";
+
+    // Add animated header
+    celebrationText += this.createAnimatedHeader(pattern, duration);
+    celebrationText += "\n\n"; // Add spacing
+
+    // Add the main message content
+    celebrationText += message;
+    celebrationText += "\n\n"; // Add spacing
+
+    // Add animated footer (reversed pattern)
+    celebrationText += this.createAnimatedFooter(pattern, duration);
+
+    return celebrationText;
+  }
+
+  /**
+   * Creates the animated header part of the celebration message.
+   * @param {string} pattern - The emoji pattern string.
+   * @param {string} duration - The desired animation duration ('short', 'normal', 'long').
+   * @returns {string} The formatted header string.
+   */
+  createAnimatedHeader(pattern, duration) {
+    switch (duration) {
+      case "short":
+        return pattern;
+      case "long":
+        return `${pattern}\n${pattern}\n${pattern}`;
+      default: // 'normal'
+        return `${pattern}\n${pattern}`;
+    }
+  }
+
+  /**
+   * Creates the animated footer part of the celebration message.
+   * The footer uses a reversed version of the header pattern.
+   * @param {string} pattern - The emoji pattern string used for the header.
+   * @param {string} duration - The desired animation duration ('short', 'normal', 'long').
+   * @returns {string} The formatted footer string.
+   */
+  createAnimatedFooter(pattern, duration) {
+    const reversed = pattern.split("").reverse().join(""); // Reverse the pattern for the footer
+    switch (duration) {
+      case "short":
+        return reversed;
+      case "long":
+        return `${reversed}\n${reversed}\n${reversed}`;
+      default: // 'normal'
+        return `${reversed}\n${reversed}`;
+    }
+  }
+
+  /**
+   * Gets a random pattern from a given array of patterns.
+   * @param {Array<string>} patterns - An array of emoji pattern strings.
+   * @returns {string} A randomly selected pattern string.
+   */
+  getRandomPattern(patterns) {
+    return patterns[Math.floor(Math.random() * patterns.length)];
+  }
+
+  /**
+   * Generates a celebration message for a completed day in the program.
+   * @param {number} dayNumber - The number of the day that was completed.
+   * @param {string} customMessage - An optional custom message to include.
+   * @returns {string} The formatted celebration message for day completion.
+   */
+  dayCompleteCelebration(dayNumber, customMessage = "") {
+    // Define specific achievements for each day
+    const achievements = {
+      1: "បានស្គាល់ Money Flow របស់អ្នក!",
+      2: "បានរកឃើញ Money Leaks!",
+      3: "បានវាយតម្លៃប្រព័ន្ធហិរញ្ញវត្ថុ!",
+      4: "បានបង្កើតផែនទី Income & Cost!",
+      5: "បានយល់ពី Survival vs Growth!",
+      6: "បានបង្កើតផែនការសកម្មភាព!",
+      7: "បានបញ្ចប់កម្មវិធីពេញលេញ!",
+    };
+
+    const baseMessage = `🎊 អបអរសាទរ! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber}!
+
+🌟 ${achievements[dayNumber] || "សម្រេចបានជាពិសេស!"}
+
+${customMessage}
+
+💪 រក្សាភាពជោគជ័យនេះបន្ត!`;
+
+    // Create the full celebration message using the 'dayComplete' animation type
+    return this.createCelebration("dayComplete", baseMessage, {
+      duration: "normal",
+    });
+  }
+
+  /**
+   * Generates a celebration message for a confirmed payment.
+   * @param {string} customMessage - An optional custom message to include.
+   * @returns {string} The formatted celebration message for payment confirmation.
+   */
+  paymentConfirmedCelebration(customMessage = "") {
+    const baseMessage = `🎉 ការទូទាត់បានបញ្ជាក់!
+
+🚀 សូមស្វាគមន៍ចូលរួមកម្មវិធី 7-Day Money Flow Reset™!
+
+${customMessage}
+
+💎 ការដំណើរផ្លាស់ប្តូរជីវិតចាប់ផ្តើមហើយ!`;
+
+    // Create the full celebration message using the 'paymentConfirmed' animation type
+    return this.createCelebration("paymentConfirmed", baseMessage, {
+      duration: "long",
+    });
+  }
+
+  /**
+   * Generates a celebration message for completing the entire program.
+   * @param {string} customMessage - An optional custom message to include.
+   * @returns {string} The formatted celebration message for program completion.
+   */
+  programCompleteCelebration(customMessage = "") {
+    const baseMessage = `🏆 អបអរសាទរ! អ្នកបានបញ្ចប់ 7-Day Money Flow Reset™!
+
+🌟 អ្នកបានសម្រេច:
+✅ ស្គាល់ Money Flow របស់អ្នក
+✅ រកឃើញ Money Leaks
+✅ វាយតម្លៃប្រព័ន្ធហិរញ្ញវត្ថុ
+✅ បង្កើតផែនទី Income & Cost
+✅ យល់ពី Survival vs Growth
+✅ បង្កើតផែនការសកម្មភាព
+✅ បញ្ចប់កម្មវិធីពេញលេញ
+
+${customMessage}
+
+🎯 ឥឡូវនេះអ្នកមានវិធីសាស្ត្រពិតប្រាកដសម្រាប់គ្រប់គ្រងលុយ!`;
+
+    // Create the full celebration message using the 'programComplete' animation type
+    return this.createCelebration("programComplete", baseMessage, {
+      duration: "long",
+    });
+  }
+
+  /**
+   * Generates a celebration message for a VIP upgrade.
+   * @param {string} customMessage - An optional custom message to include.
+   * @returns {string} The formatted celebration message for VIP upgrade.
+   */
+  vipUpgradeCelebration(customMessage = "") {
+    const baseMessage = `👑 អបអរសាទរ! អ្នកបានក្លាយជា VIP Member!
+
+💎 អ្នកឥឡូវនេះមានសិទ្ធិចូលប្រើ:
+✅ 1-on-1 coaching calls
+✅ Advanced strategies
+✅ Priority support 24/7
+✅ Exclusive templates
+✅ Private community
+
+${customMessage}
+
+🚀 ជំហានបន្ទាប់ទៅកាន់ជោគជ័យ!`;
+
+    // Create the full celebration message using the 'vipUpgrade' animation type
+    return this.createCelebration("vipUpgrade", baseMessage, {
+      duration: "long",
+    });
+  }
+
+  /**
+   * Generates a generic milestone celebration message.
+   * @param {string} milestone - The description of the milestone achieved.
+   * @param {string} customMessage - An optional custom message to include.
+   * @returns {string} The formatted celebration message for a general milestone.
+   */
+  milestoneCelebration(milestone, customMessage = "") {
+    const baseMessage = `🎯 អបអរសាទរ!
+
+🌟 ${milestone}
+
+${customMessage}
+
+💪 បន្តដំណើរជោគជ័យនេះ!`;
+
+    // Create the full celebration message using the 'milestone' animation type
+    return this.createCelebration("milestone", baseMessage, {
+      duration: "normal",
+    });
+  }
+
+  /**
+   * Creates a quick, short celebration message with random emojis.
+   * Useful for small, immediate acknowledgements.
+   * @param {string} achievement - The text describing the achievement.
+   * @returns {string} A short, emoji-decorated celebration message.
+   */
+  quickCelebration(achievement) {
+    const emojis = ["🎉", "✨", "🌟", "🎊", "💫"];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+    return `${randomEmoji} ${achievement} ${randomEmoji}`;
+  }
+
+  /**
+   * Sends an animated celebration message to a specific chat.
+   * This is the main function to call from other modules to trigger a celebration.
+   * @param {Object} bot - The Telegram bot instance.
+   * @param {number} chatId - The chat ID where the message should be sent.
+   * @param {string} type - The type of celebration (e.g., 'dayComplete', 'paymentConfirmed').
+   * @param {string} message - The main content of the celebration message.
+   * @param {Object} options - Optional settings, e.g., { duration: 'long', followUp: 'Great job!' }.
+   */
+  async sendCelebration(bot, chatId, type, message, options = {}) {
+    // Generate the full celebration message
+    const celebrationMessage = this.createCelebration(type, message, options);
+
+    // Send the main celebration message
+    await bot.sendMessage(chatId, celebrationMessage);
+
+    // If a follow-up message is specified, send it after a short delay
+    if (options.followUp) {
+      setTimeout(async () => {
+        await bot.sendMessage(chatId, this.quickCelebration(options.followUp));
+      }, 2000); // 2-second delay for the follow-up
+    }
+  }
+
+  /**
+   * Gets a progress-based celebration message depending on the completion percentage.
+   * @param {number} percentage - The completion percentage (0-100).
+   * @returns {string} A motivational message based on the progress.
+   */
+  getProgressCelebration(percentage) {
+    if (percentage >= 100) {
+      return "🏆 ពេញលេញ! អ្នកអស្ចារ្យ!";
+    } else if (percentage >= 75) {
+      return "🌟 ស្ទើរបាន! បន្តិច!";
+    } else if (percentage >= 50) {
+      return "💪 កំពុងល្អ! បន្ត!";
+    } else if (percentage >= 25) {
+      return "🎯 ចាប់ផ្តើមល្អ!";
+    } else {
+      return "🚀 ចាប់ផ្តើម!";
+    }
   }
 }
 
-module.exports = ContentScheduler;
+// Export a singleton instance of the CelebrationService
+module.exports = new CelebrationService();
