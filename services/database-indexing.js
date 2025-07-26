@@ -40,12 +40,12 @@ class DatabaseIndexing {
     const userIndexes = [
       {
         name: 'telegramId_unique',
-        fields: { telegramId: 1 },
+        fields: { telegram_id: 1  },
         options: { unique: true, background: true }
       },
       {
         name: 'isPaid_index',
-        fields: { isPaid: 1 },
+        fields: { is_paid: 1 },
         options: { background: true }
       },
       {
@@ -55,7 +55,7 @@ class DatabaseIndexing {
       },
       {
         name: 'lastActive_index',
-        fields: { lastActive: -1 },
+        fields: { last_active: -1 },
         options: { background: true }
       },
       {
@@ -89,7 +89,7 @@ class DatabaseIndexing {
     const progressIndexes = [
       {
         name: 'userId_index',
-        fields: { userId: 1 },
+        fields: { user_id: 1  },
         options: { background: true }
       },
       {
@@ -133,12 +133,12 @@ class DatabaseIndexing {
     const compositeIndexes = [
       {
         name: 'user_paid_tier_composite',
-        fields: { isPaid: 1, tier: 1, lastActive: -1 },
+        fields: { is_paid: 1, tier: 1, last_active: -1 },
         options: { background: true }
       },
       {
         name: 'progress_user_day_composite',
-        fields: { userId: 1, currentDay: 1, completedDays: 1 },
+        fields: { user_id: 1, currentDay: 1, completedDays: 1  },
         options: { background: true }
       }
     ];
