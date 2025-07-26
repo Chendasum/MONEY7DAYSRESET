@@ -125,11 +125,11 @@ app.use((req, res, next) => {
 
 // Function to get the dynamic Replit URL
 function getReplitUrl() {
-  if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-  }
-  // Fallback for local testing or if env vars are not set
-  return `http://localhost:${process.env.PORT || 5000}`;
+    if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    }
+    // Fallback for local testing or if env vars are not set
+    return `http://localhost:${process.env.PORT || 5000}`;
 }
 
 // Enhanced bot initialization for webhook mode
