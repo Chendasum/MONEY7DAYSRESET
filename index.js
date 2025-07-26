@@ -238,56 +238,119 @@ if (process.env.BOT_TOKEN) {
       }
     });
 
-    // === DAY COMMANDS ===
+    // === DAY COMMANDS (PAYMENT PROTECTED) ===
     for (let day = 1; day <= 7; day++) {
       bot.onText(new RegExp(`/day${day}`, 'i'), async (msg) => {
         console.log(`📚 [DAY${day}] User:`, msg.from.id);
         
         try {
+          // Check if user has paid
+          const user = await User.findOne({ 
+            $or: [
+              { telegramId: msg.from.id },
+              { telegram_id: msg.from.id }
+            ]
+          });
+          
+          const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+          
+          if (!isPaid) {
+            const paymentRequiredMessage = `🔒 ថ្ងៃទី ${day} ត្រូវការការទូទាត់
+
+💰 សូមទូទាត់ $24 USD ដើម្បីចូលរួមកម្មវិធី ៧ ថ្ងៃពេញលេញ
+
+📱 ពិនិត្យតម្លៃ: /pricing
+💳 ការទូទាត់: /payment
+
+🎁 បន្ទាប់ពីទូទាត់ អ្នកនឹងទទួលបាន:
+✅ មេរៀនទាំង ៧ ថ្ងៃ
+✅ ការគាំទ្រពី @Chendasum
+✅ ការតាមដានវឌ្ឍនភាព
+
+👨‍💼 ជំនួយ: @Chendasum`;
+
+            await bot.sendMessage(msg.chat.id, paymentRequiredMessage);
+            return;
+          }
+
+          // User has paid - show content
           if (dailyCommands && dailyCommands.handle) {
             await dailyCommands.handle(msg, [`/day${day}`, day.toString()], bot);
           } else {
-            const dayMessage = `📚 ថ្ងៃទី ${day} - មាតិកាកំពុងផ្ទុក...
+            const dayMessage = `📚 ថ្ងៃទី ${day} - កម្មវិធីពេញលេញ
 
-សូមទាក់ទង @Chendasum ដើម្បីចូលប្រើមាតិកាពេញលេញ។
+🎯 សូមស្វាគមន៍! អ្នកបានទូទាត់រួចហើយ
 
-ឬសាកល្បង /help ដើម្បីមើលពាក្យបញ្ជាផ្សេងៗ។`;
+មាតិកាថ្ងៃទី ${day} កំពុងត្រូវបានអភិវឌ្ឍ។
+
+📞 ទាក់ទង @Chendasum ដើម្បីចូលប្រើមាតិកាពេញលេញ។`;
             
             await bot.sendMessage(msg.chat.id, dayMessage);
           }
-          console.log(`✅ [DAY${day}] Content sent`);
+          console.log(`✅ [DAY${day}] Content sent to paid user`);
         } catch (error) {
           console.error(`❌ [DAY${day}] Error:`, error.message);
+          // Fallback - require payment
+          await bot.sendMessage(msg.chat.id, `🔒 សូមទូទាត់មុនដើម្បីចូលប្រើថ្ងៃទី ${day}។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។`);
         }
       });
     }
 
-    // === VIP COMMANDS ===
+    // === VIP COMMANDS (PAYMENT PROTECTED) ===
     bot.onText(/\/vip/i, async (msg) => {
       console.log("👑 [VIP] User:", msg.from.id);
       
       try {
+        // Check if user has paid for basic program first
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+        
+        if (!isPaid) {
+          const vipRequiresPaymentMessage = `🔒 VIP Program ត្រូវការការទូទាត់មូលដ្ឋានមុន
+
+💰 ជំហានទី ១: ទូទាត់កម្មវិធីមូលដ្ឋាន $24
+📱 ប្រើ /pricing ដើម្បីមើលព័ត៌មាន
+
+👑 ជំហានទី ២: Upgrade ទៅ VIP ($197)
+
+👨‍💼 ទាក់ទង: @Chendasum សម្រាប់ព័ត៌មានលម្អិត`;
+
+          await bot.sendMessage(msg.chat.id, vipRequiresPaymentMessage);
+          return;
+        }
+
+        // User has paid basic - show VIP info
         if (vipCommands && vipCommands.info) {
           await vipCommands.info(msg, bot);
         } else {
-          const vipMessage = `👑 VIP Program
+          const vipMessage = `👑 VIP Program - អ្នកមានសិទ្ធិ!
 
 🌟 កម្មវិធី VIP រួមមាន:
-• ការប្រឹក្សាផ្ទាល់ខ្លួន
+• ការប្រឹក្សាផ្ទាល់ខ្លួន 1-on-1
 • ការតាមដានដោយផ្ទាល់
-• មាតិកាកម្រិតខ្ពស់
+• មាតិកាកម្រិតខ្ពស់ 30 ថ្ងៃ
 • ការគាំទ្រអាទិភាព
+• Capital Strategy Sessions
 
-💰 តម្លៃ: $197
+💰 តម្លៃ VIP: $197
 📞 ពិគ្រោះ: @Chendasum
 
-សរសេរ "VIP APPLY" ដើម្បីដាក់ពាក្យ`;
+✅ អ្នកបានទូទាត់កម្មវិធីមូលដ្ឋានរួចហើយ
+👑 សរសេរ "VIP APPLY" ដើម្បីដាក់ពាក្យ`;
 
           await bot.sendMessage(msg.chat.id, vipMessage);
         }
-        console.log("✅ [VIP] VIP info sent");
+        console.log("✅ [VIP] VIP info sent to paid user");
       } catch (error) {
         console.error("❌ [VIP] Error:", error.message);
+        // Fallback - require basic payment
+        await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់កម្មវិធីមូលដ្ឋានមុនដើម្បីចូលប្រើ VIP។ ប្រើ /pricing");
       }
     });
 
