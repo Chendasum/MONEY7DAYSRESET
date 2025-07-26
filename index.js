@@ -1,21 +1,4 @@
-const programCelebration = celebrations?.programCompleteCelebration
-          ? celebrations.programCompleteCelebration(`🎯 ជំហានបន្ទាប់:
-1️⃣ អនុវត្តផែនការ ៣០ ថ្ងៃ
-2️⃣ ពិនិត្យដំណើរការប្រចាំសប្តាហ៍
-3️⃣ មានសំណួរ? ទាក់ទងមកបាន!
-
-🚀 ចង់បន្តកម្រិតបន្ទាប់?
-VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
-សួរ: "VIP PROGRAM INFO"`)
-          : `🎊 អបអរសាទរ! អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™!
-
-🎯 ជំហានបន្ទាប់:
-1️⃣ អនុវត្តផែនការ ៣០ ថ្ងៃ
-2️⃣ ពិនិត្យដំណើរការប្រចាំសប្តាហ៍
-3️⃣ មានសំណួរ? ទាក់ទងមកបាន!
-
-🚀 ចង់បន្តកម្រិតបន្ទាប់?
-VIP Advanced Program ចាប់ផ្require("dotenv").config();
+require("dotenv").config();
 
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
@@ -917,17 +900,10 @@ if (process.env.BOT_TOKEN) {
         { upsert: true }
       );
       
-      const completeReaction = emojiReactions?.lessonCompleteReaction 
-        ? emojiReactions.lessonCompleteReaction(dayNumber)
-        : `🎉 ល្អណាស់! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber}!`;
+      const completeReaction = emojiReactions.lessonCompleteReaction(dayNumber);
       await bot.sendMessage(msg.chat.id, completeReaction);
       
-      const celebrationMessage = celebrations?.dayCompleteCelebration
-        ? celebrations.dayCompleteCelebration(dayNumber)
-        : `🎊 សូមអបអរសាទរ! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber} ដោយជោគជ័យ!
-
-📈 វឌ្ឍនភាព: ${dayNumber}/7 ថ្ងៃ
-💪 បន្តទៅមុខទៀត!`;
+      const celebrationMessage = celebrations.dayCompleteCelebration(dayNumber);
       await sendLongMessage(bot, msg.chat.id, celebrationMessage, {}, MESSAGE_CHUNK_SIZE);
       
       if (dayNumber < 7) {
