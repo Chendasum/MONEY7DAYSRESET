@@ -191,7 +191,7 @@ class DatabaseOptimizer {
 
         // Cache batch results
         for (const user of batchUsers) {
-          const cacheKey = `user_${user.telegramId}`;
+          const cacheKey = `user_${user.telegram_id}`;
           this.setCachedQuery(cacheKey, user, 5 * 60 * 1000);
           results.push(user);
         }
@@ -221,7 +221,7 @@ class DatabaseOptimizer {
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
       const allUsers = await User.findAll();
       const activeUsers = allUsers
-        .filter(user => user.lastActive && user.lastActive >= cutoff)
+        .filter(user => user.last_active && user.last_active >= cutoff)
         .sort((a, b) => b.lastActive - a.lastActive)
         .slice(0, 100);
 
@@ -250,7 +250,7 @@ class DatabaseOptimizer {
       // Get basic counts using existing User model
       const allUsers = await User.findAll();
       const totalUsers = allUsers.length;
-      const paidUsers = allUsers.filter(user => user.isPaid).length;
+      const paidUsers = allUsers.filter(user => user.is_paid).length;
       
       // Get tier breakdown
       const tierCounts = {};
@@ -314,7 +314,7 @@ class DatabaseOptimizer {
       const result = await db
         .update(progress)
         .set(updates)
-        .where(eq(progress.userId, userId))
+        .where(eq(progress.user_id, userId))
         .returning();
 
       // Invalidate cache
