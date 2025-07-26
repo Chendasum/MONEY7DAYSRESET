@@ -4,8 +4,12 @@ const { eq, gte, desc, asc } = require('drizzle-orm');
 
 class User {
   static async findOne(condition) {
+    if (condition.telegram_id) {
+      const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegram_id));
+      return result[0] || null;
+    }
     if (condition.telegramId) {
-      const result = await db.select().from(users).where(eq(users.telegramId, condition.telegramId));
+      const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegramId));
       return result[0] || null;
     }
     return null;
@@ -14,7 +18,7 @@ class User {
   static async findOneAndUpdate(condition, updates, options = {}) {
     const { upsert = false } = options;
     
-    if (condition.telegramId) {
+    if (condition.telegram_id || condition.telegramId) {
       try {
         const existing = await this.findOne(condition);
         
@@ -29,8 +33,8 @@ class User {
           if (Object.keys(validUpdates).length > 0) {
             const result = await db
               .update(users)
-              .set({ ...validUpdates, lastActive: new Date() })
-              .where(eq(users.telegramId, condition.telegramId))
+              .set({ ...validUpdates, last_active: new Date() })
+              .where(eq(users.telegram_id, condition.telegram_id || condition.telegramId))
               .returning();
             return result[0];
           }
@@ -39,7 +43,7 @@ class User {
           // Insert new user
           const result = await db
             .insert(users)
-            .values({ ...condition, ...updates, lastActive: new Date() })
+            .values({ telegram_id: condition.telegram_id || condition.telegramId, ...updates, last_active: new Date() })
             .returning();
           return result[0];
         }
@@ -53,35 +57,26 @@ class User {
   }
 
   static async updateLastActive(telegramId) {
-    await db
-      .update(users)
-      .set({ lastActive: new Date() })
-      .where(eq(users.telegramId, telegramId));
+    try {
+      await db
+        .update(users)
+        .set({ last_active: new Date() })
+        .where(eq(users.telegram_id, telegramId));
+    } catch (error) {
+      console.error('Error updating last active:', error);
+    }
   }
 
-  static async findAll(options = {}) {
-    let query = db.select().from(users);
-    
-    // Add where conditions if provided
-    if (options.where) {
-      Object.entries(options.where).forEach(([key, value]) => {
-        if (key === 'lastActive' && value.gte) {
-          query = query.where(gte(users.lastActive, value.gte));
-        }
-      });
+  static async findAll() {
+    try {
+      return await db.select().from(users);
+    } catch (error) {
+      console.error('Error finding all users:', error);
+      return [];
     }
-    
-    // Add ordering if provided
-    if (options.orderBy) {
-      Object.entries(options.orderBy).forEach(([key, direction]) => {
-        if (key === 'lastActive') {
-          query = query.orderBy(direction === 'desc' ? desc(users.lastActive) : asc(users.lastActive));
-        }
-      });
-    }
-    
-    return await query;
   }
+
+
 }
 
 module.exports = User;
