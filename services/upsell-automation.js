@@ -90,7 +90,7 @@ class UpsellAutomation {
         { telegramId },
         { 
           tier: toTier,
-          tierPrice: amount,
+          tier_price: amount,
           $push: { conversionHistory: conversionRecord },
           // Mark recent upsell attempts as converted
           $set: { 
@@ -191,7 +191,7 @@ class UpsellAutomation {
             conversionCount++;
 
             // Track timing success
-            const dayOfConversion = this.getConversionDay(conversion.convertedAt, user.joinedAt);
+            const dayOfConversion = this.getConversionDay(conversion.convertedAt, user.joined_at);
             if (dayOfConversion <= 3) analytics.timing.day3Success++;
             else if (dayOfConversion <= 5) analytics.timing.day5Success++;
             else if (dayOfConversion <= 7) analytics.timing.day7Success++;
@@ -199,7 +199,7 @@ class UpsellAutomation {
         }
 
         // Calculate lifetime value
-        const userValue = user.tierPrice || 0;
+        const userValue = user.tier_price || 0;
         analytics.revenue.totalLifetimeValue += userValue;
       });
 
@@ -328,12 +328,12 @@ class UpsellAutomation {
           const followUpMessage = this.getFollowUpMessage(user.tier, recentUnconverted);
           
           try {
-            await bot.sendMessage(user.telegramId, followUpMessage);
+            await bot.sendMessage(user.telegram_id, followUpMessage);
             followUpsSent++;
             
             // Track follow-up attempt
             await User.findOneAndUpdate(
-              { telegramId: user.telegramId },
+              { telegram_id: user.telegram_id  },
               { 
                 $push: { 
                   upsellAttempts: {
@@ -347,7 +347,7 @@ class UpsellAutomation {
               }
             );
           } catch (msgError) {
-            console.error(`Error sending follow-up to ${user.telegramId}:`, msgError);
+            console.error(`Error sending follow-up to ${user.telegram_id}:`, msgError);
           }
         }
       }
