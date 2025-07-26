@@ -1,296 +1,348 @@
 /**
  * VIP Booking System Commands
- * 1-on-1 session booking for VIP tier users
+ * This module handles the 1-on-1 session booking process for VIP tier users.
+ * It provides various session types and collects necessary information for booking.
  */
 
-const User = require('../models/User');
-const AccessControl = require('../services/access-control');
+const User = require("../models/User"); // User model for retrieving user data
+const AccessControl = require("../services/access-control"); // Service for checking user access rights
+const { sendLongMessage } = require("../utils/message-splitter"); // Utility to split long messages
 
-const accessControl = new AccessControl();
+const accessControl = new AccessControl(); // Instantiate AccessControl service
+
+// Define a consistent message chunk size for splitting messages
+const MESSAGE_CHUNK_SIZE = 800;
 
 /**
- * Show available booking slots for VIP users
+ * Displays the available VIP 1-on-1 session types and general booking information.
+ * Checks if the user has access to the booking system before displaying the options.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function showBookingSlots(msg, bot) {
-  const access = await accessControl.checkAccess(msg.from.id, 'booking_system');
-  
+  // Check if the user has access to the booking system
+  const access = await accessControl.checkAccess(msg.from.id, "booking_system");
+
   if (!access.hasAccess) {
-    await bot.sendMessage(msg.chat.id, access.message);
+    await bot.sendMessage(msg.chat.id, access.message); // Send access denied message
     return;
   }
 
-  const bookingMessage = `👑 VIP 1-on-1 Session Booking
+  const bookingMessage = `👑 ការកក់វគ្គ ១-ទល់-១ សម្រាប់ VIP
 
-🎯 Capital Clarity Sessions Available:
-• Strategic Capital Assessment (90 mins) - $197
-• Business Financial Structure Review (60 mins) - $197
-• Investment Readiness Evaluation (60 mins) - $197
-• Custom Capital Strategy Session (90 mins) - $197
+🎯 វគ្គ Capital Clarity ដែលមាន:
+• ការវាយតម្លៃយុទ្ធសាស្ត្រមូលធន (៩០ នាទី) - $197
+• ការត្រួតពិនិត្យរចនាសម្ព័ន្ធហិរញ្ញវត្ថុអាជីវកម្ម (៦០ នាទី) - $197
+• ការវាយតម្លៃការត្រៀមខ្លួនសម្រាប់ការវិនិយោគ (៦០ នាទី) - $197
+• វគ្គយុទ្ធសាស្ត្រមូលធនតាមតម្រូវការ (៩០ នាទី) - $197
 
-📅 Available Time Slots:
-• Monday - Friday: 9:00 AM - 5:00 PM (Cambodia Time)
-• Saturday: 9:00 AM - 12:00 PM (Cambodia Time)
-• Sunday: By special request only
+📅 ពេលវេលាដែលអាចកក់បាន:
+• ថ្ងៃច័ន្ទ - ថ្ងៃសុក្រ: ម៉ោង ៩:០០ ព្រឹក - ៥:០០ ល្ងាច (ម៉ោងកម្ពុជា)
+• ថ្ងៃសៅរ៍: ម៉ោង ៩:០០ ព្រឹក - ១២:០០ ថ្ងៃត្រង់ (ម៉ោងកម្ពុជា)
+• ថ្ងៃអាទិត្យ: តាមការស្នើសុំពិសេសតែប៉ុណ្ណោះ
 
-💰 Capital Clarity Session Framework:
-1️⃣ Opening Frame - Set trust and strategic context
-2️⃣ Capital X-Ray - Review fund/deal structure and flow
-3️⃣ Trust Mapping - Identify relationship breakdowns
-4️⃣ System Readiness Score - Grade deployment capabilities
-5️⃣ Clarity Prescription - Strategic upgrade roadmap
+💰 ក្របខ័ណ្ឌវគ្គ Capital Clarity:
+១. Opening Frame - កំណត់ទំនុកចិត្ត និងបរិបទយុទ្ធសាស្ត្រ
+២. Capital X-Ray - ពិនិត្យរចនាសម្ព័ន្ធមូលនិធិ/កិច្ចព្រមព្រៀង និងលំហូរ
+៣. Trust Mapping - កំណត់ការបែកបាក់ទំនាក់ទំនង
+៤. System Readiness Score - វាយតម្លៃសមត្ថភាពដាក់ពង្រាយ
+៥. Clarity Prescription - ផែនទីផ្លូវអភិវឌ្ឍន៍យុទ្ធសាស្ត្រ
 
-🎯 Perfect for:
-• Founders managing private capital ($100K+ annually)
-• Operators with fund structures
-• Business owners planning growth funding
-• Investors needing structured deployment
-• Entrepreneurs seeking capital optimization
+🎯 ល្អឥតខ្ចោះសម្រាប់:
+• ស្ថាបនិកដែលគ្រប់គ្រងមូលធនឯកជន ($100K+ ក្នុងមួយឆ្នាំ)
+• អ្នកប្រតិបត្តិដែលមានរចនាសម្ព័ន្ធមូលនិធិ
+• ម្ចាស់អាជីវកម្មដែលគ្រោងមូលនិធិសម្រាប់ការរីកចម្រើន
+• វិនិយោគិនដែលត្រូវការការដាក់ពង្រាយមានរចនាសម្ព័ន្ធ
+• សហគ្រិនដែលស្វែងរកការបង្កើនប្រសិទ្ធភាពមូលធន
 
-📞 How to Book:
-1. Choose your preferred session type
-2. Select available time slot
-3. Process $197 payment
-4. Receive calendar invitation and preparation materials
+📞 របៀបកក់:
+១. ជ្រើសរើសប្រភេទវគ្គដែលអ្នកពេញចិត្ត
+២. ជ្រើសរើសពេលវេលាដែលអាចកក់បាន
+៣. បង់ប្រាក់ $197
+៤. ទទួលបានការអញ្ជើញតាមប្រតិទិន និងសម្ភារៈត្រៀមរៀបចំ
 
-🔥 Popular Sessions:
-• Strategic Capital Assessment - Most comprehensive
-• Business Financial Structure Review - For business owners
-• Investment Readiness Evaluation - For investors
+🔥 វគ្គពេញនិយម:
+• ការវាយតម្លៃយុទ្ធសាស្ត្រមូលធន - វគ្គដ៏ទូលំទូលាយបំផុត
+• ការត្រួតពិនិត្យរចនាសម្ព័ន្ធហិរញ្ញវត្ថុអាជីវកម្ម - សម្រាប់ម្ចាស់អាជីវកម្ម
+• ការវាយតម្លៃការត្រៀមខ្លួនសម្រាប់ការវិនិយោគ - សម្រាប់វិនិយោគិន
 
-Commands:
-• /book_capital_clarity - Strategic Capital Assessment
-• /book_business_review - Business Financial Structure Review
-• /book_investment_evaluation - Investment Readiness Evaluation
-• /book_custom_session - Custom Capital Strategy Session
+ពាក្យបញ្ជា:
+• /book_capital_clarity - ការវាយតម្លៃយុទ្ធសាស្ត្រមូលធន
+• /book_business_review - ការត្រួតពិនិត្យរចនាសម្ព័ន្ធហិរញ្ញវត្ថុអាជីវកម្ម
+• /book_investment_evaluation - ការវាយតម្លៃការត្រៀមខ្លួនសម្រាប់ការវិនិយោគ
+• /book_custom_session - វគ្គយុទ្ធសាស្ត្រមូលធនតាមតម្រូវការ
 
-📧 Direct Contact:
-For immediate booking: @Chendasum
-Advanced Capital Strategy: Private consultation available`;
+📧 ទំនាក់ទំនងផ្ទាល់:
+សម្រាប់ការកក់ភ្លាមៗ: @Chendasum
+យុទ្ធសាស្ត្រមូលធនកម្រិតខ្ពស់: ការប្រឹក្សាឯកជនមាន`;
 
-  await bot.sendMessage(msg.chat.id, bookingMessage);
+  await sendLongMessage(
+    bot,
+    msg.chat.id,
+    bookingMessage,
+    {},
+    MESSAGE_CHUNK_SIZE,
+  );
 }
 
 /**
- * Book Capital Clarity Session (Main)
+ * Handles the booking process for the Capital Clarity Session.
+ * Collects specific user information required for this session.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function bookCapitalClarity(msg, bot) {
-  const access = await accessControl.checkAccess(msg.from.id, 'booking_system');
-  
+  const access = await accessControl.checkAccess(msg.from.id, "booking_system");
+
   if (!access.hasAccess) {
     await bot.sendMessage(msg.chat.id, access.message);
     return;
   }
 
-  const user = access.user;
-  const bookingMessage = `🏛️ Capital Clarity Session Booking
+  const user = access.user; // Get user data from access check result
+  const bookingMessage = `🏛️ ការកក់វគ្គ Capital Clarity
 
-Session Details:
-• Duration: 90 minutes
-• Investment: $197
-• Focus: Complete capital system diagnosis and optimization
-• Outcome: Strategic capital upgrade roadmap
+ព័ត៌មានលម្អិតវគ្គ:
+• រយៈពេល: ៩០ នាទី
+• ការវិនិយោគ: $197
+• គោលដៅ: ការវិនិច្ឆ័យ និងការបង្កើនប្រសិទ្ធភាពប្រព័ន្ធមូលធនពេញលេញ
+• លទ្ធផល: ផែនទីផ្លូវអភិវឌ្ឍន៍យុទ្ធសាស្ត្រមូលធន
 
-What You'll Get:
-✅ Capital Flow and Structure Analysis
-✅ Trust Architecture Mapping
-✅ System Readiness Scoring
-✅ Clarity Prescription with specific recommendations
-✅ 30-day implementation support
-✅ Strategic upgrade roadmap
+អ្វីដែលអ្នកនឹងទទួលបាន:
+✅ ការវិភាគលំហូរ និងរចនាសម្ព័ន្ធមូលធន
+✅ ការកំណត់ផែនទីស្ថាបត្យកម្មទំនុកចិត្ត
+✅ ការវាយតម្លៃការត្រៀមខ្លួនរបស់ប្រព័ន្ធ
+✅ Clarity Prescription ជាមួយនឹងការណែនាំជាក់លាក់
+✅ ការគាំទ្រការអនុវត្តរយៈពេល ៣០ ថ្ងៃ
+✅ ផែនទីផ្លូវអភិវឌ្ឍន៍យុទ្ធសាស្ត្រ
 
-Your Information:
-• Name: ${user.firstName} ${user.lastName || ''}
-• VIP Member since: ${user.paymentDate?.toLocaleDateString() || 'Recently'}
-• Telegram: @${user.username || 'N/A'}
+ព័ត៌មានរបស់អ្នក:
+• ឈ្មោះ: ${user.first_name} ${user.last_name || ""}
+• សមាជិក VIP តាំងពី: ${user.payment_date?.toLocaleDateString() || "ថ្មីៗនេះ"}
+• Telegram: @${user.username || "N/A"}
 
-Capital Clarity Framework:
-1. Opening Frame (10 min) - Set trust and strategic context
-2. Capital X-Ray (25 min) - Review fund/deal structure and flow
-3. Trust Mapping (20 min) - Identify relationship breakdowns
-4. System Readiness Score (20 min) - Grade deployment capabilities
-5. Clarity Prescription (15 min) - Strategic upgrade roadmap
+ក្របខ័ណ្ឌ Capital Clarity:
+១. Opening Frame (១០ នាទី) - កំណត់ទំនុកចិត្ត និងបរិបទយុទ្ធសាស្ត្រ
+២. Capital X-Ray (២៥ នាទី) - ពិនិត្យរចនាសម្ព័ន្ធមូលនិធិ/កិច្ចព្រមព្រៀង និងលំហូរ
+៣. Trust Mapping (២០ នាទី) - កំណត់ការបែកបាក់ទំនាក់ទំនង
+៤. System Readiness Score (២០ នាទី) - វាយតម្លៃសមត្ថភាពដាក់ពង្រាយ
+៥. Clarity Prescription (១៥ នាទី) - ផែនទីផ្លូវអភិវឌ្ឍន៍យុទ្ធសាស្ត្រ
 
-📞 To Complete Booking:
-Please send the following information:
+📞 ដើម្បីបញ្ចប់ការកក់:
+សូមផ្ញើព័ត៌មានដូចខាងក្រោម:
 
 CAPITAL CLARITY BOOKING
-1. Role: [Founder/Operator/Investor]
-2. Company: [Name and annual revenue range]
-3. Capital Situation: [Brief description of current setup]
-4. Main Challenge: [What you need help with]
-5. Timeline: [Your investment goals and timeline]
-6. Preferred Date & Time: [3 options - example: "Monday 2 PM, Tuesday 10 AM, Wednesday 3 PM"]
-7. Contact: [Email and phone number]
+១. តួនាទី: [ស្ថាបនិក/អ្នកប្រតិបត្តិ/វិនិយោគិន]
+២. ក្រុមហ៊ុន: [ឈ្មោះ និងជួរចំណូលប្រចាំឆ្នាំ]
+៣. ស្ថានភាពមូលធន: [ការពិពណ៌នាសង្ខេបអំពីការរៀបចំបច្ចុប្បន្ន]
+៤. បញ្ហាប្រឈមចម្បង: [អ្វីដែលអ្នកត្រូវការជំនួយ]
+៥. កាលកំណត់: [គោលដៅវិនិយោគ និងកាលកំណត់របស់អ្នក]
+៦. ថ្ងៃ និងពេលវេលាដែលពេញចិត្ត: [៣ ជម្រើស - ឧទាហរណ៍: "ថ្ងៃច័ន្ទ ម៉ោង ២ រសៀល, ថ្ងៃអង្គារ ម៉ោង ១០ ព្រឹក, ថ្ងៃពុធ ម៉ោង ៣ រសៀល"]
+៧. ទំនាក់ទំនង: [អ៊ីមែល និងលេខទូរស័ព្ទ]
 
-Send this information as a message and you'll receive confirmation within 24 hours!
+ផ្ញើព័ត៌មាននេះជាសារ ហើយអ្នកនឹងទទួលបានការបញ្ជាក់ក្នុងរយៈពេល ២៤ ម៉ោង!
 
-⚠️ Important: This is advanced capital strategy for serious business owners managing significant capital.
+⚠️ សំខាន់: នេះគឺជាយុទ្ធសាស្ត្រមូលធនកម្រិតខ្ពស់សម្រាប់ម្ចាស់អាជីវកម្មធ្ងន់ធ្ងរដែលគ្រប់គ្រងមូលធនសំខាន់ៗ។
 
-🚀 Ready to transform your capital strategy?`;
+🚀 ត្រៀមខ្លួនដើម្បីផ្លាស់ប្តូរយុទ្ធសាស្ត្រមូលធនរបស់អ្នកហើយឬនៅ?`;
 
-  await bot.sendMessage(msg.chat.id, bookingMessage);
+  await sendLongMessage(
+    bot,
+    msg.chat.id,
+    bookingMessage,
+    {},
+    MESSAGE_CHUNK_SIZE,
+  );
 }
 
 /**
- * Book Business Review Session
+ * Handles the booking process for the Business Financial Structure Review Session.
+ * Collects specific user information relevant to business financial review.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function bookBusinessReview(msg, bot) {
-  const access = await accessControl.checkAccess(msg.from.id, 'booking_system');
-  
+  const access = await accessControl.checkAccess(msg.from.id, "booking_system");
+
   if (!access.hasAccess) {
     await bot.sendMessage(msg.chat.id, access.message);
     return;
   }
 
   const user = access.user;
-  const bookingMessage = `🏢 Business Financial Structure Review Booking
+  const bookingMessage = `🏢 ការកក់វគ្គត្រួតពិនិត្យរចនាសម្ព័ន្ធហិរញ្ញវត្ថុអាជីវកម្ម
 
-Session Details:
-• Duration: 60 minutes
-• Investment: $197
-• Focus: Business financial structure optimization
-• Outcome: Streamlined business financial systems
+ព័ត៌មានលម្អិតវគ្គ:
+• រយៈពេល: ៦០ នាទី
+• ការវិនិយោគ: $197
+• គោលដៅ: ការបង្កើនប្រសិទ្ធភាពរចនាសម្ព័ន្ធហិរញ្ញវត្ថុអាជីវកម្ម
+• លទ្ធផល: ប្រព័ន្ធហិរញ្ញវត្ថុអាជីវកម្មដែលមានប្រសិទ្ធភាព
 
-What You'll Get:
-✅ Business cash flow analysis
-✅ Cost structure optimization
-✅ Revenue stream evaluation
-✅ Financial system recommendations
-✅ Implementation timeline
-✅ Capital readiness assessment
+អ្វីដែលអ្នកនឹងទទួលបាន:
+✅ ការវិភាគលំហូរសាច់ប្រាក់អាជីវកម្ម
+✅ ការបង្កើនប្រសិទ្ធភាពរចនាសម្ព័ន្ធចំណាយ
+✅ ការវាយតម្លៃប្រភពចំណូល
+✅ ការណែនាំប្រព័ន្ធហិរញ្ញវត្ថុ
+✅ កាលកំណត់អនុវត្ត
+✅ ការវាយតម្លៃការត្រៀមខ្លួនមូលធន
 
-Your Information:
-• Name: ${user.firstName} ${user.lastName || ''}
-• VIP Member since: ${user.paymentDate?.toLocaleDateString() || 'Recently'}
-• Telegram: @${user.username || 'N/A'}
+ព័ត៌មានរបស់អ្នក:
+• ឈ្មោះ: ${user.first_name} ${user.last_name || ""}
+• សមាជិក VIP តាំងពី: ${user.payment_date?.toLocaleDateString() || "ថ្មីៗនេះ"}
+• Telegram: @${user.username || "N/A"}
 
-📞 To Complete Booking:
-Please send the following information:
+📞 ដើម្បីបញ្ចប់ការកក់:
+សូមផ្ញើព័ត៌មានដូចខាងក្រោម:
 
 BUSINESS REVIEW BOOKING
-1. Business Type: [Industry and business model]
-2. Revenue Range: [Monthly/annual revenue]
-3. Team Size: [Number of employees]
-4. Main Challenge: [Current financial challenges]
-5. Goals: [What you want to achieve]
-6. Preferred Date & Time: [3 options]
-7. Contact: [Email and phone number]
+១. ប្រភេទអាជីវកម្ម: [ឧស្សាហកម្ម និងម៉ូដែលអាជីវកម្ម]
+២. ជួរចំណូល: [ចំណូលប្រចាំខែ/ប្រចាំឆ្នាំ]
+៣. ទំហំក្រុម: [ចំនួនបុគ្គលិក]
+៤. បញ្ហាប្រឈមចម្បង: [បញ្ហាហិរញ្ញវត្ថុបច្ចុប្បន្ន]
+៥. គោលដៅ: [អ្វីដែលអ្នកចង់សម្រេច]
+៦. ថ្ងៃ និងពេលវេលាដែលពេញចិត្ត: [៣ ជម្រើស]
+៧. ទំនាក់ទំនង: [អ៊ីមែល និងលេខទូរស័ព្ទ]
 
-Send this information as a message and you'll receive confirmation within 24 hours!
+ផ្ញើព័ត៌មាននេះជាសារ ហើយអ្នកនឹងទទួលបានការបញ្ជាក់ក្នុងរយៈពេល ២៤ ម៉ោង!
 
-📈 Ready to optimize your business financial structure?`;
+📈 ត្រៀមខ្លួនដើម្បីបង្កើនប្រសិទ្ធភាពរចនាសម្ព័ន្ធហិរញ្ញវត្ថុអាជីវកម្មរបស់អ្នកហើយឬនៅ?`;
 
-  await bot.sendMessage(msg.chat.id, bookingMessage);
+  await sendLongMessage(
+    bot,
+    msg.chat.id,
+    bookingMessage,
+    {},
+    MESSAGE_CHUNK_SIZE,
+  );
 }
 
 /**
- * Book Investment Evaluation Session
+ * Handles the booking process for the Investment Readiness Evaluation Session.
+ * Collects specific user information relevant to investment and capital deployment.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function bookInvestmentEvaluation(msg, bot) {
-  const access = await accessControl.checkAccess(msg.from.id, 'booking_system');
-  
+  const access = await accessControl.checkAccess(msg.from.id, "booking_system");
+
   if (!access.hasAccess) {
     await bot.sendMessage(msg.chat.id, access.message);
     return;
   }
 
   const user = access.user;
-  const bookingMessage = `💎 Investment Readiness Evaluation Booking
+  const bookingMessage = `💎 ការកក់វគ្គវាយតម្លៃការត្រៀមខ្លួនសម្រាប់ការវិនិយោគ
 
-Session Details:
-• Duration: 60 minutes
-• Investment: $197
-• Focus: Investment readiness and capital deployment
-• Outcome: Investment strategy roadmap
+ព័ត៌មានលម្អិតវគ្គ:
+• រយៈពេល: ៦០ នាទី
+• ការវិនិយោគ: $197
+• គោលដៅ: ការត្រៀមខ្លួនសម្រាប់ការវិនិយោគ និងការដាក់ពង្រាយមូលធន
+• លទ្ធផល: ផែនទីផ្លូវយុទ្ធសាស្ត្រវិនិយោគ
 
-What You'll Get:
-✅ Investment readiness assessment
-✅ Risk tolerance evaluation
-✅ Capital deployment opportunities
-✅ Portfolio recommendations
-✅ LP (Limited Partner) readiness evaluation
-✅ Next steps guidance
+អ្វីដែលអ្នកនឹងទទួលបាន:
+✅ ការវាយតម្លៃការត្រៀមខ្លួនសម្រាប់ការវិនិយោគ
+✅ ការវាយតម្លៃកម្រិតហានិភ័យ
+✅ ឱកាសដាក់ពង្រាយមូលធន
+✅ ការណែនាំផលប័ត្រ
+✅ ការវាយតម្លៃការត្រៀមខ្លួន LP (Limited Partner)
+✅ ការណែនាំជំហានបន្ទាប់
 
-Your Information:
-• Name: ${user.firstName} ${user.lastName || ''}
-• VIP Member since: ${user.paymentDate?.toLocaleDateString() || 'Recently'}
-• Telegram: @${user.username || 'N/A'}
+ព័ត៌មានរបស់អ្នក:
+• ឈ្មោះ: ${user.first_name} ${user.last_name || ""}
+• សមាជិក VIP តាំងពី: ${user.payment_date?.toLocaleDateString() || "ថ្មីៗនេះ"}
+• Telegram: @${user.username || "N/A"}
 
-📞 To Complete Booking:
-Please send the following information:
+📞 ដើម្បីបញ្ចប់ការកក់:
+សូមផ្ញើព័ត៌មានដូចខាងក្រោម:
 
 INVESTMENT EVALUATION BOOKING
-1. Investment Experience: [Current level and background]
-2. Capital Available: [Investment amount range]
-3. Risk Tolerance: [Conservative/Moderate/Aggressive]
-4. Investment Goals: [What you want to achieve]
-5. Timeline: [Investment timeline and objectives]
-6. Preferred Date & Time: [3 options]
-7. Contact: [Email and phone number]
+១. បទពិសោធន៍វិនិយោគ: [កម្រិតបច្ចុប្បន្ន និងប្រវត្តិ]
+២. មូលធនដែលមាន: [ជួរទឹកប្រាក់វិនិយោគ]
+៣. កម្រិតហានិភ័យ: [អភិរក្ស/មធ្យម/ឈ្លានពាន]
+៤. គោលដៅវិនិយោគ: [អ្វីដែលអ្នកចង់សម្រេច]
+៥. កាលកំណត់: [កាលកំណត់ និងគោលបំណងវិនិយោគ]
+៦. ថ្ងៃ និងពេលវេលាដែលពេញចិត្ត: [៣ ជម្រើស]
+៧. ទំនាក់ទំនង: [អ៊ីមែល និងលេខទូរស័ព្ទ]
 
-Send this information as a message and you'll receive confirmation within 24 hours!
+ផ្ញើព័ត៌មាននេះជាសារ ហើយអ្នកនឹងទទួលបានការបញ្ជាក់ក្នុងរយៈពេល ២៤ ម៉ោង!
 
-🚀 Ready to start your strategic investment journey?`;
+🚀 ត្រៀមខ្លួនដើម្បីចាប់ផ្តើមដំណើរវិនិយោគយុទ្ធសាស្ត្ររបស់អ្នកហើយឬនៅ?`;
 
-  await bot.sendMessage(msg.chat.id, bookingMessage);
+  await sendLongMessage(
+    bot,
+    msg.chat.id,
+    bookingMessage,
+    {},
+    MESSAGE_CHUNK_SIZE,
+  );
 }
 
 /**
- * Book Custom Session
+ * Handles the booking process for a Custom Capital Strategy Session.
+ * Collects specific user requirements for a personalized session.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function bookCustomSession(msg, bot) {
-  const access = await accessControl.checkAccess(msg.from.id, 'booking_system');
-  
+  const access = await accessControl.checkAccess(msg.from.id, "booking_system");
+
   if (!access.hasAccess) {
     await bot.sendMessage(msg.chat.id, access.message);
     return;
   }
 
   const user = access.user;
-  const bookingMessage = `🎨 Custom Capital Strategy Session Booking
+  const bookingMessage = `🎨 ការកក់វគ្គយុទ្ធសាស្ត្រមូលធនតាមតម្រូវការ
 
-Session Details:
-• Duration: 90 minutes
-• Investment: $197
-• Focus: Customized to your specific capital needs
-• Outcome: Personalized capital strategy
+ព័ត៌មានលម្អិតវគ្គ:
+• រយៈពេល: ៩០ នាទី
+• ការវិនិយោគ: $197
+• គោលដៅ: តាមតម្រូវការជាក់លាក់នៃមូលធនរបស់អ្នក
+• លទ្ធផល: យុទ្ធសាស្ត្រមូលធនផ្ទាល់ខ្លួន
 
-What You'll Get:
-✅ Customized session agenda
-✅ Focused capital problem-solving
-✅ Specific strategic recommendations
-✅ Actionable implementation steps
-✅ Follow-up support
-✅ Network introductions (if applicable)
+អ្វីដែលអ្នកនឹងទទួលបាន:
+✅ របៀបវារៈវគ្គតាមតម្រូវការ
+✅ ការដោះស្រាយបញ្ហាមូលធនផ្តោត
+✅ ការណែនាំយុទ្ធសាស្ត្រជាក់លាក់
+✅ ជំហានអនុវត្តដែលអាចធ្វើបាន
+✅ ការគាំទ្រតាមដាន
+✅ ការណែនាំបណ្តាញ (ប្រសិនបើពាក់ព័ន្ធ)
 
-Your Information:
-• Name: ${user.firstName} ${user.lastName || ''}
-• VIP Member since: ${user.paymentDate?.toLocaleDateString() || 'Recently'}
-• Telegram: @${user.username || 'N/A'}
+ព័ត៌មានរបស់អ្នក:
+• ឈ្មោះ: ${user.first_name} ${user.last_name || ""}
+• សមាជិក VIP តាំងពី: ${user.payment_date?.toLocaleDateString() || "ថ្មីៗនេះ"}
+• Telegram: @${user.username || "N/A"}
 
-📞 To Complete Booking:
-Please send the following information:
+📞 ដើម្បីបញ្ចប់ការកក់:
+សូមផ្ញើព័ត៌មានដូចខាងក្រោម:
 
 CUSTOM SESSION BOOKING
-1. Specific Focus: [What capital topic you want to focus on]
-2. Current Situation: [Your current capital/business situation]
-3. Main Challenge: [Specific problem you're facing]
-4. Expected Outcome: [What you want to achieve]
-5. Timeline: [When you need results]
-6. Preferred Date & Time: [3 options]
-7. Contact: [Email and phone number]
+១. គោលដៅជាក់លាក់: [ប្រធានបទមូលធនអ្វីដែលអ្នកចង់ផ្តោតលើ]
+២. ស្ថានភាពបច្ចុប្បន្ន: [ស្ថានភាពមូលធន/អាជីវកម្មបច្ចុប្បន្នរបស់អ្នក]
+៣. បញ្ហាប្រឈមចម្បង: [បញ្ហាជាក់លាក់ដែលអ្នកកំពុងជួបប្រទះ]
+៤. លទ្ធផលដែលរំពឹងទុក: [អ្វីដែលអ្នកចង់សម្រេច]
+៥. កាលកំណត់: [ពេលណាអ្នកត្រូវការលទ្ធផល]
+៦. ថ្ងៃ និងពេលវេលាដែលពេញចិត្ត: [៣ ជម្រើស]
+៧. ទំនាក់ទំនង: [អ៊ីមែល និងលេខទូរស័ព្ទ]
 
-Send this information as a message and you'll receive confirmation within 24 hours!
+ផ្ញើព័ត៌មាននេះជាសារ ហើយអ្នកនឹងទទួលបានការបញ្ជាក់ក្នុងរយៈពេល ២៤ ម៉ោង!
 
-🎯 Ready for a personalized capital strategy session?`;
+🎯 ត្រៀមខ្លួនសម្រាប់វគ្គយុទ្ធសាស្ត្រមូលធនផ្ទាល់ខ្លួនហើយឬនៅ?`;
 
-  await bot.sendMessage(msg.chat.id, bookingMessage);
+  await sendLongMessage(
+    bot,
+    msg.chat.id,
+    bookingMessage,
+    {},
+    MESSAGE_CHUNK_SIZE,
+  );
 }
 
+// Export all functions that need to be accessible from other modules (e.g., index.js)
 module.exports = {
   showBookingSlots,
   bookCapitalClarity,
   bookBusinessReview,
   bookInvestmentEvaluation,
-  bookCustomSession
+  bookCustomSession,
 };
