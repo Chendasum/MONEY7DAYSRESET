@@ -8,19 +8,16 @@ console.log("🚀 Starting 7-Day Money Flow Bot with Full Features...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
 
-// Try to import your command modules (with error handling)
-let dailyCommands, paymentCommands, vipCommands, adminCommands;
-let badgesCommands, quotesCommands, bookingCommands, tierFeatures;
+// Database Models - with fallback
 let User, Progress;
 
 try {
-  // Import Database Models
   User = require("./models/User");
   Progress = require("./models/Progress");
   console.log("✅ Database models loaded");
 } catch (error) {
   console.log("⚠️ Database models not found, using fallback");
-  // Create fallback User/Progress objects
+  // Fallback models
   User = {
     findOne: async () => null,
     findOneAndUpdate: async () => null
@@ -31,8 +28,21 @@ try {
   };
 }
 
+// Command Modules - with error handling
+let dailyCommands, paymentCommands, vipCommands, adminCommands;
+let badgesCommands, quotesCommands, bookingCommands, tierFeatures;
+let marketingCommands, marketingContent, extendedContent, thirtyDayAdmin;
+let previewCommands, freeTools, financialQuiz, toolsTemplates;
+let progressTracker, startCommand;
+
+// Service Modules
+let scheduler, analytics, celebrations, progressBadges;
+let emojiReactions, AccessControl, ContentScheduler, ConversionOptimizer;
+
+// Try to load all modules
 try {
-  // Import Command Modules
+  // Commands
+  startCommand = require("./commands/start");
   dailyCommands = require("./commands/daily");
   paymentCommands = require("./commands/payment");
   vipCommands = require("./commands/vip");
@@ -41,54 +51,49 @@ try {
   quotesCommands = require("./commands/quotes");
   bookingCommands = require("./commands/booking");
   tierFeatures = require("./commands/tier-features");
-  console.log("✅ Command modules loaded");
+  marketingCommands = require("./commands/marketing");
+  marketingContent = require("./commands/marketing-content");
+  extendedContent = require("./commands/extended-content");
+  thirtyDayAdmin = require("./commands/30day-admin");
+  previewCommands = require("./commands/preview");
+  freeTools = require("./commands/free-tools");
+  financialQuiz = require("./commands/financial-quiz");
+  toolsTemplates = require("./commands/tools-templates");
+  progressTracker = require("./commands/progress-tracker");
+  
+  // Services
+  scheduler = require("./services/scheduler");
+  analytics = require("./services/analytics");
+  celebrations = require("./services/celebrations");
+  progressBadges = require("./services/progress-badges");
+  emojiReactions = require("./services/emoji-reactions");
+  AccessControl = require("./services/access-control");
+  ContentScheduler = require("./services/content-scheduler");
+  ConversionOptimizer = require("./services/conversion-optimizer");
+  
+  console.log("✅ Command and service modules loaded");
 } catch (error) {
-  console.log("⚠️ Some command modules not found:", error.message);
+  console.log("⚠️ Some modules not found:", error.message);
 }
 
-const app = express();
+// Utility functions
+const { sendLongMessage } = require("./utils/message-splitter") || { 
+  sendLongMessage: async (bot, chatId, text, options) => {
+    await bot.sendMessage(chatId, text, options);
+  }
+};
 
-// Middleware
+const MESSAGE_CHUNK_SIZE = 800;
+
+// Express app setup
+const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Set UTF-8 headers
+// UTF-8 headers
 app.use((req, res, next) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   next();
-});
-
-// Basic routes
-app.get("/", (req, res) => {
-  console.log("Root endpoint hit");
-  res.json({
-    name: "7-Day Money Flow Reset™ Telegram Bot",
-    status: "Running with Full Features",
-    time: new Date().toISOString(),
-    url: "money7daysreset-production.up.railway.app",
-    features: [
-      "7-Day Program Content",
-      "Payment Processing", 
-      "VIP Programs",
-      "Progress Tracking",
-      "Khmer Language Support"
-    ]
-  });
-});
-
-app.get("/ping", (req, res) => {
-  console.log("Ping endpoint hit");
-  res.send("Pong!");
-});
-
-app.get("/health", (req, res) => {
-  console.log("Health check");
-  res.json({ 
-    status: "OK", 
-    time: new Date().toISOString(),
-    bot_initialized: !!bot,
-    commands_loaded: !!dailyCommands
-  });
 });
 
 // Initialize bot
@@ -98,7 +103,7 @@ if (process.env.BOT_TOKEN) {
     bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
     console.log("✅ Bot initialized");
     
-    // Webhook handler
+    // === WEBHOOK HANDLER ===
     app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
       try {
         console.log("🔔 Webhook received");
@@ -113,11 +118,17 @@ if (process.env.BOT_TOKEN) {
     });
 
     // === BASIC COMMANDS ===
+    
+    // /start command
     bot.onText(/\/start/i, async (msg) => {
       console.log("🚀 [START] User:", msg.from.id);
       
       try {
-        const welcomeMessage = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
+        if (startCommand && startCommand.handle) {
+          await startCommand.handle(msg, bot);
+        } else {
+          // Fallback welcome message
+          const welcomeMessage = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
 
 💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ
 
@@ -129,13 +140,15 @@ if (process.env.BOT_TOKEN) {
 
 /help - ជំនួយពេញលេញ`;
 
-        await bot.sendMessage(msg.chat.id, welcomeMessage);
-        console.log("✅ [START] Welcome message sent");
+          await bot.sendMessage(msg.chat.id, welcomeMessage);
+        }
+        console.log("✅ [START] Welcome sent");
       } catch (error) {
         console.error("❌ [START] Error:", error.message);
       }
     });
 
+    // /help command
     bot.onText(/\/help/i, async (msg) => {
       console.log("🔧 [HELP] User:", msg.from.id);
       
@@ -165,17 +178,22 @@ if (process.env.BOT_TOKEN) {
 🌐 Website: 7daymoneyflow.com`;
 
         await bot.sendMessage(msg.chat.id, helpMessage);
-        console.log("✅ [HELP] Help message sent");
+        console.log("✅ [HELP] Help sent");
       } catch (error) {
         console.error("❌ [HELP] Error:", error.message);
       }
     });
 
+    // /pricing command
     bot.onText(/\/pricing/i, async (msg) => {
       console.log("💰 [PRICING] User:", msg.from.id);
       
       try {
-        const pricingMessage = `💰 7-Day Money Flow Reset™ - តម្លៃពិសេស!
+        if (paymentCommands && paymentCommands.pricing) {
+          await paymentCommands.pricing(msg, bot);
+        } else {
+          // Fallback pricing
+          const pricingMessage = `💰 7-Day Money Flow Reset™ - តម្លៃពិសេស!
 
 🎯 កម្មវិធីសាមញ្ញ (ESSENTIAL)
 💵 តម្លៃ: $24 USD (បញ្ចុះពី $47)
@@ -189,23 +207,24 @@ if (process.env.BOT_TOKEN) {
 ✅ ជំនួយពី @Chendasum
 
 💳 ការទូទាត់:
-• ABA Bank
-• ACLEDA Bank  
-• Wing Payment
+• ABA Bank: 000 194 742
+• ACLEDA Bank: 092 798 169
+• Wing: 102 534 677
 
 🚨 តម្លៃពិសេសនេះមិនមានយូរឡើយ!
 
 👉 /payment - ការណែនាំទូទាត់លម្អិត
-👨‍💼 ទាក់ទង: @Chendasum ម្រាប់ជំនួយ`;
+👨‍💼 ទាក់ទង: @Chendasum សម្រាប់ជំនួយ`;
 
-        await bot.sendMessage(msg.chat.id, pricingMessage);
-        console.log("✅ [PRICING] Pricing message sent");
+          await bot.sendMessage(msg.chat.id, pricingMessage);
+        }
+        console.log("✅ [PRICING] Pricing sent");
       } catch (error) {
         console.error("❌ [PRICING] Error:", error.message);
       }
     });
 
-    // === PAYMENT COMMAND ===
+    // /payment command
     bot.onText(/\/payment/i, async (msg) => {
       console.log("💳 [PAYMENT] User:", msg.from.id);
       
@@ -213,15 +232,17 @@ if (process.env.BOT_TOKEN) {
         if (paymentCommands && paymentCommands.instructions) {
           await paymentCommands.instructions(msg, bot);
         } else {
+          // Fallback payment
           const paymentMessage = `💳 ការណែនាំទូទាត់
 
 🏦 ធនាគារដែលអាចប្រើបាន:
-• ABA Bank: 001 234 567
-• ACLEDA Bank: 002 345 678
-• Wing Payment: 012 345 678
+• ABA Bank: 000 194 742
+• ACLEDA Bank: 092 798 169
+• Wing: 102 534 677
+• ឈ្មោះ: SUM CHENDA
 
 💰 ចំនួនទូទាត់: $24 USD
-📝 ចំណាំ: 7-Day Money Flow Reset
+📝 ចំណាំ: BOT${msg.from.id}
 
 📸 បន្ទាប់ពីទូទាត់:
 1. ថតរូបអេក្រង់បញ្ជាក់ការទូទាត់
@@ -290,18 +311,16 @@ if (process.env.BOT_TOKEN) {
           console.log(`✅ [DAY${day}] Content sent to paid user`);
         } catch (error) {
           console.error(`❌ [DAY${day}] Error:`, error.message);
-          // Fallback - require payment
           await bot.sendMessage(msg.chat.id, `🔒 សូមទូទាត់មុនដើម្បីចូលប្រើថ្ងៃទី ${day}។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។`);
         }
       });
     }
 
-    // === VIP COMMANDS (PAYMENT PROTECTED) ===
+    // === VIP COMMAND ===
     bot.onText(/\/vip/i, async (msg) => {
       console.log("👑 [VIP] User:", msg.from.id);
       
       try {
-        // Check if user has paid for basic program first
         const user = await User.findOne({ 
           $or: [
             { telegramId: msg.from.id },
@@ -349,8 +368,313 @@ if (process.env.BOT_TOKEN) {
         console.log("✅ [VIP] VIP info sent to paid user");
       } catch (error) {
         console.error("❌ [VIP] Error:", error.message);
-        // Fallback - require basic payment
         await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់កម្មវិធីមូលដ្ឋានមុនដើម្បីចូលប្រើ VIP។ ប្រើ /pricing");
+      }
+    });
+
+    // === ADMIN COMMANDS ===
+    bot.onText(/\/admin_users/i, async (msg) => {
+      try {
+        if (adminCommands && adminCommands.showUsers) {
+          await adminCommands.showUsers(msg, bot);
+        }
+      } catch (e) {
+        console.error("Error /admin_users:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    bot.onText(/\/admin_progress (.+)/i, async (msg, match) => {
+      try {
+        if (adminCommands && adminCommands.checkProgress) {
+          await adminCommands.checkProgress(msg, match, bot);
+        }
+      } catch (e) {
+        console.error("Error /admin_progress:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    bot.onText(/\/admin_analytics/i, async (msg) => {
+      try {
+        if (adminCommands && adminCommands.showAnalytics) {
+          await adminCommands.showAnalytics(msg, bot);
+        }
+      } catch (e) {
+        console.error("Error /admin_analytics:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    bot.onText(/\/admin_confirm_payment (.+)/i, async (msg, match) => {
+      try {
+        if (adminCommands && adminCommands.confirmPayment) {
+          await adminCommands.confirmPayment(msg, match, bot);
+        }
+      } catch (e) {
+        console.error("Error /admin_confirm_payment:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    // === EXTENDED CONTENT (Day 8-30) ===
+    bot.onText(/\/extended(\d+)/i, async (msg, match) => {
+      const day = parseInt(match[1]);
+      if (isNaN(day) || day < 8 || day > 30) {
+        await bot.sendMessage(msg.chat.id, "❌ មាតិកាបន្ថែមអាចរកបានសម្រាប់ថ្ងៃទី ៨-៣០ ប៉ុណ្ណោះ។");
+        return;
+      }
+      
+      try {
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+        
+        if (!isPaid) {
+          await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលប្រើមាតិកាបន្ថែម។ ប្រើ /pricing");
+          return;
+        }
+        
+        if (extendedContent && extendedContent.handleExtendedDay) {
+          await extendedContent.handleExtendedDay(msg, bot, day);
+        } else {
+          await bot.sendMessage(msg.chat.id, `📚 ថ្ងៃទី ${day} - មាតិកាបន្ថែម\n\nមាតិកាកំពុងត្រូវបានអភិវឌ្ឍ។`);
+        }
+      } catch (error) {
+        console.error("Error in /extended command:", error);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+      }
+    });
+
+    // === FREE TOOLS ===
+    bot.onText(/\/financial_quiz/i, async (msg) => {
+      try {
+        if (financialQuiz && financialQuiz.startQuiz) {
+          await financialQuiz.startQuiz(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "📊 Financial Quiz ត្រូវបានអភិវឌ្ឍ។");
+        }
+      } catch (e) {
+        console.error("Error /financial_quiz:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    bot.onText(/\/calculate_daily/i, async (msg) => {
+      try {
+        if (freeTools && freeTools.calculateDaily) {
+          await freeTools.calculateDaily(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "🧮 Calculator ត្រូវបានអភិវឌ្ឍ។");
+        }
+      } catch (e) {
+        console.error("Error /calculate_daily:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    // === PREVIEW COMMANDS ===
+    bot.onText(/\/preview$/i, async (msg) => {
+      try {
+        if (previewCommands && previewCommands.preview) {
+          await previewCommands.preview(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "👀 Preview មាតិកាត្រូវបានអភិវឌ្ឍ។");
+        }
+      } catch (e) {
+        console.error("Error /preview:", e);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    // === BADGES (PAID ONLY) ===
+    bot.onText(/\/badges/i, async (msg) => {
+      try {
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+        
+        if (!isPaid) {
+          await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីមើល badges។ ប្រើ /pricing");
+          return;
+        }
+        
+        if (badgesCommands && badgesCommands.showBadges) {
+          await badgesCommands.showBadges(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "🏆 Badges ត្រូវបានអភិវឌ្ឍ។");
+        }
+      } catch (error) {
+        console.error("Error in /badges command:", error);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    // === PROGRESS (PAID ONLY) ===
+    bot.onText(/\/progress/i, async (msg) => {
+      try {
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+        
+        if (!isPaid) {
+          await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីមើលការរីកចម្រើន។ ប្រើ /pricing");
+          return;
+        }
+        
+        if (badgesCommands && badgesCommands.showProgress) {
+          await badgesCommands.showProgress(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "📈 Progress ត្រូវបានអភិវឌ្ឍ។");
+        }
+      } catch (error) {
+        console.error("Error in /progress command:", error);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    // === FAQ COMMAND ===
+    bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
+      try {
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+        
+        let faqMessage;
+        
+        if (!isPaid) {
+          faqMessage = `❓ សំណួរញឹកញាប់ (FAQ)
+
+💰 អំពីតម្លៃ:
+- តម្លៃប៉ុន្មាន? → $24 (Essential)
+- ទូទាត់យ៉ាងដូចម្តេច? → ABA, ACLEDA, Wing
+- បញ្ជាក់ការទូទាត់? → ១-២ ម៉ោង
+
+📱 ពាក្យបញ្ជា:
+- /start - ចាប់ផ្តើម
+- /pricing - មើលតម្លៃ
+- /payment - ការទូទាត់
+- /help - ជំនួយ
+
+👨‍💼 ទាក់ទង: @Chendasum`;
+        } else {
+          faqMessage = `❓ សំណួរញឹកញាប់ (FAQ) - សមាជិក
+
+✅ អ្នកបានទូទាត់រួច!
+
+📚 កម្មវិធី ៧ ថ្ងៃ:
+- /day1 ដល់ /day7
+
+📈 កម្មវិធី 30 ថ្ងៃ:
+- /extended8 ដល់ /extended30
+
+🏆 តាមដាន:
+- /badges - សមិទ្ធផល
+- /progress - ការរីកចម្រើន
+
+👨‍💼 ទាក់ទង: @Chendasum`;
+        }
+        
+        await bot.sendMessage(msg.chat.id, faqMessage);
+      } catch (error) {
+        console.error("Error in FAQ command:", error);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+      }
+    });
+
+    // === STATUS COMMAND ===
+    bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
+      try {
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        if (!user) {
+          await bot.sendMessage(msg.chat.id, "អ្នកមិនទាន់ចុះឈ្មោះ។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
+          return;
+        }
+        
+        const isPaid = user.isPaid || user.is_paid === true || user.is_paid === 't';
+        const progress = await Progress.findOne({ user_id: msg.from.id });
+        
+        let statusMessage = `📊 ស្ថានភាពគណនីរបស់អ្នក:
+
+👤 អ្នកប្រើប្រាស់: ${user.first_name || user.firstName || "មិនស្គាល់"}
+📅 ចូលរួម: ${user.joined_at ? new Date(user.joined_at).toDateString() : "មិនស្គាល់"}
+💰 ស្ថានភាព: ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់ទូទាត់"}`;
+
+        if (isPaid) {
+          statusMessage += `
+📈 ថ្ងៃបច្ចុប្បន្ន: Day ${progress?.currentDay || progress?.current_day || 0}
+🎯 អ្នកអាចប្រើប្រាស់កម្មវិធីបានពេញលេញ!`;
+        } else {
+          statusMessage += `
+🔒 សូមទូទាត់ដើម្បីចូលប្រើ Day 1-7
+💡 ប្រើ /pricing ដើម្បីមើលតម្លៃ`;
+        }
+        
+        await bot.sendMessage(msg.chat.id, statusMessage);
+      } catch (error) {
+        console.error("Error in status command:", error);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការទាញយកស្ថានភាព។");
+      }
+    });
+
+    // === WHOAMI COMMAND ===
+    bot.onText(/\/whoami/i, async (msg) => {
+      try {
+        const user = await User.findOne({ 
+          $or: [
+            { telegramId: msg.from.id },
+            { telegram_id: msg.from.id }
+          ]
+        });
+        
+        const adminId = parseInt(process.env.ADMIN_CHAT_ID);
+        const isAdmin = msg.from.id === adminId;
+        const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+        
+        let response = `🔍 ព័ត៌មានរបស់អ្នក:\n\n`;
+        response += `• Chat ID: ${msg.chat.id}\n`;
+        response += `• User ID: ${msg.from.id}\n`;
+        response += `• ឈ្មោះ: ${msg.from.first_name || "N/A"}\n`;
+        response += `• Username: ${msg.from.username ? "@" + msg.from.username : "N/A"}\n`;
+        response += `• Admin: ${isAdmin ? "✅" : "❌"}\n`;
+        
+        if (user) {
+          response += `• ចុះឈ្មោះ: ✅\n`;
+          response += `• ទូទាត់: ${isPaid ? "✅" : "❌"}\n`;
+        } else {
+          response += `• ចុះឈ្មោះ: ❌\n`;
+        }
+        
+        await bot.sendMessage(msg.chat.id, response);
+      } catch (error) {
+        console.error("Error in whoami command:", error);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
       }
     });
 
@@ -364,6 +688,45 @@ if (process.env.BOT_TOKEN) {
       }
     });
 
+    // === VIP APPLY HANDLER ===
+    bot.on("message", async (msg) => {
+      if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
+        try {
+          const user = await User.findOne({ 
+            $or: [
+              { telegramId: msg.from.id },
+              { telegram_id: msg.from.id }
+            ]
+          });
+
+          const isPaid = user && (user.isPaid || user.is_paid === true || user.is_paid === 't');
+
+          if (!isPaid) {
+            await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី VIP។ ប្រើ /pricing");
+            return;
+          }
+          
+          if (vipCommands && vipCommands.apply) {
+            await vipCommands.apply(msg, bot);
+          } else {
+            await bot.sendMessage(msg.chat.id, `🌟 VIP APPLICATION
+
+សូមផ្ញើព័ត៌មាន:
+1️⃣ ឈ្មោះពេញ
+2️⃣ អាជីវកម្ម
+3️⃣ គោលដៅហិរញ្ញវត្ថុ
+4️⃣ លេខទូរស័ព្ទ
+
+💰 តម្លៃ VIP: $197
+📞 Admin នឹងទាក់ទងអ្នក`);
+          }
+        } catch (error) {
+          console.error("Error handling VIP APPLY:", error);
+          await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+        }
+      }
+    });
+
     console.log("✅ All bot commands registered");
 
   } catch (error) {
@@ -373,17 +736,95 @@ if (process.env.BOT_TOKEN) {
   console.error("❌ No BOT_TOKEN found");
 }
 
-// Start server
+// === BASIC ROUTES ===
+app.get("/", (req, res) => {
+  console.log("Root endpoint hit");
+  res.json({
+    name: "7-Day Money Flow Reset™ Telegram Bot",
+    status: "Running with Full Features",
+    time: new Date().toISOString(),
+    url: "money7daysreset-production.up.railway.app",
+    features: [
+      "7-Day Program Content",
+      "Payment Processing", 
+      "VIP Programs",
+      "Progress Tracking",
+      "Khmer Language Support"
+    ]
+  });
+});
+
+app.get("/ping", (req, res) => {
+  console.log("Ping endpoint hit");
+  res.send("Pong!");
+});
+
+app.get("/health", (req, res) => {
+  console.log("Health check");
+  res.json({ 
+    status: "OK", 
+    time: new Date().toISOString(),
+    bot_initialized: !!bot,
+    commands_loaded: !!dailyCommands
+  });
+});
+
+// === WEBHOOK SETUP FOR RAILWAY ===
+async function setupWebhook() {
+  if (!bot || !process.env.BOT_TOKEN) {
+    console.error("Cannot setup webhook - bot not initialized");
+    return;
+  }
+
+  try {
+    const webhookUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/bot${process.env.BOT_TOKEN}`
+      : `https://money7daysreset-production.up.railway.app/bot${process.env.BOT_TOKEN}`;
+    
+    console.log("Setting webhook to:", webhookUrl);
+    const result = await bot.setWebHook(webhookUrl);
+    console.log("Webhook set result:", result);
+  } catch (error) {
+    console.error("Webhook setup error:", error);
+  }
+}
+
+// === START SERVER ===
 const PORT = process.env.PORT || 5000;
 const HOST = "0.0.0.0";
 
-const server = app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, async () => {
   console.log(`🚀 Enhanced Server running on ${HOST}:${PORT}`);
   console.log(`🌐 URL: https://money7daysreset-production.up.railway.app`);
   console.log(`🎯 Features: 7-Day Program, Payments, VIP, Progress Tracking`);
+  
+  // Setup webhook after server starts
+  await setupWebhook();
 });
 
-// Graceful shutdown
+// === CRON JOBS ===
+if (scheduler) {
+  cron.schedule("0 9 * * *", async () => {
+    console.log("🕘 Sending daily messages...");
+    try {
+      await scheduler.sendDailyMessages(bot);
+    } catch (error) {
+      console.error("Error sending daily messages:", error);
+    }
+  });
+}
+
+if (ContentScheduler) {
+  try {
+    const contentScheduler = new ContentScheduler(bot);
+    contentScheduler.start();
+    console.log("✅ Content scheduler started");
+  } catch (error) {
+    console.error("Content scheduler error:", error);
+  }
+}
+
+// === GRACEFUL SHUTDOWN ===
 process.on("SIGTERM", () => {
   console.log("SIGTERM received");
   server.close(() => process.exit(0));
@@ -394,7 +835,6 @@ process.on("SIGINT", () => {
   server.close(() => process.exit(0));
 });
 
-// Error handling
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err.message);
 });
