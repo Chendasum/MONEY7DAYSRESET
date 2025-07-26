@@ -89,7 +89,7 @@ async function exportTestimonials(msg, bot) {
         user.testimonials.forEach(testimonial => {
           exportData.push({
             userName: user.username || 'Anonymous',
-            telegramId: user.telegramId,
+            telegram_id: user.telegram_id,
             tier: user.tier || 'essential',
             dayNumber: testimonial.dayNumber,
             content: testimonial.content,
@@ -231,7 +231,7 @@ async function showTestimonialRequests(msg, bot) {
             requestStats.pending++;
             requestStats.pendingUsers.push({
               userName: user.username || 'Anonymous',
-              telegramId: user.telegramId,
+              telegram_id: user.telegram_id,
               dayNumber: request.dayNumber,
               requestedAt: request.requestedAt
             });
@@ -255,7 +255,7 @@ async function showTestimonialRequests(msg, bot) {
 ${Object.entries(requestStats.byDay).map(([day, count]) => `• Day ${day}: ${count} requests`).join('\n')}
 
 ⏰ *Pending Responses:*
-${requestStats.pendingUsers.slice(0, 10).map(user => `• ${user.userName} (${user.telegramId}) - Day ${user.dayNumber}`).join('\n')}
+${requestStats.pendingUsers.slice(0, 10).map(user => `• ${user.userName} (${user.telegram_id}) - Day ${user.dayNumber}`).join('\n')}
 
 ${requestStats.pendingUsers.length > 10 ? `... and ${requestStats.pendingUsers.length - 10} more` : ''}
 
@@ -300,7 +300,7 @@ async function searchTestimonials(msg, match, bot) {
           if (testimonial.content.toLowerCase().includes(keyword)) {
             searchResults.push({
               userName: user.username || 'Anonymous',
-              telegramId: user.telegramId,
+              telegram_id: user.telegram_id,
               tier: user.tier || 'essential',
               dayNumber: testimonial.dayNumber,
               content: testimonial.content,
@@ -366,7 +366,7 @@ async function viewTestimonialsByTier(msg, match, bot) {
         user.testimonials.forEach(testimonial => {
           tierTestimonials.push({
             userName: user.username || 'Anonymous',
-            telegramId: user.telegramId,
+            telegram_id: user.telegram_id,
             dayNumber: testimonial.dayNumber,
             content: testimonial.content,
             createdAt: testimonial.createdAt
@@ -414,7 +414,7 @@ async function getRecentTestimonials(limit = 5) {
       user.testimonials.forEach(testimonial => {
         recentTestimonials.push({
           userName: user.username || 'Anonymous',
-          telegramId: user.telegramId,
+          telegram_id: user.telegram_id,
           tier: user.tier || 'essential',
           dayNumber: testimonial.dayNumber,
           content: testimonial.content,
