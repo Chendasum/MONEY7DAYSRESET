@@ -1,11 +1,9 @@
 const User = require("../models/User");
 const Progress = require("../models/Progress");
-const { sendLongMessage } = require("../utils/message-splitter"); // Utility to split long messages
+const celebrations = require("../services/celebrations");
+const emojiReactions = require("../services/emoji-reactions");
+const quotesCommands = require("./quotes");
 
-// Define a consistent message chunk size for splitting messages (Telegram max is 4096)
-const MESSAGE_CHUNK_SIZE = 3500; // Use larger chunks to minimize splits while staying under Telegram limit
-
-// Daily lesson content for the 7-Day Money Flow Reset program
 const dailyMessages = {
    1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
 ---
@@ -1174,86 +1172,43 @@ Expense Calculator:
 បញ្ចប់? ចុច /day7`,
 };
 
-/**
- * Handles the daily lesson command for the 7-Day Money Flow Reset program.
- * It checks user access, updates progress, and sends the appropriate daily content.
- * @param {Object} msg - The Telegram message object.
- * @param {Array} match - The regex match array from bot.onText.
- * @param {Object} bot - The Telegram bot instance.
- */
 async function handle(msg, match, bot) {
-   const dayNumber = parseInt(match[1]); // Extract day number from the command (e.g., /day1 -> 1)
+   const dayNumber = parseInt(match[1]);
    const userId = msg.from.id;
    const chatId = msg.chat.id;
-   
-   console.log("=== DAILY HANDLER CALLED ===", { user_id: userId,
-     dayNumber: dayNumber,
-     timestamp: new Date().toISOString()
-    });
 
    try {
-      // Find the user in the database
-      const user = await User.findOne({ telegram_id: userId });
+      // Check if user exists
+      const user = await User.findOne({ telegramId: userId });
       if (!user) {
          await bot.sendMessage(
             chatId,
-            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។", // Changed "ចុច" to "ប្រើពាក្យបញ្ជា" for consistency
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
          );
          return;
       }
 
-      // Check if user has paid access before proceeding - handle PostgreSQL boolean conversion
-      const isPaid = user.is_paid === true || user.is_paid === 't' || user.is_paid === 1;
-      
-      // Force console log to appear
-      const debugInfo = { user_id: userId,
-         is_paid_raw: user.is_paid,
-         is_paid_converted: isPaid,
-         is_paid_type: typeof user.is_paid,
-         tier: user.tier,
-         timestamp: new Date().toISOString()
-       };
-      console.log("=== DAILY COMMAND DEBUG ===", JSON.stringify(debugInfo, null, 2));
-      
-      if (!isPaid) {
-         console.log("=== PAYMENT CHECK FAILED ===", userId);
-         await bot.sendMessage(
-            chatId,
-            "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។"
-         );
-         return;
-      }
-      
-      console.log("=== PAYMENT CHECK PASSED ===", userId);
-
-      // Find the user's progress in the database
-      const progress = await Progress.findOne({ user_id: userId });
+      // Check if user has access to this day (skip day 0)
+      const progress = await Progress.findOne({ userId: userId });
       if (!progress) {
          await bot.sendMessage(
             chatId,
-            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។", // Changed "ចុច" to "ប្រើពាក្យបញ្ជា" for consistency
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
          );
          return;
       }
 
-      // URGENT FIX: Auto-set ready_for_day_1 for paid users to fix customer access
-      if (dayNumber === 1 && !progress.ready_for_day_1) {
-         console.log(`🚨 URGENT: Setting ready_for_day_1=true for paid user ${userId}`);
-         await Progress.findOneAndUpdate(
-            { user_id: userId },
-            { ready_for_day_1: true },
-            { upsert: true }
+      // For day 1, check if user is ready
+      if (dayNumber === 1 && !progress.readyForDay1) {
+         await bot.sendMessage(
+            chatId,
+            "សូមសរសេរ 'READY FOR DAY 1' ដើម្បីចាប់ផ្តើម",
          );
-         // Refresh progress data
-         const updatedProgress = await Progress.findOne({ user_id: userId });
-         if (updatedProgress) {
-            Object.assign(progress, updatedProgress);
-         }
+         return;
       }
 
-      // For subsequent days (Day 2-7), ensure the user has completed the previous day
-      // and is not trying to skip ahead.
-      if (dayNumber > 1 && dayNumber > progress.current_day) {
+      // For other days, check progression
+      if (dayNumber > 1 && dayNumber > progress.currentDay) {
          await bot.sendMessage(
             chatId,
             "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចាប់ផ្តើមថ្ងៃបន្ទាប់។",
@@ -1261,80 +1216,97 @@ async function handle(msg, match, bot) {
          return;
       }
 
-      // If the daily message content exists for the requested day
+      // Send daily message with emoji reactions
       if (dailyMessages[dayNumber]) {
-         // Send the main content for the day using the message splitter utility
-         await sendLongMessage(
-            bot,
-            chatId,
-            dailyMessages[dayNumber],
-            {},
-            500 // delay between chunks in milliseconds
-         );
+         // Send lesson start emoji reaction
+         const startReaction = emojiReactions.lessonStartReaction(dayNumber);
+         await bot.sendMessage(chatId, startReaction);
 
-         // Update the user's progress: mark the day as accessed, update last accessed day,
-         // calculate completion percentage, and update last active timestamp.
-         await Progress.findOneAndUpdate(
-            { user_id: userId  },
-            {
-               currentDay: Math.max(dayNumber, progress.currentDay || 0), // Update current day
-               [`day${dayNumber}Completed`]: false, // Mark day as accessed but not completed
-               updatedAt: new Date(), // Update timestamp
-            },
-            { upsert: true }, // Create if not exists
-         );
+         // Short delay before main content
+         setTimeout(async () => {
+            await bot.sendMessage(chatId, dailyMessages[dayNumber]);
+         }, 500);
 
-         // Also update the user's general last active timestamp in the User model
+         // Add celebration animation for accessing new day
+         setTimeout(async () => {
+            const accessCelebration = celebrations.quickCelebration(
+               `ថ្ងៃទី ${dayNumber} ចាប់ផ្តើម!`,
+            );
+            await bot.sendMessage(chatId, accessCelebration);
+         }, 1500);
+
+         // Send daily wisdom quote after 3 seconds
+         setTimeout(async () => {
+            await quotesCommands.sendDayQuote(bot, chatId, dayNumber);
+         }, 3000);
+
+         // Update completion tracking after 1 second
+         setTimeout(async () => {
+            // Update completion tracking
+            await Progress.findOneAndUpdate(
+               { userId: userId },
+               {
+                  [`day${dayNumber}Accessed`]: true,
+                  lastAccessedDay: dayNumber,
+                  completionPercentage: Math.floor((dayNumber / 7) * 100),
+                  lastActive: new Date(),
+               },
+            );
+         }, 1000);
+
+         // Send upgrade hint for Day 7 after 8 seconds
+         setTimeout(async () => {
+            if (dayNumber === 7) {
+               const upgradeHint = `🤫 ជំហានបន្ទាប់សម្រាប់អ្នកដែលត្រៀមខ្លួនរួចរាល់...
+        
+👑 VIP Capital Strategy រង់ចាំអ្នកដែលបង្ហាញការប្តេជ្ញាចិត្ត
+
+🏛️ Capital Clarity Session - ដើម្បីអ្នកដែលចង់ដឹងពីការគ្រប់គ្រងមូលធនកម្រិតខ្ពស់
+
+ចង់ដឹងបន្ថែម? ទំនាក់ទំនង @Chendasum
+🌐 More info: 7daymoneyflow.com`;
+
+               await bot.sendMessage(chatId, upgradeHint);
+            }
+         }, 8000); // 8 seconds after the main content
+
+         // Update last active
          await User.findOneAndUpdate(
-            { telegram_id: userId },
-            { last_active: new Date() },
+            { telegramId: userId },
+            { lastActive: new Date() },
          );
       } else {
-         // If content for the requested day is not found
          await bot.sendMessage(chatId, "រកមិនឃើញខ្លឹមសារសម្រាប់ថ្ងៃនេះ។");
       }
    } catch (error) {
-      // Log and send a generic error message to the user
       console.error("Error in daily command:", error);
-      await bot.sendMessage(
-         chatId,
-         "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។", // Changed "សាកល្បង" to "ព្យាយាម" for consistency
-      );
+      await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។");
    }
 }
 
-/**
- * Marks a specific day as complete for a user in the database.
- * This function is typically called after a user sends a "DAY X COMPLETE" message.
- * @param {number} userId - The Telegram user ID.
- * @param {number} dayNumber - The day number to mark as complete.
- * @returns {boolean} - True if the update was successful, false otherwise.
- */
+// Add this function after the handle function
 async function markDayComplete(userId, dayNumber) {
    try {
       const updateData = {
-         [`day${dayNumber}Completed`]: true, // Mark this specific day as completed
-         completionPercentage: Math.floor((dayNumber / 7) * 100), // Recalculate completion percentage
-         last_active: new Date(), // Update last active timestamp
+         [`day${dayNumber}Completed`]: true,
+         completionPercentage: Math.floor((dayNumber / 7) * 100),
+         lastActive: new Date(),
       };
 
-      // If Day 7 is being completed, mark the entire program as complete
+      // If completing day 7, mark program as complete
       if (dayNumber === 7) {
          updateData.programCompleted = true;
-         updateData.completionDate = new Date(); // Record program completion date
+         updateData.completionDate = new Date();
       }
 
-      // Find and update the user's progress document
-      await Progress.findOneAndUpdate({ user_id: userId }, updateData, {
-         new: true,
-      });
+      await Progress.findOneAndUpdate({ userId: userId }, updateData);
 
-      return true; // Indicate success
+      return true;
    } catch (error) {
       console.error("Error marking day complete:", error);
-      return false; // Indicate failure
+      return false;
    }
 }
 
-// Export the functions to be used by other modules (e.g., index.js)
+// Export the new function
 module.exports = { handle, dailyMessages, markDayComplete };
