@@ -54,11 +54,11 @@ Use /whoami to see your information.`);
     const recentUsers = users.slice(-10); // Show last 10 users
     
     for (const user of recentUsers) {
-      const status = user.isPaid ? "✅ PAID" : "❌ UNPAID";
-      const vipStatus = user.isVip ? " 🌟 VIP" : "";
-      usersList += `• ID: ${user.telegramId} | ${status}${vipStatus}\n`;
-      usersList += `  Name: ${user.firstName || 'N/A'} ${user.lastName || ''}\n`;
-      usersList += `  Joined: ${user.joinedAt ? new Date(user.joinedAt).toDateString() : 'Unknown'}\n\n`;
+      const status = user.is_paid ? "✅ PAID" : "❌ UNPAID";
+      const vipStatus = user.is_vip ? " 🌟 VIP" : "";
+      usersList += `• ID: ${user.telegram_id} | ${status}${vipStatus}\n`;
+      usersList += `  Name: ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+      usersList += `  Joined: ${user.joined_at ? new Date(user.joined_at).toDateString() : 'Unknown'}\n\n`;
     }
     
     await bot.sendMessage(msg.chat.id, usersList);
@@ -83,8 +83,8 @@ Use /whoami to see your information.`);
   const userId = parseInt(match[1]);
   
   try {
-    const user = await User.findOne({ telegramId: userId });
-    const progress = await Progress.findOne({ userId: userId });
+    const user = await User.findOne({ telegram_id: userId });
+    const progress = await Progress.findOne({ user_id: userId });
     
     if (!user) {
       await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់ ID: ${userId}`);
@@ -93,18 +93,18 @@ Use /whoami to see your information.`);
     
     let progressReport = `📊 USER PROGRESS REPORT\n\n`;
     progressReport += `👤 USER INFO:\n`;
-    progressReport += `• ID: ${user.telegramId}\n`;
-    progressReport += `• Name: ${user.firstName || 'N/A'} ${user.lastName || ''}\n`;
-    progressReport += `• Payment: ${user.isPaid ? '✅ PAID' : '❌ UNPAID'}\n`;
-    progressReport += `• Tier: ${user.tier || 'essential'} ($${user.tierPrice || 47})\n`;
-    progressReport += `• VIP: ${user.isVip ? '🌟 YES' : '❌ NO'}\n`;
+    progressReport += `• ID: ${user.telegram_id}\n`;
+    progressReport += `• Name: ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+    progressReport += `• Payment: ${user.is_paid ? '✅ PAID' : '❌ UNPAID'}\n`;
+    progressReport += `• Tier: ${user.tier || 'essential'} ($${user.tier_price || 47})\n`;
+    progressReport += `• VIP: ${user.is_vip ? '🌟 YES' : '❌ NO'}\n`;
     progressReport += `• Joined: ${user.createdAt.toDateString()}\n`;
-    progressReport += `• Last Active: ${user.lastActive ? user.lastActive.toDateString() : 'Never'}\n\n`;
+    progressReport += `• Last Active: ${user.last_active ? user.last_active.toDateString() : 'Never'}\n\n`;
     
     if (progress) {
       progressReport += `📈 PROGRAM PROGRESS:\n`;
       progressReport += `• Current Day: ${progress.currentDay}\n`;
-      progressReport += `• Ready for Day 1: ${progress.readyForDay1 ? '✅ YES' : '❌ NO'}\n`;
+      progressReport += `• Ready for Day 1: ${progress.ready_for_day_1 ? '✅ YES' : '❌ NO'}\n`;
       progressReport += `• Days Completed: ${progress.daysCompleted.length}\n`;
       progressReport += `• Program Complete: ${progress.programComplete ? '✅ YES' : '❌ NO'}\n`;
       
@@ -219,12 +219,12 @@ async function showActivity(msg, bot) {
     
     const activeUsers = await User.findAll({
       where: {
-        lastActive: {
+        last_active: {
           gte: today
         }
       },
       orderBy: {
-        lastActive: 'desc'
+        last_active: 'desc'
       }
     });
     
@@ -234,11 +234,11 @@ async function showActivity(msg, bot) {
     if (activeUsers.length > 0) {
       activityReport += `👥 ACTIVE USER LIST:\n`;
       for (const user of activeUsers) {
-        const status = user.isPaid ? "✅" : "❌";
-        const vipStatus = user.isVip ? " 🌟" : "";
-        activityReport += `• ${status} ID: ${user.telegramId}${vipStatus}\n`;
-        activityReport += `  ${user.firstName || 'N/A'} ${user.lastName || ''}\n`;
-        activityReport += `  Last: ${user.lastActive.toLocaleTimeString()}\n\n`;
+        const status = user.is_paid ? "✅" : "❌";
+        const vipStatus = user.is_vip ? " 🌟" : "";
+        activityReport += `• ${status} ID: ${user.telegram_id}${vipStatus}\n`;
+        activityReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+        activityReport += `  Last: ${user.last_active.toLocaleTimeString()}\n\n`;
       }
     } else {
       activityReport += `😴 No active users today\n`;
@@ -265,25 +265,25 @@ async function showFollowup(msg, bot) {
     // Users who haven't been active for 3+ days (ALL users, not just paid)
     const inactiveUsers = await User.findAll({
       where: {
-        lastActive: {
+        last_active: {
           lt: threeDaysAgo
         }
       },
       orderBy: {
-        lastActive: 'desc'
+        last_active: 'desc'
       }
     });
     
     // Users who paid but haven't started
     const paidButNotStarted = await User.findAll({
       where: {
-        isPaid: true
+        is_paid: true
       }
     });
     
     const notStartedUsers = [];
     for (const user of paidButNotStarted) {
-      const progress = await Progress.findOne({ userId: user.telegramId });
+      const progress = await Progress.findOne({ user_id: user.telegram_id });
       if (!progress || progress.currentDay === -1) {
         notStartedUsers.push(user);
       }
@@ -294,10 +294,10 @@ async function showFollowup(msg, bot) {
     followupReport += `😴 INACTIVE USERS (3+ days):\n`;
     if (inactiveUsers.length > 0) {
       for (const user of inactiveUsers.slice(0, 10)) {
-        const paymentStatus = user.isPaid ? '✅' : '❌';
-        followupReport += `• ${paymentStatus} ID: ${user.telegramId}\n`;
-        followupReport += `  ${user.firstName || 'N/A'} ${user.lastName || ''}\n`;
-        followupReport += `  Last: ${user.lastActive.toDateString()}\n\n`;
+        const paymentStatus = user.is_paid ? '✅' : '❌';
+        followupReport += `• ${paymentStatus} ID: ${user.telegram_id}\n`;
+        followupReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+        followupReport += `  Last: ${user.last_active.toDateString()}\n\n`;
       }
     } else {
       followupReport += `✅ No inactive users\n\n`;
@@ -306,8 +306,8 @@ async function showFollowup(msg, bot) {
     followupReport += `🚀 PAID BUT NOT STARTED:\n`;
     if (notStartedUsers.length > 0) {
       for (const user of notStartedUsers) {
-        followupReport += `• ID: ${user.telegramId}\n`;
-        followupReport += `  ${user.firstName || 'N/A'} ${user.lastName || ''}\n`;
+        followupReport += `• ID: ${user.telegram_id}\n`;
+        followupReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
         followupReport += `  Paid: ${user.paidAt ? user.paidAt.toDateString() : 'Unknown'}\n\n`;
       }
     } else {
@@ -338,14 +338,14 @@ async function sendMessage(msg, match, bot) {
   }
   
   try {
-    const user = await User.findOne({ telegramId: userId });
+    const user = await User.findOne({ telegram_id: userId });
     if (!user) {
       await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់ ID: ${userId}`);
       return;
     }
     
     await bot.sendMessage(userId, `📧 សារពី Admin:\n\n${message}`);
-    await bot.sendMessage(msg.chat.id, `✅ សារបានផ្ញើទៅ ${user.firstName || 'User'} (ID: ${userId})`);
+    await bot.sendMessage(msg.chat.id, `✅ សារបានផ្ញើទៅ ${user.first_name || 'User'} (ID: ${userId})`);
   } catch (error) {
     console.error('Error sending admin message:', error);
     await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការផ្ញើសារ។');
@@ -373,14 +373,14 @@ Use /whoami to see your information.`);
     const amount = parseInt(fullCommand[3]) || 47;
     
     const user = await User.findOneAndUpdate(
-      { telegramId: targetUserId },
+      { telegram_id: targetUserId  },
       { 
-        isPaid: true, 
-        paymentDate: new Date(), 
-        transactionId: `ADMIN_CONFIRM_${Date.now()}`,
+        is_paid: true, 
+        payment_date: new Date(), 
+        transaction_id: `ADMIN_CONFIRM_${Date.now()}`,
         tier: tier,
-        tierPrice: amount,
-        isVip: tier === 'vip'
+        tier_price: amount,
+        is_vip: tier === 'vip'
       },
       { upsert: false }
     );
@@ -390,7 +390,7 @@ Use /whoami to see your information.`);
       return;
     }
     
-    await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.firstName || 'User'} (ID: ${targetUserId})
+    await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.first_name || 'User'} (ID: ${targetUserId})
 🎯 Tier: ${tier.toUpperCase()}
 💰 Amount: $${amount}
 🚀 User can now access tier-specific features`);
@@ -433,14 +433,14 @@ async function exportData(msg, bot) {
     let csvContent = "UserID,FirstName,LastName,IsPaid,IsVip,CreatedAt,LastActive,PaidAt,CurrentDay,DaysCompleted,ProgramComplete\n";
     
     users.forEach(user => {
-      const progress = progressLookup[user.telegramId];
-      csvContent += `${user.telegramId},`;
-      csvContent += `"${user.firstName || ''}",`;
-      csvContent += `"${user.lastName || ''}",`;
-      csvContent += `${user.isPaid ? 'Yes' : 'No'},`;
-      csvContent += `${user.isVip ? 'Yes' : 'No'},`;
+      const progress = progressLookup[user.telegram_id];
+      csvContent += `${user.telegram_id},`;
+      csvContent += `"${user.first_name || ''}",`;
+      csvContent += `"${user.last_name || ''}",`;
+      csvContent += `${user.is_paid ? 'Yes' : 'No'},`;
+      csvContent += `${user.is_vip ? 'Yes' : 'No'},`;
       csvContent += `${user.createdAt.toISOString()},`;
-      csvContent += `${user.lastActive ? user.lastActive.toISOString() : ''},`;
+      csvContent += `${user.last_active ? user.last_active.toISOString() : ''},`;
       csvContent += `${user.paidAt ? user.paidAt.toISOString() : ''},`;
       csvContent += `${progress ? progress.currentDay : -1},`;
       csvContent += `"${progress ? progress.daysCompleted.join(';') : ''}",`;
