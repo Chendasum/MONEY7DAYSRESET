@@ -239,28 +239,28 @@ class MarketingAutomation {
         
         // Welcome sequence
         if (daysSinceSignup === 0) {
-          await this.sendWelcomeSequence(bot, user.telegramId, user.telegramId);
+          await this.sendWelcomeSequence(bot, user.telegram_id, user.telegram_id);
         }
         
         // Nurture sequence for unpaid users
-        if (!user.isPaid && [1, 3, 7].includes(daysSinceSignup)) {
-          await this.sendNurtureSequence(bot, user.telegramId, user.telegramId, daysSinceSignup);
+        if (!user.is_paid && [1, 3, 7].includes(daysSinceSignup)) {
+          await this.sendNurtureSequence(bot, user.telegram_id, user.telegram_id, daysSinceSignup);
         }
         
         // Upsell campaigns for paid users
-        if (user.isPaid && user.tier && daysSinceSignup % 14 === 0) {
-          await this.sendUpsellCampaign(bot, user.telegramId, user.telegramId, user.tier);
+        if (user.is_paid && user.tier && daysSinceSignup % 14 === 0) {
+          await this.sendUpsellCampaign(bot, user.telegram_id, user.telegram_id, user.tier);
         }
         
         // Retention campaigns
-        const daysSinceActive = Math.floor((now - user.lastActive) / (1000 * 60 * 60 * 24));
-        if (user.isPaid && [3, 7].includes(daysSinceActive)) {
-          await this.sendRetentionCampaign(bot, user.telegramId, user.telegramId, daysSinceActive);
+        const daysSinceActive = Math.floor((now - user.last_active) / (1000 * 60 * 60 * 24));
+        if (user.is_paid && [3, 7].includes(daysSinceActive)) {
+          await this.sendRetentionCampaign(bot, user.telegram_id, user.telegram_id, daysSinceActive);
         }
         
         // Referral campaigns (monthly for active users)
-        if (user.isPaid && daysSinceSignup % 30 === 0 && daysSinceActive < 7) {
-          await this.sendReferralCampaign(bot, user.telegramId, user.telegramId);
+        if (user.is_paid && daysSinceSignup % 30 === 0 && daysSinceActive < 7) {
+          await this.sendReferralCampaign(bot, user.telegram_id, user.telegram_id);
         }
       }
     } catch (error) {
