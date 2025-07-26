@@ -243,16 +243,50 @@ if (process.env.BOT_TOKEN) {
             return;
           }
 
-          // User has paid - show content
-          const dayMessage = `📚 ថ្ងៃទី ${day} - កម្មវិធីពេញលេញ
+          // User has paid - show content based on day
+          let dayContent = '';
+          
+          // Check if admin has set custom content
+          if (global[`day${day}Content`]) {
+            dayContent = global[`day${day}Content`];
+          } else {
+            // Default content for each day
+            if (day === 1) {
+              dayContent = `📚 Day 1: ស្គាល់ Money Flow របស់អ្នក
+
+🎯 សូមស្វាគមន៍មកកាន់ថ្ងៃទី១!
+
+📝 មេរៀនថ្ងៃនេះ:
+• តើ Money Flow គឺជាអ្វី?
+• ហេតុអ្វីវាសំខាន់សម្រាប់អ្នក
+• របៀបចាប់ផ្តើមតាមដាន
+
+💡 សំខាន់: សូមអានឱ្យបានល្អិតល្អន់ និងអនុវត្តភ្លាមៗ
+
+[Add your full Day 1 content here...]
+
+✅ បន្ទាប់ពីបញ្ចប់ សូមសរសេរ "DAY 1 COMPLETE"`;
+            } else if (day === 2) {
+              dayContent = `📚 Day 2: ស្វែងរក Money Leaks
+
+🎯 ថ្ងៃទី២ - រកមើលកន្លែងដែលលុយលេចធ្លាយ
+
+[Add your full Day 2 content here...]
+
+✅ បន្ទាប់ពីបញ្ចប់ សូមសរសេរ "DAY 2 COMPLETE"`;
+            } else {
+              dayContent = `📚 ថ្ងៃទី ${day} - កម្មវិធីពេញលេញ
 
 🎯 សូមស្វាគមន៍! អ្នកបានទូទាត់រួចហើយ
 
 មាតិកាថ្ងៃទី ${day} នឹងត្រូវបានផ្ញើមកអ្នកឆាប់ៗនេះ។
 
 📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
+            }
+          }
           
-          await bot.sendMessage(msg.chat.id, dayMessage);
+          // Use sendLongMessage for content that might be long
+          await sendLongMessage(bot, msg.chat.id, dayContent);
           console.log(`✅ [DAY${day}] Content sent to paid user`);
         } catch (error) {
           console.error(`❌ [DAY${day}] Error:`, error.message);
