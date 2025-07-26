@@ -11,16 +11,16 @@ async function getStats() {
     stats.totalUsers = totalUsersResult[0].count;
     
     // Paid users
-    const paidUsersResult = await db.select({ count: count() }).from(users).where(eq(users.isPaid, true));
+    const paidUsersResult = await db.select({ count: count() }).from(users).where(eq(users.is_paid, true));
     stats.paidUsers = paidUsersResult[0].count;
     
     // VIP users
-    const vipUsersResult = await db.select({ count: count() }).from(users).where(eq(users.isVip, true));
+    const vipUsersResult = await db.select({ count: count() }).from(users).where(eq(users.is_vip, true));
     stats.vipUsers = vipUsersResult[0].count;
     
     // Active users (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const activeUsersResult = await db.select({ count: count() }).from(users).where(gte(users.lastActive, sevenDaysAgo));
+    const activeUsersResult = await db.select({ count: count() }).from(users).where(gte(users.last_active, sevenDaysAgo));
     stats.activeUsers = activeUsersResult[0].count;
     
     // Program completion rates
@@ -59,7 +59,7 @@ async function getStats() {
     
     // Handle legacy users without tier info - paid users without tier assumed to be essential
     const legacyPaidUsersResult = await db.select({ count: count() }).from(users)
-      .where(and(eq(users.isPaid, true), or(isNull(users.tier), eq(users.tier, 'free'))));
+      .where(and(eq(users.is_paid, true), or(isNull(users.tier), eq(users.tier, 'free'))));
     
     const essentialUsers = essentialTierResult[0].count + legacyPaidUsersResult[0].count;
     const premiumUsers = premiumTierResult[0].count;
@@ -87,7 +87,7 @@ async function getStats() {
     
     // Recent sign-ups (last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentSignupsResult = await db.select({ count: count() }).from(users).where(gte(users.joinedAt, thirtyDaysAgo));
+    const recentSignupsResult = await db.select({ count: count() }).from(users).where(gte(users.joined_at, thirtyDaysAgo));
     stats.recentSignups = recentSignupsResult[0].count;
     
     // Monthly recurring revenue by tier
@@ -96,20 +96,20 @@ async function getStats() {
     
     const monthlyEssentialResult = await db.select({ count: count() }).from(users)
       .where(eq(users.tier, 'essential'))
-      .where(gte(users.paymentDate, currentMonth));
+      .where(gte(users.payment_date, currentMonth));
     const monthlyPremiumResult = await db.select({ count: count() }).from(users)
       .where(eq(users.tier, 'premium'))
-      .where(gte(users.paymentDate, currentMonth));
+      .where(gte(users.payment_date, currentMonth));
     const monthlyVipResult = await db.select({ count: count() }).from(users)
       .where(eq(users.tier, 'vip'))
-      .where(gte(users.paymentDate, currentMonth));
+      .where(gte(users.payment_date, currentMonth));
     
     // Handle legacy paid users for monthly calculation
     const monthlyLegacyResult = await db.select({ count: count() }).from(users)
       .where(and(
-        eq(users.isPaid, true),
+        eq(users.is_paid, true),
         or(isNull(users.tier), eq(users.tier, 'free')),
-        gte(users.paymentDate, currentMonth)
+        gte(users.payment_date, currentMonth)
       ));
     
     const monthlyEssential = monthlyEssentialResult[0].count + monthlyLegacyResult[0].count;
@@ -134,7 +134,7 @@ async function getStats() {
 async function getUserJourney(userId) {
   try {
     const userResult = await db.select().from(users).where(eq(users.telegramId, userId));
-    const progressResult = await db.select().from(progress).where(eq(progress.userId, userId));
+    const progressResult = await db.select().from(progress).where(eq(progress.user_id, userId));
     
     if (!userResult || userResult.length === 0 || !progressResult || progressResult.length === 0) {
       return null;
@@ -145,11 +145,11 @@ async function getUserJourney(userId) {
     
     const journey = {
       user: {
-        name: user.firstName || 'Anonymous',
-        joinedAt: user.joinedAt,
-        isPaid: user.isPaid,
-        isVip: user.isVip,
-        lastActive: user.lastActive
+        name: user.first_name || 'Anonymous',
+        joined_at: user.joined_at,
+        is_paid: user.is_paid,
+        is_vip: user.is_vip,
+        last_active: user.last_active
       },
       progress: {
         currentDay: prog.currentDay,
@@ -187,14 +187,14 @@ async function getDailyReport() {
     today.setHours(0, 0, 0, 0);
     
     const newUsersResult = await db.select({ count: count() }).from(users)
-      .where(gte(users.joinedAt, today));
+      .where(gte(users.joined_at, today));
     
     const newPaymentsResult = await db.select({ count: count() }).from(users)
-      .where(gte(users.paymentDate, today))
-      .where(eq(users.isPaid, true));
+      .where(gte(users.payment_date, today))
+      .where(eq(users.is_paid, true));
     
     const activeUsersResult = await db.select({ count: count() }).from(users)
-      .where(gte(users.lastActive, today));
+      .where(gte(users.last_active, today));
     
     const report = {
       date: today.toISOString().split('T')[0],
