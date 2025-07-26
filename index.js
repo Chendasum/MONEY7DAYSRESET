@@ -1,4 +1,21 @@
-require("dotenv").config();
+const programCelebration = celebrations?.programCompleteCelebration
+          ? celebrations.programCompleteCelebration(`🎯 ជំហានបន្ទាប់:
+1️⃣ អនុវត្តផែនការ ៣០ ថ្ងៃ
+2️⃣ ពិនិត្យដំណើរការប្រចាំសប្តាហ៍
+3️⃣ មានសំណួរ? ទាក់ទងមកបាន!
+
+🚀 ចង់បន្តកម្រិតបន្ទាប់?
+VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
+សួរ: "VIP PROGRAM INFO"`)
+          : `🎊 អបអរសាទរ! អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™!
+
+🎯 ជំហានបន្ទាប់:
+1️⃣ អនុវត្តផែនការ ៣០ ថ្ងៃ
+2️⃣ ពិនិត្យដំណើរការប្រចាំសប្តាហ៍
+3️⃣ មានសំណួរ? ទាក់ទងមកបាន!
+
+🚀 ចង់បន្តកម្រិតបន្ទាប់?
+VIP Advanced Program ចាប់ផ្require("dotenv").config();
 
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
@@ -12,38 +29,71 @@ console.log("PORT:", process.env.PORT || 5000);
 const User = require("./models/User");
 const Progress = require("./models/Progress");
 
-// Command Modules
-const startCommand = require("./commands/start");
-const dailyCommands = require("./commands/daily");
-const paymentCommands = require("./commands/payment");
-const vipCommands = require("./commands/vip");
-const adminCommands = require("./commands/admin");
-const badgesCommands = require("./commands/badges");
-const quotesCommands = require("./commands/quotes");
-const bookingCommands = require("./commands/booking");
-const tierFeatures = require("./commands/tier-features");
-const marketingCommands = require("./commands/marketing");
-const marketingContent = require("./commands/marketing-content");
-const extendedContent = require("./commands/extended-content");
-const thirtyDayAdmin = require("./commands/30day-admin");
-const previewCommands = require("./commands/preview");
-const freeTools = require("./commands/free-tools");
-const financialQuiz = require("./commands/financial-quiz");
-const toolsTemplates = require("./commands/tools-templates");
-const progressTracker = require("./commands/progress-tracker");
+// Command Modules - with error handling for each module
+let startCommand, dailyCommands, paymentCommands, vipCommands, adminCommands;
+let badgesCommands, quotesCommands, bookingCommands, tierFeatures;
+let marketingCommands, marketingContent, extendedContent;
+let previewCommands, freeTools, financialQuiz, toolsTemplates;
+let progressTracker;
 
-// Service Modules
-const scheduler = require("./services/scheduler");
-const analytics = require("./services/analytics");
-const celebrations = require("./services/celebrations");
-const progressBadges = require("./services/progress-badges");
-const emojiReactions = require("./services/emoji-reactions");
-const AccessControl = require("./services/access-control");
-const ContentScheduler = require("./services/content-scheduler");
-const ConversionOptimizer = require("./services/conversion-optimizer");
+try { startCommand = require("./commands/start"); } catch(e) { console.log("⚠️ start.js not found"); }
+try { dailyCommands = require("./commands/daily"); } catch(e) { console.log("⚠️ daily.js not found"); }
+try { paymentCommands = require("./commands/payment"); } catch(e) { console.log("⚠️ payment.js not found"); }
+try { vipCommands = require("./commands/vip"); } catch(e) { console.log("⚠️ vip.js not found"); }
+try { adminCommands = require("./commands/admin"); } catch(e) { console.log("⚠️ admin.js not found"); }
+try { badgesCommands = require("./commands/badges"); } catch(e) { console.log("⚠️ badges.js not found"); }
+try { quotesCommands = require("./commands/quotes"); } catch(e) { console.log("⚠️ quotes.js not found"); }
+try { bookingCommands = require("./commands/booking"); } catch(e) { console.log("⚠️ booking.js not found"); }
+try { tierFeatures = require("./commands/tier-features"); } catch(e) { console.log("⚠️ tier-features.js not found"); }
+try { marketingCommands = require("./commands/marketing"); } catch(e) { console.log("⚠️ marketing.js not found"); }
+try { marketingContent = require("./commands/marketing-content"); } catch(e) { console.log("⚠️ marketing-content.js not found"); }
+try { extendedContent = require("./commands/extended-content"); } catch(e) { console.log("⚠️ extended-content.js not found"); }
+try { previewCommands = require("./commands/preview"); } catch(e) { console.log("⚠️ preview commands not found"); }
+try { freeTools = require("./commands/free-tools"); } catch(e) { console.log("⚠️ free-tools not found"); }
+try { financialQuiz = require("./commands/financial-quiz"); } catch(e) { console.log("⚠️ financial-quiz not found"); }
+try { toolsTemplates = require("./commands/tools-templates"); } catch(e) { console.log("⚠️ tools-templates.js not found"); }
+try { progressTracker = require("./commands/progress-tracker"); } catch(e) { console.log("⚠️ progress-tracker.js not found"); }
 
-// Utility Modules
-const { sendLongMessage } = require("./utils/message-splitter");
+// Service Modules - with error handling
+let scheduler, analytics, celebrations, progressBadges;
+let emojiReactions, AccessControl, ContentScheduler, ConversionOptimizer;
+
+try { scheduler = require("./services/scheduler"); } catch(e) { console.log("⚠️ scheduler.js not found"); }
+try { analytics = require("./services/analytics"); } catch(e) { console.log("⚠️ analytics.js not found"); }
+try { celebrations = require("./services/celebrations"); } catch(e) { console.log("⚠️ celebrations.js not found"); }
+try { progressBadges = require("./services/progress-badges"); } catch(e) { console.log("⚠️ progress-badges.js not found"); }
+try { emojiReactions = require("./services/emoji-reactions"); } catch(e) { console.log("⚠️ emoji-reactions.js not found"); }
+try { AccessControl = require("./services/access-control"); } catch(e) { console.log("⚠️ access-control.js not found"); }
+try { ContentScheduler = require("./services/content-scheduler"); } catch(e) { console.log("⚠️ content-scheduler.js not found"); }
+try { ConversionOptimizer = require("./services/conversion-optimizer"); } catch(e) { console.log("⚠️ conversion-optimizer.js not found"); }
+
+// Utility Modules - with fallback
+let sendLongMessage;
+try { 
+  const utils = require("./utils/message-splitter");
+  sendLongMessage = utils.sendLongMessage;
+} catch(e) { 
+  console.log("⚠️ message-splitter.js not found, using fallback");
+  sendLongMessage = async (bot, chatId, text, options = {}, chunkSize = 4000) => {
+    try {
+      if (text.length <= chunkSize) {
+        return await bot.sendMessage(chatId, text, options);
+      }
+      
+      const chunks = [];
+      for (let i = 0; i < text.length; i += chunkSize) {
+        chunks.push(text.slice(i, i + chunkSize));
+      }
+      
+      for (const chunk of chunks) {
+        await bot.sendMessage(chatId, chunk, options);
+      }
+    } catch (error) {
+      console.error("Error sending long message:", error);
+      await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។");
+    }
+  };
+}
 
 const MESSAGE_CHUNK_SIZE = 800;
 
@@ -58,9 +108,25 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize services
-const accessControl = new AccessControl();
-const conversionOptimizer = new ConversionOptimizer();
+// Initialize services with error handling
+let accessControl = { getTierSpecificHelp: async () => "Help text", getTierSpecificFAQ: async () => "FAQ text" };
+let conversionOptimizer = {};
+
+if (AccessControl) {
+  try {
+    accessControl = new AccessControl();
+  } catch(e) {
+    console.log("⚠️ Could not initialize AccessControl");
+  }
+}
+
+if (ConversionOptimizer) {
+  try {
+    conversionOptimizer = new ConversionOptimizer();
+  } catch(e) {
+    console.log("⚠️ Could not initialize ConversionOptimizer");
+  }
+}
 
 // Duplicate prevention system
 const processedMessages = new Set();
@@ -121,7 +187,23 @@ if (process.env.BOT_TOKEN) {
       if (isDuplicateMessage(msg)) return;
       
       try {
-        await startCommand.handle(msg, bot);
+        if (startCommand && startCommand.handle) {
+          await startCommand.handle(msg, bot);
+        } else {
+          // Fallback welcome message
+          const welcomeMessage = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
+
+💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ
+
+🎯 តម្លៃពិសេស: $24 USD (បញ្ចុះពី $47)
+📱 ប្រើប្រាស់: /pricing ដើម្បីមើលលម្អិត
+💳 ទូទាត់: /payment ដើម្បីចាប់ផ្តើម
+
+👨‍💼 ទាក់ទង: @Chendasum សម្រាប់ជំនួយ
+
+/help - ជំនួយពេញលេញ`;
+          await bot.sendMessage(msg.chat.id, welcomeMessage);
+        }
         console.log("✅ [START] Completed");
       } catch (error) {
         console.error("❌ [START] Error:", error.message);
@@ -150,12 +232,11 @@ if (process.env.BOT_TOKEN) {
       if (isDuplicateMessage(msg)) return;
       
       try {
-        await paymentCommands.pricing(msg, bot);
-        console.log("✅ [PRICING] Sent");
-      } catch (error) {
-        console.error("❌ [PRICING] Error:", error.message);
-        // Fallback pricing
-        const fallbackPricing = `💰 តម្លៃកម្មវិធី 7-Day Money Flow Reset™
+        if (paymentCommands && paymentCommands.pricing) {
+          await paymentCommands.pricing(msg, bot);
+        } else {
+          // Fallback pricing
+          const fallbackPricing = `💰 តម្លៃកម្មវិធី 7-Day Money Flow Reset™
 
 🎯 កម្មវិធីសាមញ្ញ (Essential)
 💵 តម្លៃ: $24 USD
@@ -169,7 +250,12 @@ if (process.env.BOT_TOKEN) {
 
 👉 /payment - ការណែនាំទូទាត់
 👉 @Chendasum - ជំនួយផ្ទាល់`;
-        await bot.sendMessage(msg.chat.id, fallbackPricing);
+          await bot.sendMessage(msg.chat.id, fallbackPricing);
+        }
+        console.log("✅ [PRICING] Sent");
+      } catch (error) {
+        console.error("❌ [PRICING] Error:", error.message);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ ទាក់ទង @Chendasum");
       }
     });
 
@@ -179,12 +265,11 @@ if (process.env.BOT_TOKEN) {
       if (isDuplicateMessage(msg)) return;
       
       try {
-        await paymentCommands.instructions(msg, bot);
-        console.log("✅ [PAYMENT] Sent");
-      } catch (error) {
-        console.error("❌ [PAYMENT] Error:", error.message);
-        // Fallback payment
-        const fallbackPayment = `💳 ការណែនាំទូទាត់
+        if (paymentCommands && paymentCommands.instructions) {
+          await paymentCommands.instructions(msg, bot);
+        } else {
+          // Fallback payment
+          const fallbackPayment = `💳 ការណែនាំទូទាត់
 
 🏦 ធនាគារដែលអាចប្រើបាន:
 • ABA Bank: 000 194 742
@@ -201,7 +286,12 @@ if (process.env.BOT_TOKEN) {
 3. រង់ចាំ ១-២ ម៉ោង
 
 👨‍💼 ជំនួយ: @Chendasum`;
-        await bot.sendMessage(msg.chat.id, fallbackPayment);
+          await bot.sendMessage(msg.chat.id, fallbackPayment);
+        }
+        console.log("✅ [PAYMENT] Sent");
+      } catch (error) {
+        console.error("❌ [PAYMENT] Error:", error.message);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ ទាក់ទង @Chendasum");
       }
     });
 
@@ -219,7 +309,19 @@ if (process.env.BOT_TOKEN) {
           return;
         }
         
-        await dailyCommands.handle(msg, match, bot);
+        if (dailyCommands && dailyCommands.handle) {
+          await dailyCommands.handle(msg, match, bot);
+        } else {
+          // Fallback daily content
+          const dayContent = `📚 ថ្ងៃទី ${match[1]} - កម្មវិធីពេញលេញ
+
+🎯 សូមស្វាគមន៍! អ្នកបានទូទាត់រួចហើយ
+
+មាតិកាថ្ងៃទី ${match[1]} នឹងត្រូវបានផ្ញើមកអ្នកឆាប់ៗនេះ។
+
+📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
+          await bot.sendMessage(msg.chat.id, dayContent);
+        }
       } catch (error) {
         console.error(`❌ [DAY${match[1]}] Error:`, error.message);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
@@ -245,7 +347,18 @@ if (process.env.BOT_TOKEN) {
           return;
         }
         
-        await extendedContent.handleExtendedDay(msg, bot, day);
+        if (extendedContent && extendedContent.handleExtendedDay) {
+          await extendedContent.handleExtendedDay(msg, bot, day);
+        } else {
+          // Fallback extended content
+          await bot.sendMessage(msg.chat.id, `📚 ថ្ងៃទី ${day} - មាតិកាបន្ថែម
+
+🎯 សូមស្វាគមន៍! អ្នកបានទូទាត់រួចហើយ
+
+មាតិកាថ្ងៃទី ${day} នឹងត្រូវបានផ្ញើមកអ្នកឆាប់ៗនេះ។
+
+📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`);
+        }
       } catch (error) {
         console.error("Error in /extended command:", error);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
@@ -266,7 +379,26 @@ if (process.env.BOT_TOKEN) {
           return;
         }
         
-        await vipCommands.info(msg, bot);
+        if (vipCommands && vipCommands.info) {
+          await vipCommands.info(msg, bot);
+        } else {
+          // Fallback VIP info
+          const vipMessage = `👑 VIP Program - អ្នកមានសិទ្ធិ!
+
+🌟 កម្មវិធី VIP រួមមាន:
+• ការប្រឹក្សាផ្ទាល់ខ្លួន 1-on-1
+• ការតាមដានដោយផ្ទាល់
+• មាតិកាកម្រិតខ្ពស់ 30 ថ្ងៃ
+• ការគាំទ្រអាទិភាព
+• Capital Strategy Sessions
+
+💰 តម្លៃ VIP: $197
+📞 ពិគ្រោះ: @Chendasum
+
+✅ អ្នកបានទូទាត់កម្មវិធីមូលដ្ឋានរួចហើយ
+👑 សរសេរ "VIP APPLY" ដើម្បីដាក់ពាក្យ`;
+          await bot.sendMessage(msg.chat.id, vipMessage);
+        }
       } catch (error) {
         console.error("❌ [VIP] Error:", error.message);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -681,13 +813,18 @@ if (process.env.BOT_TOKEN) {
       const text = msg.text.toLowerCase();
       
       // Check if it's a financial quiz response
-      if (await financialQuiz.processQuizResponse(msg, bot)) {
-        return;
+      if (financialQuiz && financialQuiz.processQuizResponse) {
+        if (await financialQuiz.processQuizResponse(msg, bot)) {
+          return;
+        }
       }
       
       // Check if it's a free tools response
-      if (await freeTools.processToolResponse(msg, bot, await User.findOne({ telegram_id: msg.from.id }))) {
-        return;
+      if (freeTools && freeTools.processToolResponse) {
+        const user = await User.findOne({ telegram_id: msg.from.id });
+        if (await freeTools.processToolResponse(msg, bot, user)) {
+          return;
+        }
       }
       
       // Handle specific text commands
@@ -701,7 +838,21 @@ if (process.env.BOT_TOKEN) {
             return;
           }
           
-          await vipCommands.apply(msg, bot);
+          if (vipCommands && vipCommands.apply) {
+            await vipCommands.apply(msg, bot);
+          } else {
+            // Fallback VIP apply
+            await bot.sendMessage(msg.chat.id, `🌟 VIP APPLICATION
+
+សូមផ្ញើព័ត៌មាន:
+1️⃣ ឈ្មោះពេញ
+2️⃣ អាជីវកម្ម
+3️⃣ គោលដៅហិរញ្ញវត្ថុ
+4️⃣ លេខទូរស័ព្ទ
+
+💰 តម្លៃ VIP: $197
+📞 Admin នឹងទាក់ទងអ្នក`);
+          }
         } catch (error) {
           console.error("Error handling VIP APPLY:", error);
           await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -766,10 +917,17 @@ if (process.env.BOT_TOKEN) {
         { upsert: true }
       );
       
-      const completeReaction = emojiReactions.lessonCompleteReaction(dayNumber);
+      const completeReaction = emojiReactions?.lessonCompleteReaction 
+        ? emojiReactions.lessonCompleteReaction(dayNumber)
+        : `🎉 ល្អណាស់! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber}!`;
       await bot.sendMessage(msg.chat.id, completeReaction);
       
-      const celebrationMessage = celebrations.dayCompleteCelebration(dayNumber);
+      const celebrationMessage = celebrations?.dayCompleteCelebration
+        ? celebrations.dayCompleteCelebration(dayNumber)
+        : `🎊 សូមអបអរសាទរ! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber} ដោយជោគជ័យ!
+
+📈 វឌ្ឍនភាព: ${dayNumber}/7 ថ្ងៃ
+💪 បន្តទៅមុខទៀត!`;
       await sendLongMessage(bot, msg.chat.id, celebrationMessage, {}, MESSAGE_CHUNK_SIZE);
       
       if (dayNumber < 7) {
@@ -931,18 +1089,27 @@ const server = app.listen(PORT, HOST, async () => {
 });
 
 // === CRON JOBS ===
-cron.schedule("0 9 * * *", async () => {
-  console.log("🕘 Sending daily messages...");
-  try {
-    await scheduler.sendDailyMessages(bot);
-  } catch (error) {
-    console.error("Error sending daily messages:", error);
-  }
-});
+if (scheduler && scheduler.sendDailyMessages) {
+  cron.schedule("0 9 * * *", async () => {
+    console.log("🕘 Sending daily messages...");
+    try {
+      await scheduler.sendDailyMessages(bot);
+    } catch (error) {
+      console.error("Error sending daily messages:", error);
+    }
+  });
+}
 
 // Initialize Content Scheduler
-const contentScheduler = new ContentScheduler(bot);
-contentScheduler.start();
+if (ContentScheduler) {
+  try {
+    const contentScheduler = new ContentScheduler(bot);
+    contentScheduler.start();
+    console.log("✅ Content scheduler started");
+  } catch (error) {
+    console.error("⚠️ Could not start content scheduler:", error.message);
+  }
+}
 
 console.log("🤖 Bot started successfully with all features!");
 console.log("🚀 Features loaded:");
