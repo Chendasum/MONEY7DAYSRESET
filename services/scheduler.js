@@ -6,10 +6,10 @@ const { dailyMessages } = require('../commands/daily');
 async function sendDailyMessages(bot) {
   try {
     // Get all users who should receive daily messages
-    const paidUsers = await db.select().from(users).where(eq(users.isPaid, true));
+    const paidUsers = await db.select().from(users).where(eq(users.is_paid, true));
     
     for (const user of paidUsers) {
-      const userProgress = await db.select().from(progress).where(eq(progress.userId, user.telegramId));
+      const userProgress = await db.select().from(progress).where(eq(progress.user_id, user.telegram_id));
       
       if (!userProgress || userProgress.length === 0) continue;
       
@@ -18,7 +18,7 @@ async function sendDailyMessages(bot) {
       // Determine which day message to send (starting from day 1)
       let dayToSend = null;
       
-      if (prog.readyForDay1 && !prog.day1Completed) {
+      if (prog.ready_for_day_1 && !prog.day1Completed) {
         dayToSend = 1;
       } else if (prog.day1Completed && !prog.day2Completed) {
         dayToSend = 2;
@@ -36,16 +36,16 @@ async function sendDailyMessages(bot) {
       
       if (dayToSend && dailyMessages[dayToSend]) {
         try {
-          await bot.sendMessage(user.telegramId, dailyMessages[dayToSend]);
-          console.log(`✅ Sent day ${dayToSend} message to user ${user.telegramId}`);
+          await bot.sendMessage(user.telegram_id, dailyMessages[dayToSend]);
+          console.log(`✅ Sent day ${dayToSend} message to user ${user.telegram_id}`);
           
           // Update last active
           await db.update(users)
-            .set({ lastActive: new Date() })
-            .where(eq(users.telegramId, user.telegramId));
+            .set({ last_active: new Date() })
+            .where(eq(users.telegramId, user.telegram_id));
           
         } catch (error) {
-          console.error(`❌ Failed to send message to user ${user.telegramId}:`, error);
+          console.error(`❌ Failed to send message to user ${user.telegram_id}:`, error);
         }
       }
     }
@@ -58,10 +58,10 @@ async function sendDailyMessages(bot) {
 async function sendReminders(bot) {
   try {
     // Get users who haven't completed yesterday's task
-    const paidUsers = await db.select().from(users).where(eq(users.isPaid, true));
+    const paidUsers = await db.select().from(users).where(eq(users.is_paid, true));
     
     for (const user of paidUsers) {
-      const userProgress = await db.select().from(progress).where(eq(progress.userId, user.telegramId));
+      const userProgress = await db.select().from(progress).where(eq(progress.user_id, user.telegram_id));
       
       if (!userProgress || userProgress.length === 0) continue;
       
@@ -69,12 +69,12 @@ async function sendReminders(bot) {
       
       // Check if user is stuck on a day for more than 24 hours
       const now = new Date();
-      const daysSinceLastActivity = (now - user.lastActive) / (1000 * 60 * 60 * 24);
+      const daysSinceLastActivity = (now - user.last_active) / (1000 * 60 * 60 * 24);
       
       if (daysSinceLastActivity > 1) {
         const reminderMessage = `🔔 រំលឹក: 7-Day Money Flow Reset™
 
-${user.firstName ? `សួស្តី ${user.firstName}!` : 'សួស្តី!'}
+${user.first_name ? `សួស្តី ${user.first_name}!` : 'សួស្តី!'}
 
 អ្នកមិនទាន់បានបន្តកម្មវិធីទេ។ កុំបាត់បង់ momentum!
 
@@ -83,10 +83,10 @@ ${user.firstName ? `សួស្តី ${user.firstName}!` : 'សួស្តី
 យើងនៅទីនេះជួយអ្នក! 💪`;
 
         try {
-          await bot.sendMessage(user.telegramId, reminderMessage);
-          console.log(`✅ Sent reminder to user ${user.telegramId}`);
+          await bot.sendMessage(user.telegram_id, reminderMessage);
+          console.log(`✅ Sent reminder to user ${user.telegram_id}`);
         } catch (error) {
-          console.error(`❌ Failed to send reminder to user ${user.telegramId}:`, error);
+          console.error(`❌ Failed to send reminder to user ${user.telegram_id}:`, error);
         }
       }
     }
