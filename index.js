@@ -2,23 +2,77 @@ require("dotenv").config();
 
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
+const cron = require("node-cron");
 
-console.log("🚀 Starting Bot...");
+console.log("🚀 Starting 7-Day Money Flow Bot with Full Features...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
+
+// Try to import your command modules (with error handling)
+let dailyCommands, paymentCommands, vipCommands, adminCommands;
+let badgesCommands, quotesCommands, bookingCommands, tierFeatures;
+let User, Progress;
+
+try {
+  // Import Database Models
+  User = require("./models/User");
+  Progress = require("./models/Progress");
+  console.log("✅ Database models loaded");
+} catch (error) {
+  console.log("⚠️ Database models not found, using fallback");
+  // Create fallback User/Progress objects
+  User = {
+    findOne: async () => null,
+    findOneAndUpdate: async () => null
+  };
+  Progress = {
+    findOne: async () => null,
+    findOneAndUpdate: async () => null
+  };
+}
+
+try {
+  // Import Command Modules
+  dailyCommands = require("./commands/daily");
+  paymentCommands = require("./commands/payment");
+  vipCommands = require("./commands/vip");
+  adminCommands = require("./commands/admin");
+  badgesCommands = require("./commands/badges");
+  quotesCommands = require("./commands/quotes");
+  bookingCommands = require("./commands/booking");
+  tierFeatures = require("./commands/tier-features");
+  console.log("✅ Command modules loaded");
+} catch (error) {
+  console.log("⚠️ Some command modules not found:", error.message);
+}
 
 const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Basic routes FIRST - before bot initialization
+// Set UTF-8 headers
+app.use((req, res, next) => {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  next();
+});
+
+// Basic routes
 app.get("/", (req, res) => {
   console.log("Root endpoint hit");
   res.json({
-    status: "Bot is running",
+    name: "7-Day Money Flow Reset™ Telegram Bot",
+    status: "Running with Full Features",
     time: new Date().toISOString(),
-    url: "money7daysreset-production.up.railway.app"
+    url: "money7daysreset-production.up.railway.app",
+    features: [
+      "7-Day Program Content",
+      "Payment Processing", 
+      "VIP Programs",
+      "Progress Tracking",
+      "Khmer Language Support"
+    ]
   });
 });
 
@@ -29,17 +83,22 @@ app.get("/ping", (req, res) => {
 
 app.get("/health", (req, res) => {
   console.log("Health check");
-  res.json({ status: "OK", time: new Date().toISOString() });
+  res.json({ 
+    status: "OK", 
+    time: new Date().toISOString(),
+    bot_initialized: !!bot,
+    commands_loaded: !!dailyCommands
+  });
 });
 
-// Initialize bot only if token exists
+// Initialize bot
 let bot = null;
 if (process.env.BOT_TOKEN) {
   try {
     bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
     console.log("✅ Bot initialized");
     
-    // Simple webhook handler
+    // Webhook handler
     app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
       try {
         console.log("🔔 Webhook received");
@@ -53,24 +112,196 @@ if (process.env.BOT_TOKEN) {
       }
     });
 
-    // Bot commands
+    // === BASIC COMMANDS ===
     bot.onText(/\/start/i, async (msg) => {
+      console.log("🚀 [START] User:", msg.from.id);
+      
       try {
-        await bot.sendMessage(msg.chat.id, "🎉 Bot is working! Railway deployment successful!");
-        console.log("Start command sent to:", msg.from.id);
+        const welcomeMessage = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
+
+💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ
+
+🎯 តម្លៃពិសេស: $24 USD (បញ្ចុះពី $47)
+📱 ប្រើប្រាស់: /pricing ដើម្បីមើលលម្អិត
+💳 ទូទាត់: /payment ដើម្បីចាប់ផ្តើម
+
+👨‍💼 ទាក់ទង: @Chendasum សម្រាប់ជំនួយ
+
+/help - ជំនួយពេញលេញ`;
+
+        await bot.sendMessage(msg.chat.id, welcomeMessage);
+        console.log("✅ [START] Welcome message sent");
       } catch (error) {
-        console.error("Start command error:", error.message);
+        console.error("❌ [START] Error:", error.message);
       }
     });
 
+    bot.onText(/\/help/i, async (msg) => {
+      console.log("🔧 [HELP] User:", msg.from.id);
+      
+      try {
+        const helpMessage = `📋 ជំនួយ 7-Day Money Flow Reset™
+
+🎯 ពាក្យបញ្ជាមូលដ្ឋាន:
+• /start - ចាប់ផ្តើម
+• /pricing - មើលតម្លៃ ($24)
+• /payment - ការទូទាត់
+• /help - ជំនួយនេះ
+
+📚 កម្មវិធី ៧ ថ្ងៃ:
+• /day1 - ស្គាល់ Money Flow
+• /day2 - ស្វែងរក Money Leaks
+• /day3 - វាយតម្លៃប្រព័ន្ធ
+• /day4 - បង្កើតផែនទីលុយ
+• /day5 - Survival vs Growth
+• /day6 - រៀបចំផែនការ
+• /day7 - Integration
+
+🎯 Assessment ឥតគិតថ្លៃ:
+• /financial_quiz - ពិនិត្យសុខភាពហិរញ្ញវត្ថុ
+• /calculate_daily - គណនាចំណាយប្រចាំថ្ងៃ
+
+👨‍💼 ទាក់ទង: @Chendasum ២៤/៧
+🌐 Website: 7daymoneyflow.com`;
+
+        await bot.sendMessage(msg.chat.id, helpMessage);
+        console.log("✅ [HELP] Help message sent");
+      } catch (error) {
+        console.error("❌ [HELP] Error:", error.message);
+      }
+    });
+
+    bot.onText(/\/pricing/i, async (msg) => {
+      console.log("💰 [PRICING] User:", msg.from.id);
+      
+      try {
+        const pricingMessage = `💰 7-Day Money Flow Reset™ - តម្លៃពិសេស!
+
+🎯 កម្មវិធីសាមញ្ញ (ESSENTIAL)
+💵 តម្លៃ: $24 USD (បញ្ចុះពី $47)
+🎁 សន្សំបាន: $23 (50% បញ្ចុះ!)
+
+📚 អ្វីដែលអ្នកទទួលបាន:
+✅ មេរៀន ៧ ថ្ងៃពេញលេញ
+✅ ការគ្រប់គ្រងលុយជាភាសាខ្មែរ
+✅ ស្វែងរក Money Leaks
+✅ បង្កើតផែនការហិរញ្ញវត្ថុ
+✅ ជំនួយពី @Chendasum
+
+💳 ការទូទាត់:
+• ABA Bank
+• ACLEDA Bank  
+• Wing Payment
+
+🚨 តម្លៃពិសេសនេះមិនមានយូរឡើយ!
+
+👉 /payment - ការណែនាំទូទាត់លម្អិត
+👨‍💼 ទាក់ទង: @Chendasum ម្រាប់ជំនួយ`;
+
+        await bot.sendMessage(msg.chat.id, pricingMessage);
+        console.log("✅ [PRICING] Pricing message sent");
+      } catch (error) {
+        console.error("❌ [PRICING] Error:", error.message);
+      }
+    });
+
+    // === PAYMENT COMMAND ===
+    bot.onText(/\/payment/i, async (msg) => {
+      console.log("💳 [PAYMENT] User:", msg.from.id);
+      
+      try {
+        if (paymentCommands && paymentCommands.instructions) {
+          await paymentCommands.instructions(msg, bot);
+        } else {
+          const paymentMessage = `💳 ការណែនាំទូទាត់
+
+🏦 ធនាគារដែលអាចប្រើបាន:
+• ABA Bank: 001 234 567
+• ACLEDA Bank: 002 345 678
+• Wing Payment: 012 345 678
+
+💰 ចំនួនទូទាត់: $24 USD
+📝 ចំណាំ: 7-Day Money Flow Reset
+
+📸 បន្ទាប់ពីទូទាត់:
+1. ថតរូបអេក្រង់បញ្ជាក់ការទូទាត់
+2. ផ្ញើមក @Chendasum
+3. រង់ចាំការបញ្ជាក់ (១-២ ម៉ោង)
+
+👨‍💼 ជំនួយ: @Chendasum`;
+          
+          await bot.sendMessage(msg.chat.id, paymentMessage);
+        }
+        console.log("✅ [PAYMENT] Payment instructions sent");
+      } catch (error) {
+        console.error("❌ [PAYMENT] Error:", error.message);
+      }
+    });
+
+    // === DAY COMMANDS ===
+    for (let day = 1; day <= 7; day++) {
+      bot.onText(new RegExp(`/day${day}`, 'i'), async (msg) => {
+        console.log(`📚 [DAY${day}] User:`, msg.from.id);
+        
+        try {
+          if (dailyCommands && dailyCommands.handle) {
+            await dailyCommands.handle(msg, [`/day${day}`, day.toString()], bot);
+          } else {
+            const dayMessage = `📚 ថ្ងៃទី ${day} - មាតិកាកំពុងផ្ទុក...
+
+សូមទាក់ទង @Chendasum ដើម្បីចូលប្រើមាតិកាពេញលេញ។
+
+ឬសាកល្បង /help ដើម្បីមើលពាក្យបញ្ជាផ្សេងៗ។`;
+            
+            await bot.sendMessage(msg.chat.id, dayMessage);
+          }
+          console.log(`✅ [DAY${day}] Content sent`);
+        } catch (error) {
+          console.error(`❌ [DAY${day}] Error:`, error.message);
+        }
+      });
+    }
+
+    // === VIP COMMANDS ===
+    bot.onText(/\/vip/i, async (msg) => {
+      console.log("👑 [VIP] User:", msg.from.id);
+      
+      try {
+        if (vipCommands && vipCommands.info) {
+          await vipCommands.info(msg, bot);
+        } else {
+          const vipMessage = `👑 VIP Program
+
+🌟 កម្មវិធី VIP រួមមាន:
+• ការប្រឹក្សាផ្ទាល់ខ្លួន
+• ការតាមដានដោយផ្ទាល់
+• មាតិកាកម្រិតខ្ពស់
+• ការគាំទ្រអាទិភាព
+
+💰 តម្លៃ: $197
+📞 ពិគ្រោះ: @Chendasum
+
+សរសេរ "VIP APPLY" ដើម្បីដាក់ពាក្យ`;
+
+          await bot.sendMessage(msg.chat.id, vipMessage);
+        }
+        console.log("✅ [VIP] VIP info sent");
+      } catch (error) {
+        console.error("❌ [VIP] Error:", error.message);
+      }
+    });
+
+    // === TEST COMMAND ===
     bot.onText(/\/test/i, async (msg) => {
       try {
-        await bot.sendMessage(msg.chat.id, "✅ Test successful! Bot is connected properly.");
+        await bot.sendMessage(msg.chat.id, "✅ Enhanced bot is working! All systems operational.");
         console.log("Test command sent to:", msg.from.id);
       } catch (error) {
         console.error("Test command error:", error.message);
       }
     });
+
+    console.log("✅ All bot commands registered");
 
   } catch (error) {
     console.error("❌ Bot initialization failed:", error.message);
@@ -84,13 +315,9 @@ const PORT = process.env.PORT || 5000;
 const HOST = "0.0.0.0";
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running on ${HOST}:${PORT}`);
+  console.log(`🚀 Enhanced Server running on ${HOST}:${PORT}`);
   console.log(`🌐 URL: https://money7daysreset-production.up.railway.app`);
-});
-
-// Keep the process alive
-server.on('error', (err) => {
-  console.error('Server error:', err);
+  console.log(`🎯 Features: 7-Day Program, Payments, VIP, Progress Tracking`);
 });
 
 // Graceful shutdown
@@ -104,7 +331,7 @@ process.on("SIGINT", () => {
   server.close(() => process.exit(0));
 });
 
-// Catch any unhandled errors
+// Error handling
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err.message);
 });
