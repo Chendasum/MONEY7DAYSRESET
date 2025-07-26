@@ -19,8 +19,8 @@ async function conversionStats(msg, bot) {
   try {
     // Get user statistics
     const totalUsers = await User.countDocuments();
-    const paidUsers = await User.countDocuments({ isPaid: true });
-    const unpaidUsers = await User.countDocuments({ isPaid: false });
+    const paidUsers = await User.countDocuments({ is_paid: true });
+    const unpaidUsers = await User.countDocuments({ is_paid: false });
     
     // Get users by tier
     const essentialUsers = await User.countDocuments({ tier: 'essential' });
@@ -43,8 +43,8 @@ async function conversionStats(msg, bot) {
     });
     
     const recentPaid = await User.countDocuments({ 
-      isPaid: true,
-      paymentDate: { $gte: yesterday } 
+      is_paid: true,
+      payment_date: { $gte: yesterday } 
     });
     
     const recentConversionRate = recentUsers > 0 ? ((recentPaid / recentUsers) * 100).toFixed(1) : 0;
@@ -103,9 +103,9 @@ async function interestedUsers(msg, bot) {
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     
     const interestedUsers = await User.find({
-      isPaid: false,
-      lastActive: { $gte: threeDaysAgo }
-    }).sort({ lastActive: -1 }).limit(10);
+      is_paid: false,
+      last_active: { $gte: threeDaysAgo }
+    }).sort({ last_active: -1 }).limit(10);
 
     if (interestedUsers.length === 0) {
       await bot.sendMessage(chatId, "🎯 មិនមានអ្នកប្រើប្រាស់ដែលចាប់អារម្មណ៍ថ្មីៗទេ។");
@@ -115,10 +115,10 @@ async function interestedUsers(msg, bot) {
     let message = `🎯 INTERESTED USERS (Last 3 days)\n\n`;
     
     interestedUsers.forEach((user, index) => {
-      const lastActive = user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'Unknown';
-      const username = user.username ? `@${user.username}` : user.firstName || 'Unknown';
+      const lastActive = user.last_active ? new Date(user.last_active).toLocaleDateString() : 'Unknown';
+      const username = user.username ? `@${user.username}` : user.first_name || 'Unknown';
       
-      message += `${index + 1}. ${username} (ID: ${user.telegramId})\n`;
+      message += `${index + 1}. ${username} (ID: ${user.telegram_id})\n`;
       message += `   Last Active: ${lastActive}\n`;
       message += `   Status: UNPAID\n\n`;
     });
@@ -153,8 +153,8 @@ async function sendUrgentMessage(msg, bot) {
     weekAgo.setDate(weekAgo.getDate() - 7);
     
     const unpaidUsers = await User.find({
-      isPaid: false,
-      lastActive: { $gte: weekAgo }
+      is_paid: false,
+      last_active: { $gte: weekAgo }
     });
 
     if (unpaidUsers.length === 0) {
@@ -169,13 +169,13 @@ async function sendUrgentMessage(msg, bot) {
     // Send urgent message to all unpaid users
     for (const user of unpaidUsers) {
       try {
-        await bot.sendMessage(user.telegramId, urgentMessage);
+        await bot.sendMessage(user.telegram_id, urgentMessage);
         successCount++;
         
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
-        console.error(`Error sending urgent message to ${user.telegramId}:`, error);
+        console.error(`Error sending urgent message to ${user.telegram_id}:`, error);
         errorCount++;
       }
     }
@@ -223,7 +223,7 @@ async function testConversionSystem(msg, bot) {
     const conversionOptimizer = new ConversionOptimizer();
     
     // Get user to test
-    const testUser = await User.findOne({ telegramId: testUserId });
+    const testUser = await User.findOne({ telegram_id: testUserId  });
     if (!testUser) {
       await bot.sendMessage(chatId, `❌ User ${testUserId} not found`);
       return;
@@ -271,7 +271,7 @@ async function conversionStatus(msg, bot) {
     
     // Get users with recent pricing views
     const recentViewers = await User.find({
-      isPaid: false,
+      is_paid: false,
       lastPricingView: { $exists: true, $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
     }).sort({ lastPricingView: -1 });
     
@@ -285,7 +285,7 @@ async function conversionStatus(msg, bot) {
 
 🔥 Recent Viewers:
 ${recentViewers.slice(0, 5).map(user => 
-  `• ${user.telegramId}: ${user.pricingViews || 0} views, last: ${user.lastPricingView.toLocaleString()}`
+  `• ${user.telegram_id}: ${user.pricingViews || 0} views, last: ${user.lastPricingView.toLocaleString()}`
 ).join('\n')}
 
 ⚡ System Features:
