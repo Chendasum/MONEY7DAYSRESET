@@ -26,7 +26,7 @@ app.use((req, res, next) => {
 
 // Function to get Railway URL
 function getRailwayUrl() {
-  return "https://7daymoneyflowreset-production.up.railway.app";
+  return "https://money7daysreset-production.up.railway.app"; // THIS IS THE UPDATED URL
 }
 
 // Bot initialization for webhook mode
