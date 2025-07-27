@@ -1,8 +1,58 @@
 require("dotenv").config();
 
+const fs = require('fs');
+const path = require('path');
+
+console.log("--- RAILWAY FILE SYSTEM DEBUG START ---");
+try {
+    const rootDir = __dirname; // This should be /app inside the container
+    console.log(`Current working directory (__dirname): ${rootDir}`);
+
+    // List contents of the root directory
+    console.log(`Contents of ${rootDir}:`);
+    fs.readdirSync(rootDir).forEach(file => {
+        try {
+            const stats = fs.statSync(path.join(rootDir, file));
+            console.log(`  ${file} (${stats.isDirectory() ? 'DIR' : 'FILE'})`);
+        } catch (innerError) {
+            console.log(`  ${file} (Error stat-ing: ${innerError.message})`);
+        }
+    });
+
+    // List contents of 'commands' directory
+    const commandsPath = path.join(rootDir, 'commands');
+    console.log(`Contents of ${commandsPath}:`);
+    fs.readdirSync(commandsPath).forEach(file => {
+        console.log(`  ${file}`);
+    });
+
+    // List contents of 'models' directory
+    const modelsPath = path.join(rootDir, 'models');
+    console.log(`Contents of ${modelsPath}:`);
+    fs.readdirSync(modelsPath).forEach(file => {
+        console.log(`  ${file}`);
+    });
+
+    // List contents of 'services' directory
+    const servicesPath = path.join(rootDir, 'services');
+    console.log(`Contents of ${servicesPath}:`);
+    fs.readdirSync(servicesPath).forEach(file => {
+        console.log(`  ${file}`);
+    });
+
+} catch (error) {
+    console.error("Error during file system debugging:", error.message);
+}
+console.log("--- RAILWAY FILE SYSTEM DEBUG END ---");
+
+// ----------------------------------------------------------------------
+// THE REST OF YOUR EXISTING index.js CODE GOES BELOW THIS LINE
+// For example, your `const express = require("express");` and other
+// bot initialization code should come after the debugging block.
+// ----------------------------------------------------------------------
+
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
-const cron = require("node-cron"); // Used for scheduling tasks
 
 // Database connection is assumed to be handled by Drizzle ORM with PostgreSQL
 console.log(
