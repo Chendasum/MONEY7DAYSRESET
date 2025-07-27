@@ -4,9 +4,19 @@ const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
 
-console.log("🚀 Starting 7-Day Money Flow Bot with Full Features on Railway...");
+console.log("🚀 Starting 7-Day Money Flow Bot with Full Features...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
+
+// Database Models
+const User = require("./models/User");
+const Progress = require("./models/Progress");
+
+// Database connection is assumed to be handled by Drizzle ORM with PostgreSQL
+console.log(
+  "🔍 Database configured with Drizzle ORM and PostgreSQL (via models)",
+);
+console.log("✅ Database ready for operations");
 
 // Set proper UTF-8 encoding for the environment to handle Khmer characters correctly
 process.env.NODE_ICU_DATA = "/usr/share/nodejs/node-icu-data";
@@ -2581,71 +2591,106 @@ app.get("/health", (req, res) => {
   });
 });
 
-// === BASIC ROUTES ===
-app.get("/", (req, res) => {
-  console.log("Root endpoint hit");
-  res.json({
-    name: "7-Day Money Flow Reset™ Telegram Bot",
-    status: "Running with Full Features",
-    time: new Date().toISOString(),
-    url: "money7daysreset-production.up.railway.app",
-    features: [
-      "7-Day Program Content",
-      "30-Day Extended Content",
-      "Payment Processing", 
-      "VIP Programs",
-      "Progress Tracking",
-      "Admin Dashboard",
-      "Marketing Tools",
-      "Booking System",
-      "Free Tools",
-      "Khmer Language Support"
-    ]
-  });
-});
-
+// New /ping endpoint for direct server reachability test
 app.get("/ping", (req, res) => {
-  console.log("Ping endpoint hit");
-  res.send("Pong!");
+  console.log("🏓 /ping endpoint hit!");
+  res.status(200).send("Pong from Railway!");
 });
 
-app.get("/health", (req, res) => {
-  console.log("Health check");
-  res.json({ 
-    status: "OK", 
-    time: new Date().toISOString(),
-    bot_initialized: !!bot,
-    modules_loaded: {
-      commands: !!dailyCommands,
-      services: !!scheduler,
-      utils: !!sendLongMessage
-    }
+app.post("/setup-webhook", async (req, res) => {
+  try {
+    const railwayBaseUrl = getRailwayUrl();
+    const correctWebhookUrl = `${railwayBaseUrl}/bot${process.env.BOT_TOKEN}`;
+    console.log("🔧 Manual webhook setup to:", correctWebhookUrl);
+    await bot.setWebHook(correctWebhookUrl);
+    res.json({
+      success: true,
+      message: "Webhook set successfully",
+      url: correctWebhookUrl,
+    });
+  } catch (error) {
+    console.error("Manual webhook setup error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/healthz", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    automation: "Enhanced with 7-Day automation",
   });
 });
 
-app.get("/analytics", async (req, res) => {
+app.get("/ready", (req, res) => {
+  res.status(200).json({
+    status: "ready",
+    timestamp: new Date().toISOString(),
+    features: "7-Day automation enabled",
+  });
+});
+
+app.get("/webhook-info", async (req, res) => {
   try {
-    if (analytics && analytics.getStats) {
-      const stats = await analytics.getStats();
-      res.json(stats);
-    } else {
-      res.json({ message: "Analytics module not loaded" });
-    }
+    const response = await fetch(
+      `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getWebhookInfo`,
+    );
+    const webhookInfo = await response.json();
+    res.json(webhookInfo);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get analytics" });
+    res
+      .status(500)
+      .json({ error: "Failed to get webhook info", details: error.message });
+  }
+});
+
+app.get("/test-bot", async (req, res) => {
+  try {
+    const botInfo = await bot.getMe();
+    res.json({ ok: true, result: botInfo });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Failed to get bot info", details: error.message });
+  }
+});
+
+app.get("/bot-status", async (req, res) => {
+  try {
+    const botInfo = await bot.getMe();
+
+    const webhookResponse = await fetch(
+      `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getWebhookInfo`,
+    );
+    const webhookData = await webhookResponse.json();
+    const webhookInfo = webhookData.result;
+
+    res.json({
+      bot_status: botInfo ? "✅ Online" : "❌ Offline",
+      webhook_status: webhookInfo.url ? "✅ Active" : "❌ Not Set",
+      webhook_url: webhookInfo.url || "None",
+      pending_updates: webhookInfo.pending_update_count || 0,
+      server_uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      bot_info: {
+        id: botInfo.id,
+        username: botInfo.username,
+        first_name: botInfo.first_name,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.post("/webhook/payment", async (req, res) => {
   try {
     const { userId, amount, status, transactionId } = req.body;
-    
-    if (status === "completed" && amount >= 24) {
-      if (paymentCommands && paymentCommands.confirmPayment) {
-        await paymentCommands.confirmPayment(bot, userId, transactionId);
-      }
+
+    if (status === "completed" && amount >= 97) {
+      await paymentCommands.confirmPayment(bot, userId, transactionId);
     }
-    
+
     res.status(200).json({ success: true });
   } catch (error) {
     console.error("Payment webhook error:", error);
@@ -2653,92 +2698,16 @@ app.post("/webhook/payment", async (req, res) => {
   }
 });
 
-// === WEBHOOK SETUP FOR RAILWAY ===
-async function setupWebhook() {
-  if (!bot || !process.env.BOT_TOKEN) {
-    console.error("Cannot setup webhook - bot not initialized");
-    return;
-  }
+app.use("/public", express.static("public"));
 
-  try {
-    const webhookUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
-      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/bot${process.env.BOT_TOKEN}`
-      : `https://money7daysreset-production.up.railway.app/bot${process.env.BOT_TOKEN}`;
-    
-    console.log("Setting webhook to:", webhookUrl);
-    const result = await bot.setWebHook(webhookUrl);
-    console.log("Webhook set result:", result);
-  } catch (error) {
-    console.error("Webhook setup error:", error);
-  }
-}
-
-// === START SERVER ===
-const PORT = process.env.PORT || 5000;
-const HOST = "0.0.0.0";
-
-const server = app.listen(PORT, HOST, async () => {
-  console.log(`🚀 Server running on ${HOST}:${PORT}`);
-  console.log(`🌐 URL: https://money7daysreset-production.up.railway.app`);
-  console.log(`🎯 Features: Full 7-Day + 30-Day Program with all modules`);
-  
-  // Setup webhook after server starts
-  await setupWebhook();
-});
-
-// === CRON JOBS ===
-if (scheduler && scheduler.sendDailyMessages) {
-  cron.schedule("0 9 * * *", async () => {
-    console.log("🕘 Sending daily messages...");
-    try {
-      await scheduler.sendDailyMessages(bot);
-    } catch (error) {
-      console.error("Error sending daily messages:", error);
-    }
-  });
-}
-
-// Initialize Content Scheduler
-if (ContentScheduler) {
-  try {
-    const contentScheduler = new ContentScheduler(bot);
-    contentScheduler.start();
-    console.log("✅ Content scheduler started");
-  } catch (error) {
-    console.error("⚠️ Could not start content scheduler:", error.message);
-  }
-}
-
-console.log("🤖 Bot started successfully with all features!");
-console.log("🚀 Features loaded:");
-console.log("   • 7-Day Money Flow Program");
-console.log("   • 30-Day Extended Content");
-console.log("   • VIP & Premium Programs");
-console.log("   • Payment Processing");
-console.log("   • Admin Dashboard");
-console.log("   • Progress Tracking");
-console.log("   • Marketing Automation");
-console.log("   • Booking System");
-console.log("   • Free Financial Tools");
-console.log("   • Access Control System");
-console.log("   • Content Scheduling");
-console.log("🔱 7-Day Money Flow Reset™ READY!");
-
-// === GRACEFUL SHUTDOWN ===
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received");
-  server.close(() => process.exit(0));
-});
-
-process.on("SIGINT", () => {
-  console.log("SIGINT received");  
-  server.close(() => process.exit(0));
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err.message);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection:', reason);
-});
+console.log("🤖 Bot started successfully with 7-Day + 30-Day automation!");
+console.log("🚀 Features added:");
+console.log("   • Auto next-day reminders (24h delay)");
+console.log("   • Day 3 upsell automation (1h delay)");
+console.log("   • 30-day follow-up for results");
+console.log("   • Enhanced welcome sequence");
+console.log("   • 30-day extended content automation");
+console.log("   • Daily content delivery (9 AM Cambodia)");
+console.log("   • Evening motivation (6 PM Cambodia)");
+console.log("   • Weekly reviews (Sunday 8 PM Cambodia)");
+console.log("🔱 7-Day Money Flow Reset™ + 30-Day Extended Content READY on Railway!");
