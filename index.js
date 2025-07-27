@@ -14,6 +14,8 @@ console.log("✅ Database ready for operations");
 process.env.NODE_ICU_DATA = "/usr/share/nodejs/node-icu-data";
 process.env.LANG = "en_US.UTF-8";
 
+// Triggering a fresh Railway deployment
+
 // --- Import Database Models ---
 const User = require("./models/User");
 const Progress = require("./models/Progress");
