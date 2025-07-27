@@ -388,29 +388,15 @@ if (process.env.BOT_TOKEN) {
       }
     });
 
-    bot.onText(/\/vip_program_info/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        const user = await User.findOne({ telegram_id: msg.from.id });
-        const isPaid = user?.is_paid === true || user?.is_paid === 't';
-        
-        if (!user || !isPaid) {
-          await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី VIP។ ប្រើ /pricing");
-          return;
-        }
-        
-        await vipCommands.info(msg, bot);
-      } catch (error) {
-        console.error("Error in VIP info command:", error);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
     // === ADMIN COMMANDS ===
     bot.onText(/\/admin_users/i, async (msg) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await adminCommands.showUsers(msg, bot);
+        if (adminCommands && adminCommands.showUsers) {
+          await adminCommands.showUsers(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "⚠️ Admin module not loaded");
+        }
       } catch (e) {
         console.error("Error /admin_users:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -420,7 +406,9 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/admin_progress (.+)/i, async (msg, match) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await adminCommands.checkProgress(msg, match, bot);
+        if (adminCommands && adminCommands.checkProgress) {
+          await adminCommands.checkProgress(msg, match, bot);
+        }
       } catch (e) {
         console.error("Error /admin_progress:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -430,19 +418,11 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/admin_analytics/i, async (msg) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await adminCommands.showAnalytics(msg, bot);
+        if (adminCommands && adminCommands.showAnalytics) {
+          await adminCommands.showAnalytics(msg, bot);
+        }
       } catch (e) {
         console.error("Error /admin_analytics:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_activity/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await adminCommands.showActivity(msg, bot);
-      } catch (e) {
-        console.error("Error /admin_activity:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
       }
     });
@@ -450,111 +430,11 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/admin_confirm_payment (.+)/i, async (msg, match) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await adminCommands.confirmPayment(msg, match, bot);
+        if (adminCommands && adminCommands.confirmPayment) {
+          await adminCommands.confirmPayment(msg, match, bot);
+        }
       } catch (e) {
         console.error("Error /admin_confirm_payment:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_message (.+)/i, async (msg, match) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await adminCommands.sendMessage(msg, match, bot);
-      } catch (e) {
-        console.error("Error /admin_message:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_export/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await adminCommands.exportData(msg, bot);
-      } catch (e) {
-        console.error("Error /admin_export:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_help/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await adminCommands.showHelp(msg, bot);
-      } catch (e) {
-        console.error("Error /admin_help:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_menu|\/admin$/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-      const secondaryAdminId = 484389665;
-      
-      if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-        await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះទេ។");
-        return;
-      }
-
-      const menuMessage = `🔧 ADMIN QUICK MENU
-
-📱 ការតាមដានប្រចាំថ្ងៃ:
-• /admin_activity - អ្នកប្រើប្រាស់សកម្មថ្ងៃនេះ
-• /admin_stuck - អ្នកប្រើប្រាស់ដែលជាប់គាំង
-• /admin_uploads - ការតាមដានការផ្ទុកឡើងរូបភាព
-• /admin_followup - អ្នកប្រើប្រាស់ដែលត្រូវការជំនួយ
-
-📊 ការវិភាគ:
-• /admin_analytics - ផ្ទាំងគ្រប់គ្រងពេញលេញ
-• /admin_completion - អត្រាបញ្ចប់
-• /admin_completed - អ្នកប្រើប្រាស់ដែលបានបញ្ចប់
-
-💬 សកម្មភាព:
-• /admin_progress [UserID] - ព័ត៌មានលម្អិតអ្នកប្រើប្រាស់
-• /admin_message [UserID] [text] - ផ្ញើសារ
-• /admin_remind [day] - ផ្ញើរំលឹក
-• /admin_confirm_payment [UserID] - បញ្ជាក់ការទូទាត់
-
-📋 របាយការណ៍:
-• /admin_users - ទិដ្ឋភាពទូទៅអ្នកប្រើប្រាស់ទាំងអស់
-• /admin_export - នាំចេញទិន្នន័យ CSV
-• /admin_photos [UserID] - រូបភាពអ្នកប្រើប្រាស់
-
-🆘 ជំនួយ:
-• /admin_help - បញ្ជីពាក្យបញ្ជាពេញលេញ
-• /whoami - ស្ថានភាព Admin របស់អ្នក`;
-
-      await bot.sendMessage(msg.chat.id, menuMessage);
-    });
-
-    // === PROGRESS TRACKING COMMANDS ===
-    bot.onText(/\/admin_stuck/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await progressTracker.showStuckUsers(msg, bot);
-      } catch (e) {
-        console.error("Error /admin_stuck:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_completion/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await progressTracker.showCompletionRates(msg, bot);
-      } catch (e) {
-        console.error("Error /admin_completion:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/admin_completed/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await progressTracker.showCompletedUsers(msg, bot);
-      } catch (e) {
-        console.error("Error /admin_completed:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
       }
     });
@@ -563,7 +443,11 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/financial_quiz/i, async (msg) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await financialQuiz.startQuiz(msg, bot);
+        if (financialQuiz && financialQuiz.startQuiz) {
+          await financialQuiz.startQuiz(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "📊 Financial Quiz កំពុងត្រូវបានអភិវឌ្ឍ។");
+        }
       } catch (e) {
         console.error("Error /financial_quiz:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -573,29 +457,13 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/calculate_daily/i, async (msg) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await freeTools.calculateDaily(msg, bot);
+        if (freeTools && freeTools.calculateDaily) {
+          await freeTools.calculateDaily(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "🧮 Calculator កំពុងត្រូវបានអភិវឌ្ឍ។");
+        }
       } catch (e) {
         console.error("Error /calculate_daily:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/find_leaks/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await freeTools.findLeaks(msg, bot);
-      } catch (e) {
-        console.error("Error /find_leaks:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/savings_potential/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await freeTools.savingsPotential(msg, bot);
-      } catch (e) {
-        console.error("Error /savings_potential:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
       }
     });
@@ -604,19 +472,13 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/preview$/i, async (msg) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await previewCommands.preview(msg, bot);
+        if (previewCommands && previewCommands.preview) {
+          await previewCommands.preview(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "👀 Preview មាតិកាកំពុងត្រូវបានអភិវឌ្ឍ។");
+        }
       } catch (e) {
         console.error("Error /preview:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/preview_day1/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await previewCommands.previewDay1(msg, bot);
-      } catch (e) {
-        console.error("Error /preview_day1:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
       }
     });
@@ -633,7 +495,11 @@ if (process.env.BOT_TOKEN) {
           return;
         }
         
-        await badgesCommands.showBadges(msg, bot);
+        if (badgesCommands && badgesCommands.showBadges) {
+          await badgesCommands.showBadges(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "🏆 Badges កំពុងត្រូវបានអភិវឌ្ឍ។");
+        }
       } catch (error) {
         console.error("Error in /badges command:", error);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -651,7 +517,11 @@ if (process.env.BOT_TOKEN) {
           return;
         }
         
-        await badgesCommands.showProgress(msg, bot);
+        if (badgesCommands && badgesCommands.showProgress) {
+          await badgesCommands.showProgress(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "📈 Progress កំពុងត្រូវបានអភិវឌ្ឍ។");
+        }
       } catch (error) {
         console.error("Error in /progress command:", error);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -662,30 +532,13 @@ if (process.env.BOT_TOKEN) {
     bot.onText(/\/quote$/i, async (msg) => {
       if (isDuplicateMessage(msg)) return;
       try {
-        await quotesCommands.dailyQuote(msg, bot);
+        if (quotesCommands && quotesCommands.dailyQuote) {
+          await quotesCommands.dailyQuote(msg, bot);
+        } else {
+          await bot.sendMessage(msg.chat.id, "💬 សម្រង់ប្រចាំថ្ងៃកំពុងត្រូវបានអភិវឌ្ឍ។");
+        }
       } catch (e) {
         console.error("Error /quote:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    bot.onText(/\/wisdom/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await quotesCommands.randomWisdom(msg, bot);
-      } catch (e) {
-        console.error("Error /wisdom:", e);
-        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-      }
-    });
-
-    // === BOOKING (VIP ONLY) ===
-    bot.onText(/\/book_session/i, async (msg) => {
-      if (isDuplicateMessage(msg)) return;
-      try {
-        await bookingCommands.showBookingSlots(msg, bot);
-      } catch (e) {
-        console.error("Error /book_session:", e);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
       }
     });
@@ -696,11 +549,42 @@ if (process.env.BOT_TOKEN) {
       try {
         const user = await User.findOne({ telegram_id: msg.from.id });
         const isPaid = user?.is_paid === true || user?.is_paid === 't';
-        const isVip = user?.tier === "vip";
-        const isPremiumOrVip = user?.tier === "premium" || user?.tier === "vip";
         
-        let faqMessage = await accessControl.getTierSpecificFAQ(msg.from.id, isPaid, isPremiumOrVip, isVip);
-        await sendLongMessage(bot, msg.chat.id, faqMessage, { parse_mode: "Markdown" }, MESSAGE_CHUNK_SIZE);
+        let faqMessage;
+        if (!isPaid) {
+          faqMessage = `❓ សំណួរញឹកញាប់ (FAQ)
+
+💰 អំពីតម្លៃ:
+- តម្លៃប៉ុន្មាន? → $24 (Essential)
+- ទូទាត់យ៉ាងដូចម្តេច? → ABA, ACLEDA, Wing
+- បញ្ជាក់ការទូទាត់? → ១-២ ម៉ោង
+
+📱 ពាក្យបញ្ជា:
+- /start - ចាប់ផ្តើម
+- /pricing - មើលតម្លៃ
+- /payment - ការទូទាត់
+- /help - ជំនួយ
+
+👨‍💼 ទាក់ទង: @Chendasum`;
+        } else {
+          faqMessage = `❓ សំណួរញឹកញាប់ (FAQ) - សមាជិក
+
+✅ អ្នកបានទូទាត់រួច!
+
+📚 កម្មវិធី ៧ ថ្ងៃ:
+- /day1 ដល់ /day7
+
+📈 កម្មវិធី 30 ថ្ងៃ:
+- /extended8 ដល់ /extended30
+
+🏆 តាមដាន:
+- /badges - សមិទ្ធផល
+- /progress - ការរីកចម្រើន
+
+👨‍💼 ទាក់ទង: @Chendasum`;
+        }
+        
+        await bot.sendMessage(msg.chat.id, faqMessage);
       } catch (error) {
         console.error("Error in FAQ command:", error);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -900,10 +784,17 @@ if (process.env.BOT_TOKEN) {
         { upsert: true }
       );
       
-      const completeReaction = emojiReactions.lessonCompleteReaction(dayNumber);
+      const completeReaction = emojiReactions?.lessonCompleteReaction 
+        ? emojiReactions.lessonCompleteReaction(dayNumber)
+        : `🎉 ល្អណាស់! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber}!`;
       await bot.sendMessage(msg.chat.id, completeReaction);
       
-      const celebrationMessage = celebrations.dayCompleteCelebration(dayNumber);
+      const celebrationMessage = celebrations?.dayCompleteCelebration
+        ? celebrations.dayCompleteCelebration(dayNumber)
+        : `🎊 សូមអបអរសាទរ! អ្នកបានបញ្ចប់ថ្ងៃទី ${dayNumber} ដោយជោគជ័យ!
+
+📈 វឌ្ឍនភាព: ${dayNumber}/7 ថ្ងៃ
+💪 បន្តទៅមុខទៀត!`;
       await sendLongMessage(bot, msg.chat.id, celebrationMessage, {}, MESSAGE_CHUNK_SIZE);
       
       if (dayNumber < 7) {
@@ -915,14 +806,25 @@ if (process.env.BOT_TOKEN) {
 
     async function handleProgramComplete(msg) {
       try {
-        const programCelebration = celebrations.programCompleteCelebration(`🎯 ជំហានបន្ទាប់:
+        const programCelebration = celebrations?.programCompleteCelebration
+          ? celebrations.programCompleteCelebration(`🎯 ជំហានបន្ទាប់:
 1️⃣ អនុវត្តផែនការ ៣០ ថ្ងៃ
 2️⃣ ពិនិត្យដំណើរការប្រចាំសប្តាហ៍
 3️⃣ មានសំណួរ? ទាក់ទងមកបាន!
 
 🚀 ចង់បន្តកម្រិតបន្ទាប់?
 VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
-សួរ: "VIP PROGRAM INFO"`);
+សួរ: "VIP PROGRAM INFO"`)
+          : `🎊 អបអរសាទរ! អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™!
+
+🎯 ជំហានបន្ទាប់:
+1️⃣ អនុវត្តផែនការ ៣០ ថ្ងៃ
+2️⃣ ពិនិត្យដំណើរការប្រចាំសប្តាហ៍
+3️⃣ មានសំណួរ? ទាក់ទងមកបាន!
+
+🚀 ចង់បន្តកម្រិតបន្ទាប់?
+VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
+សួរ: "VIP PROGRAM INFO"`;
         
         await sendLongMessage(bot, msg.chat.id, programCelebration, {}, MESSAGE_CHUNK_SIZE);
         
@@ -932,7 +834,9 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
           { upsert: true }
         );
         
-        await vipCommands.offer(msg, bot);
+        if (vipCommands && vipCommands.offer) {
+          await vipCommands.offer(msg, bot);
+        }
       } catch (error) {
         console.error("Error handling PROGRAM COMPLETE:", error);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -949,7 +853,20 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
           return;
         }
         
-        await vipCommands.capitalClarity(msg, bot);
+        if (vipCommands && vipCommands.capitalClarity) {
+          await vipCommands.capitalClarity(msg, bot);
+        } else {
+          // Fallback capital clarity message
+          await bot.sendMessage(msg.chat.id, `🏛️ Capital Clarity - យុទ្ធសាស្ត្រមូលធនឯកជន
+
+🎯 វគ្គយុទ្ធសាស្ត្រឯកជនសម្រាប់:
+- ស្ថាបនិកដែលគ្រប់គ្រងមូលធន
+- អ្នកប្រតិបត្តិដែលមានរចនាសម្ព័ន្ធមូលនិធិ
+- ម្ចាស់អាជីវកម្មដែលគ្រោងរីកចម្រើន
+
+💰 ការវិនិយោគ: $197
+📞 ទាក់ទង: @Chendasum សម្រាប់ព័ត៌មានលម្អិត`);
+        }
       } catch (error) {
         console.error("Error handling Capital Clarity:", error);
         await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -1009,8 +926,12 @@ app.get("/health", (req, res) => {
 
 app.get("/analytics", async (req, res) => {
   try {
-    const stats = await analytics.getStats();
-    res.json(stats);
+    if (analytics && analytics.getStats) {
+      const stats = await analytics.getStats();
+      res.json(stats);
+    } else {
+      res.json({ message: "Analytics module not loaded" });
+    }
   } catch (error) {
     res.status(500).json({ error: "Failed to get analytics" });
   }
@@ -1021,7 +942,9 @@ app.post("/webhook/payment", async (req, res) => {
     const { userId, amount, status, transactionId } = req.body;
     
     if (status === "completed" && amount >= 24) {
-      await paymentCommands.confirmPayment(bot, userId, transactionId);
+      if (paymentCommands && paymentCommands.confirmPayment) {
+        await paymentCommands.confirmPayment(bot, userId, transactionId);
+      }
     }
     
     res.status(200).json({ success: true });
@@ -1120,55 +1043,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection:', reason);
 });
-
-
-
-// -------------------------------------------------------
-// Injected Full Feature Commands from index102.js
-// -------------------------------------------------------
-
-// Marketing Hub Commands
-bot.onText(/\/marketing_hub/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await marketingContent?.marketingHub?.(msg, bot); }
-  catch (e) { console.error("[/marketing_hub] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/post_success_story/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await marketingContent?.postSuccessStory?.(msg, bot); }
-  catch (e) { console.error("[/post_success_story] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/roi_analysis/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await marketingContent?.roiAnalysis?.(msg, bot); }
-  catch (e) { console.error("[/roi_analysis] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-// Tools & Templates
-bot.onText(/\/admin_daily_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await toolsTemplates?.generateDailyTemplate?.(msg, bot); }
-  catch (e) { console.error("[/admin_daily_template] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_weekly_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await toolsTemplates?.generateWeeklyTemplate?.(msg, bot); }
-  catch (e) { console.error("[/admin_weekly_template] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-// 30-Day Admin Content
-bot.onText(/\/admin_content_stats/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await thirtyDayAdmin?.contentStats?.(msg, bot); }
-  catch (e) { console.error("[/admin_content_stats] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
-bot.onText(/\/admin_bulk_send/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try { await thirtyDayAdmin?.sendBulkContent?.(msg, bot); }
-  catch (e) { console.error("[/admin_bulk_send] error:", e); bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។"); }
-});
-
