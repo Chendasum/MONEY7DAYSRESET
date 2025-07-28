@@ -1193,16 +1193,17 @@ const adminCommands_safe = {
 bot.onText(/\/admin_users/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   
-  // Check admin permissions
+  // Check admin permissions - FIX: Check both admin IDs consistently
   const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-  if (msg.from.id !== adminId) {
+  const secondaryAdminId = 484389665;
+  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
     await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
     return;
   }
   
   try {
-    // Get all users from database
-    const allUsers = await db.select().from(users).orderBy(users.joined_at);
+    // FIX: Use embedded User model instead of Drizzle ORM syntax
+    const allUsers = await User.find() || [];
     
     const totalUsers = allUsers.length;
     const paidUsers = allUsers.filter(u => u.is_paid === true || u.is_paid === 't').length;
@@ -1253,17 +1254,18 @@ bot.onText(/\/admin_users/i, async (msg) => {
 bot.onText(/\/admin_analytics/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   
-  // Check admin permissions
+  // Check admin permissions - FIX: Check both admin IDs consistently  
   const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-  if (msg.from.id !== adminId) {
+  const secondaryAdminId = 484389665;
+  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
     await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
     return;
   }
   
   try {
-    // Get all users and progress data
-    const allUsers = await db.select().from(users).orderBy(users.joined_at);
-    const allProgress = await db.select().from(progress);
+    // FIX: Use embedded User and Progress models instead of Drizzle ORM syntax
+    const allUsers = await User.find() || [];
+    const allProgress = await Progress.find() || [];
     
     // User statistics
     const totalUsers = allUsers.length;
@@ -2817,6 +2819,100 @@ const HOST = "0.0.0.0"; // Railway requires 0.0.0.0
     console.error('Promise:', promise);
   });
 })();
+
+// ========================================
+// VIP ENHANCED FEATURES - MISSING COMMANDS
+// ========================================
+
+// VIP Booking System Commands
+bot.onText(/\/book_session/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    const isVip = user?.is_vip === true || user?.is_vip === 't';
+
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+      return;
+    }
+
+    if (!isVip) {
+      await bot.sendMessage(msg.chat.id, "👑 សេវាកម្មនេះសម្រាប់តែ VIP members ប៉ុណ្ណោះ។ ចុច /vip ដើម្បីដំឡើងកម្រិត។");
+      return;
+    }
+
+    const bookingMessage = `📅 VIP SESSION BOOKING
+
+🎯 ជ្រើសរើសប្រភេទ session:
+
+1️⃣ Strategic Foundation Session (60 នាទី)
+   • Capital Architecture Review
+   • Business Growth Strategy
+   • Financial Systems Optimization
+
+2️⃣ Capital Clarity Session (45 នាទី) 
+   • Investment Readiness Assessment
+   • Trust Structure Analysis
+   • Growth Capital Planning
+
+3️⃣ Quick Consultation (30 នាទី)
+   • Specific Problem Solving
+   • Implementation Guidance
+   • Strategy Adjustment
+
+📞 ដើម្បីកក់ទុក:
+សរសេរ "BOOK [លេខ] [ថ្ងៃ/ខែ] [ម៉ោង]"
+
+ឧទាហរណ៍: BOOK 1 25/7 14:00
+
+⏰ ម៉ោងបើកចំហ: 9:00-17:00 (Cambodia Time)
+💬 ទាក់ទង: @Chendasum សម្រាប់បញ្ជាក់`;
+
+    await sendLongMessage(bot, msg.chat.id, bookingMessage, {}, MESSAGE_CHUNK_SIZE);
+  } catch (error) {
+    console.error("Error in /book_session:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ ទាក់ទង @Chendasum");
+  }
+});
+
+// Capital Assessment Booking
+bot.onText(/\/book_capital_assessment/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    const isVip = user?.is_vip === true || user?.is_vip === 't';
+
+    if (!user || !isPaid || !isVip) {
+      await bot.sendMessage(msg.chat.id, "👑 Capital Assessment សម្រាប់តែ VIP members។ ចុច /vip ដើម្បីដំឡើងកម្រិត។");
+      return;
+    }
+
+    const assessmentMessage = `💎 CAPITAL ASSESSMENT BOOKING
+
+🔍 Capital X-Ray Analysis:
+• Current Capital Position Review
+• Trust Structure Evaluation  
+• Investment Readiness Score
+• Growth Capital Opportunities
+• Risk Assessment & Mitigation
+
+⏱️ រយៈពេល: 75 នាទី
+💰 តម្លៃ: Included in VIP Program
+📊 លទ្ធផល: Detailed Capital Report
+
+📅 ដើម្បីកក់ទុក:
+សរសេរ "CAPITAL ASSESSMENT [ថ្ងៃ/ខែ] [ម៉ោង]"
+
+💬 ទាក់ទង: @Chendasum សម្រាប់បញ្ជាក់`;
+
+    await bot.sendMessage(msg.chat.id, assessmentMessage);
+  } catch (error) {
+    console.error("Error in /book_capital_assessment:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ ទាក់ទង @Chendasum");
+  }
+});
 
 // Handle /day[1-7] commands: Delivers daily lesson content - WEBHOOK MODE OPTIMIZED
 bot.onText(/\/day([1-7])/i, async (msg, match) => {
