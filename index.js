@@ -12,6 +12,9 @@ console.log("PORT:", process.env.PORT || 5000);
 process.env.NODE_ICU_DATA = "/usr/share/nodejs/node-icu-data";
 process.env.LANG = "en_US.UTF-8";
 
+// Constants for message handling
+const MESSAGE_CHUNK_SIZE = 3500; // Maximum safe message size for Khmer text
+
 // Database connection is assumed to be handled by Drizzle ORM with PostgreSQL
 console.log("🔍 Database configured with Drizzle ORM and PostgreSQL (via models)");
 console.log("✅ Database ready for operations");
