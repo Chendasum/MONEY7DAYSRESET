@@ -2264,6 +2264,12 @@ bot.onText(/\/test/i, async (msg) => {
 bot.on("message", async (msg) => {
   // WEBHOOK MODE: No duplicate blocking for text messages
   console.log(`📝 Text message received: "${msg.text}" from user ${msg.from.id}`);
+  
+  // Skip processing if this is a command (starts with /)
+  if (msg.text && msg.text.startsWith('/')) {
+    console.log(`⏭️ Skipping command message: ${msg.text}`);
+    return;
+  }
 
   if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
     try {
