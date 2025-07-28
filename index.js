@@ -87,37 +87,189 @@ AccessControl = safeRequire("./services/access-control", "AccessControl");
 ContentScheduler = safeRequire("./services/content-scheduler", "ContentScheduler");
 ConversionOptimizer = safeRequire("./services/conversion-optimizer", "ConversionOptimizer");
 
-// Utility Modules with fallback
-let sendLongMessage;
-try { 
-  const utils = require("./utils/message-splitter");
-  sendLongMessage = utils.sendLongMessage;
-  console.log("✅ Message splitter loaded");
-} catch(e) { 
-  console.log("⚠️ Message splitter not found, using fallback");
-  sendLongMessage = async (bot, chatId, text, options = {}, chunkSize = 4000) => {
-    try {
-      if (text.length <= chunkSize) {
-        return await bot.sendMessage(chatId, text, options);
-      }
-      
-      const chunks = [];
-      for (let i = 0; i < text.length; i += chunkSize) {
-        chunks.push(text.slice(i, i + chunkSize));
-      }
-      
-      for (const chunk of chunks) {
-        await bot.sendMessage(chatId, chunk, options);
-        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
-      }
-    } catch (error) {
-      console.error("Error sending long message:", error);
-      await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។");
+// ENHANCED LONG MESSAGE UTILITY FOR RAILWAY
+async function sendLongMessage(bot, chatId, text, options = {}, delay = 800) {
+  try {
+    const maxLength = 3500; // Safe for Khmer characters
+    
+    if (text.length <= maxLength) {
+      return await bot.sendMessage(chatId, text, options);
     }
-  };
+    
+    console.log(`📝 Splitting long message (${text.length} chars) into chunks for chat ${chatId}`);
+    
+    const chunks = [];
+    let currentChunk = '';
+    
+    // Split by lines to preserve Khmer formatting
+    const lines = text.split('\n');
+    
+    for (const line of lines) {
+      if ((currentChunk + '\n' + line).length > maxLength) {
+        if (currentChunk) {
+          chunks.push(currentChunk.trim());
+          currentChunk = line;
+        } else {
+          chunks.push(line);
+        }
+      } else {
+        currentChunk += (currentChunk ? '\n' : '') + line;
+      }
+    }
+    
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+    }
+    
+    // Send chunks with delay to prevent rate limiting
+    for (let i = 0; i < chunks.length; i++) {
+      await bot.sendMessage(chatId, chunks[i], options);
+      console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+      
+      if (i < chunks.length - 1 && delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    console.log(`🎉 Successfully sent all ${chunks.length} chunks`);
+  } catch (error) {
+    console.error("❌ Error in sendLongMessage:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមទាក់ទង @Chendasum");
+  }
 }
 
-const MESSAGE_CHUNK_SIZE = 800;
+// BUILT-IN DAILY CONTENT FOR RAILWAY
+function getDailyContent(day) {
+  const dailyContent = {
+    1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
+
+🔥 គោលដៅថ្ងៃនេះ: រកលុយ $30-$50+ ក្នុង ២០ នាទី តាមវិធីសាស្ត្រពិតប្រាកដ!
+
+👋 ជំរាបសួរ! ថ្ងៃនេះយើងនឹងមកយល់ដឹងអំពីលុយរបស់អ្នកឱ្យបានច្បាស់លាស់ និងរកលុយភ្លាមៗ!
+
+💎 តំបន់សកម្មភាពបន្ទាន់ (២០ នាទី)
+
+⚡ ជំហានភ្លាមៗ (៥ នាទី): ពិនិត្យមើលការជាវឌីជីថល
+→ បើក Phone Settings → Subscriptions/App Store
+→ រកមើលកម្មវិធីដែលអ្នកលែងប្រើប្រាស់ហើយ
+→ គោលដៅ: រកឃើញ $15+ ភ្លាមៗដែលអ្នកអាចសន្សំបានរៀងរាល់ខែ
+
+💡 ចំណុចលេចធ្លាយលុយឌីជីថលទូទៅនៅកម្ពុជា:
+• Netflix/YouTube Premium មិនបានមើល: $10-15/ខែ = $120-180/ឆ្នាំ
+• Spotify មិនបានស្តាប់: $10/ខែ = $120/ឆ្នាំ
+• កម្មវិធីហ្គេមមិនបានលេង: $5-20/ខែ = $60-240/ឆ្នាំ
+• VPN/Cloud storage ភ្លេចបន្ត: $5-15/ខែ = $60-180/ឆ្នាំ
+
+📊 គណនាភ្លាមៗ - សរសេរចំនួនពិតប្រាកដ:
+- ការបោះបង់ការជាវ: $____/ខែ
+- កាត់បន្ថយការជិះ Grab: $____/ខែ
+- កាត់បន្ថយការទិញកាហ្វេនៅហាង: $____/ខែ
+សរុបប្រាក់ដែលបានរកឃើញ: $____/ខែ = $____/ឆ្នាំ!
+
+🏆 ការធានា: រកមិនបាន $30/ខែ? ទាក់ទង @Chendasum នឹងទទួលបានការប្រឹក្សាឥតគិតថ្លៃ!
+
+📞 ជំនួយ: @Chendasum | Website: 7daymoneyflow.com`,
+
+    2: `💧 ថ្ងៃទី ២: ស្វែងរកកន្លែងដែលលុយលេចធ្លាយ (Money Leaks) 💧
+
+🎯 គោលដៅថ្ងៃនេះ: រកកន្លែងលេចធ្លាយលុយ $50-100+ ដែលអ្នកមិនដឹង!
+
+🔍 កន្លែងលេចធ្លាយលុយទូទៅនៅកម្ពុជា:
+
+💳 ថ្លៃធនាគារ និង ថ្លៃសេវាកម្ម:
+• ថ្លៃរក្សាគណនីធនាគារ: $2-5/ខែ
+• ថ្លៃប្រើ ATM ធនាគារផ្សេង: $1 × 10ដង = $10/ខែ
+• ថ្លៃផ្ទេរប្រាក់អន្តរធនាគារ: $0.5 × 20ដង = $10/ខែ
+
+🚗 ចំណាយដឹកជញ្ជូន:
+• Grab ចម្ងាយខ្លី: $3-5 × 15ដង = $45-75/ខែ
+• ប្រឹក្សា: ប្រើម៉ូតូ ឬ ដើរវិញ
+• កំណត់តម្លៃតូចជាងមុន ២០%
+
+🍕 ចំណាយអាហារ:
+• ការបញ្ជាអាហារ delivery: ថ្លៃដឹក $1-2 × 15ដង = $15-30/ខែ  
+• កាហ្វេហាង: $2 × 20ថ្ងៃ = $40/ខែ
+• ស្រាបៀរ/ភេសជ្ជៈ: $3-5 × 10ដង = $30-50/ខែ
+
+⚡ សកម្មភាពថ្ងៃនេះ:
+1. រាប់ចំណាយ 7 ថ្ងៃចុងក្រោយ
+2. កត់ត្រាកន្លែងលេចធ្លាយលុយទាំង 5
+3. គ្រោងកាត់បន្ថយ 30% សប្តាហ៍នេះ
+
+📊 សរុបដែលរកឃើញថ្ងៃនេះ: $____/ខែ
+
+📞 ជំនួយ: @Chendasum | ចង់បានមាតិកាថ្ងៃ 3? ទាក់ទងឥឡូវ!`,
+
+    3: `🎯 ថ្ងៃទី ៣: បង្កើតមូលដ្ឋានគ្រប់គ្រងលុយ 🎯
+
+🔥 គោលដៅថ្ងៃនេះ: ទ្រង់ទ្រាយលុយរបស់អ្នកឱ្យមានស្ទ្រាកទុក និងកន្លែងចំណាយច្បាស់!
+
+📊 តម្រូវការមូលដ្ឋាន:
+• ទុកទុន: 20% នៃចំណូល
+• ចំណាយចាំបាច់: 50%
+• ចំណាយផ្តល់ជីវភាព: 20%
+• ការវិនិយោគ: 10%
+
+📞 ជំនួយ: @Chendasum`,
+
+    4: `💰 ថ្ងៃទី ៤: បង្កើនចំណូលតាមវិធីសាស្ត្រពិតប្រាកដ 💰
+
+🎯 គោលដៅថ្ងៃនេះ: ស្វែងរកវិធីបង្កើនចំណូល $100-300+ ក្នុងខែ!
+
+🔍 ឱកាសចំណូលបន្ថែមនៅកម្ពុជា:
+• បកប្រែឯកសារ: $5-15/ម៉ោង
+• បង្រៀនអនឡាញ: $8-20/ម៉ោង  
+• លក់នៅ Facebook: $50-200/ខែ
+• បម្រើការខ្នាតតូច: $100-500/ខែ
+
+📞 ជំនួយ: @Chendasum`,
+
+    5: `🏦 ថ្ងៃទី ៥: គ្រប់គ្រងបំណុល និងកាត់បន្ថយការប្រាក់ 🏦
+
+🎯 គោលដៅថ្ងៃនេះ: កាត់បន្ថយការប្រាក់ $20-50+ ក្នុងខែ!
+
+💳 យុទ្ធសាស្ត្របំណុល:
+• ទូទាត់បំណុលការប្រាក់ខ្ពស់មុនសិន
+• ចរចារការប្រាក់ជាមួយធនាគារ
+• ប្រើប្រាស់ការបង្វិលបំណុល
+
+📞 ជំនួយ: @Chendasum`,
+
+    6: `📈 ថ្ងៃទី ៦: ការវិនិយោគសាមញ្ញ និងការរក្សាលុយ 📈
+
+🎯 គោលដៅថ្ងៃនេះ: ចាប់ផ្តើមផែនការវិនិយោគលាយសមបាល!
+
+💎 ជម្រើសវិនិយោគនៅកម្ពុជា:
+• គណនីសន្សំការប្រាក់ខ្ពស់
+• មូលបត្ររដ្ឋាភិបាល
+• ការវិនិយោគលុយក្រុម
+
+📞 ជំនួយ: @Chendasum`,
+
+    7: `🎉 ថ្ងៃទី ៧: រក្សាការវិវត្តន៍ និងគ្រោងអនាគត 🎉
+
+🎯 គោលដៅថ្ងៃនេះ: បង្កើតផែនការហិរញ្ញវត្ថុរយៈពេលវែង!
+
+🏆 សមិទ្ធផលរបស់អ្នក:
+✅ បានរកលុយ $30-50+ ភ្លាមៗ
+✅ កាត់បន្ថយចំណាយមិនចាំបាច់
+✅ បង្កើតមូលដ្ឋានគ្រប់គ្រងលុយ
+✅ រកបានចំណូលបន្ថែម
+✅ គ្រប់គ្រងបំណុលបានល្អ
+✅ ចាប់ផ្តើមការវិនិយោគ
+
+🚀 ជំហានបន្ទាប់:
+• ធ្វើឡើងវិញរៀងរាល់សប្តាហ៍
+• បង្កើនគោលដៅ 10% ក្នុងខែ
+• ស្វែងរកការសិក្សាបន្ថែម
+
+📞 ជំនួយ: @Chendasum | 🎉 អបអរសាទរ! អ្នកបានបញ្ចប់ 7-Day Money Flow Reset™!`
+  };
+
+  return dailyContent[day] || `📚 ថ្ងៃទី ${day} - មាតិកានឹងមកដល់ឆាប់ៗ
+
+📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
+}
 
 // Initialize Express app
 const app = express();
@@ -158,18 +310,18 @@ function isDuplicateMessage(msg) {
   const messageId = `${msg.chat.id}-${msg.message_id}`;
   const now = Date.now();
 
-  // Only block if same message processed within last 3 seconds (for webhook mode)
-  if (processedMessages.has(messageId) && lastProcessTime[messageId] && now - lastProcessTime[messageId] < 3000) {
-    console.log(`[isDuplicateMessage] Blocking recent duplicate: ${messageId} within 3s`);
+  // FIXED: Only block if same message processed within last 1 second (webhook optimized)
+  if (processedMessages.has(messageId) && lastProcessTime[messageId] && now - lastProcessTime[messageId] < 1000) {
+    console.log(`[isDuplicateMessage] Blocking recent duplicate: ${messageId} within 1s`);
     return true;
   }
 
   processedMessages.add(messageId);
   lastProcessTime[messageId] = now;
 
-  // Clean up old entries every 50 messages
-  if (processedMessages.size > 50) {
-    const cutoff = now - 30000; // 30 seconds
+  // Clean up old entries every 100 messages (increased from 50)
+  if (processedMessages.size > 100) {
+    const cutoff = now - 60000; // 60 seconds (increased from 30)
     Object.keys(lastProcessTime).forEach((id) => {
       if (lastProcessTime[id] < cutoff) {
         processedMessages.delete(id);
@@ -2161,8 +2313,8 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       await dailyCommands.handle(msg, match, bot);
     } else {
       // Enhanced fallback daily content with full day content
-      const dayContent = getDayContent(match[1]);
-      await sendLongMessage(bot, msg.chat.id, dayContent, {}, MESSAGE_CHUNK_SIZE);
+      const dayContent = getDailyContent(parseInt(match[1]));
+      await sendLongMessage(bot, msg.chat.id, dayContent);
       
       // Update progress
       try {
