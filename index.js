@@ -736,6 +736,31 @@ bot.onText(/\/start/i, async (msg) => {
   try {
     console.log("📝 [START HANDLER] Processing /start command for user:", msg.from.id);
     
+    // Special admin handling for Railway deployment
+    if (msg.from.id === 484389665) {
+      const adminMessage = `🔧 ADMIN ACCESS - 7-Day Money Flow Reset™
+
+👑 Admin Account: ${msg.from.first_name}
+🎯 Status: VIP + Admin Access
+📊 System Status: Online and Active
+
+🛠️ Admin Quick Access:
+• /admin - Admin dashboard
+• /admin_users - User management 
+• /admin_analytics - System analytics
+• /day1 - Test daily content
+
+🏆 VIP Features Available:
+• All program content
+• VIP booking system
+• Admin management tools
+
+Ready to manage the system or test user experience?`;
+      
+      await sendLongMessage(bot, msg.chat.id, adminMessage, {}, MESSAGE_CHUNK_SIZE);
+      return;
+    }
+    
     if (startCommand && startCommand.handle) {
       await startCommand.handle(msg, bot);
     } else {
