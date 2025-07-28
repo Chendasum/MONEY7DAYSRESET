@@ -253,6 +253,84 @@ class Progress {
 
 console.log("✅ Database models embedded and ready for Railway deployment");
 
+// Enhanced message sending function with better chunking for Khmer content
+async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
+  try {
+    if (message.length <= chunkSize) {
+      return await bot.sendMessage(chatId, message, options);
+    }
+
+    // Smart chunking for better user experience
+    const chunks = [];
+    let currentChunk = '';
+    
+    // Split by paragraphs first for better content flow
+    const paragraphs = message.split('\n\n');
+    
+    for (const paragraph of paragraphs) {
+      if ((currentChunk + paragraph).length <= chunkSize) {
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = paragraph;
+        } else {
+          // If single paragraph is too long, split by sentences
+          const sentences = paragraph.split('\n');
+          for (const sentence of sentences) {
+            if ((currentChunk + sentence).length <= chunkSize) {
+              currentChunk += (currentChunk ? '\n' : '') + sentence;
+            } else {
+              if (currentChunk) chunks.push(currentChunk);
+              currentChunk = sentence;
+            }
+          }
+        }
+      }
+    }
+    
+    if (currentChunk) chunks.push(currentChunk);
+
+    // Send chunks with enhanced error handling
+    const messageIds = [];
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        const sentMessage = await bot.sendMessage(chatId, chunks[i], {
+          ...options,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        });
+        messageIds.push(sentMessage.message_id);
+        console.log(`✅ Chunk ${i + 1}/${chunks.length} sent (${chunks[i].length} chars, ID: ${sentMessage.message_id})`);
+        
+        // Enhanced delay between chunks for better reading experience
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (chunkError) {
+        console.error(`❌ Error sending chunk ${i + 1}:`, chunkError.message);
+        // Fallback for failed chunks
+        try {
+          await bot.sendMessage(chatId, `📝 [មាតិកាផ្នែកទី ${i + 1}] មានបញ្ហាក្នុងការផ្ញើ។ សូមទាក់ទង @Chendasum`);
+        } catch (fallbackError) {
+          console.error('Fallback message also failed:', fallbackError.message);
+        }
+      }
+    }
+    
+    return { message_ids: messageIds, chunks_sent: chunks.length };
+  } catch (error) {
+    console.error('Error in sendLongMessage:', error.message);
+    // Final fallback
+    try {
+      await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមព្យាយាមម្តងទៀត ឬទាក់ទង @Chendasum');
+    } catch (finalError) {
+      console.error('Final fallback failed:', finalError.message);
+    }
+    throw error;
+  }
+}
+
 // Command Modules with error handling for each module
 let startCommand, dailyCommands, paymentCommands, vipCommands, adminCommands;
 let badgesCommands, quotesCommands, bookingCommands, tierFeatures;
