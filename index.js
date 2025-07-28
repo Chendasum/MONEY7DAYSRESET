@@ -38,33 +38,37 @@ function getRailwayUrl() {
   return `https://${serviceName}-${environmentName}.up.railway.app`;
 }
 
-// Core command handlers using modular architecture
-bot.onText(/^\/start(@MoneyFlowReset2025Bot)?$/, async (msg) => {
+// Comprehensive command routing using full modular architecture
+async function handleCommand(msg, bot) {
+  const text = msg.text;
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  
+  console.log(`📨 Processing command: ${text} from user ${userId}`);
+  
   try {
-    console.log(`📞 /start command received from user ${msg.from.id}`);
-    if (startCommand && startCommand.handle) {
-      await startCommand.handle(msg, bot);
-    } else {
-      await bot.sendMessage(msg.chat.id, "🎉 Welcome to 7-Day Money Flow Reset™!");
+    // /start command - Use start module
+    if (/^\/start(@MoneyFlowReset2025Bot)?$/.test(text)) {
+      console.log(`📞 /start command - calling startCommand.handle`);
+      if (startCommand && startCommand.handle) {
+        await startCommand.handle(msg, bot);
+        return;
+      }
     }
-  } catch (error) {
-    console.error("❌ Error in /start command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការចាប់ផ្តើម។ សូមព្យាយាមម្តងទៀត។");
-  }
-});
-
-bot.onText(/^\/help(@MoneyFlowReset2025Bot)?$/, async (msg) => {
-  try {
-    console.log(`📞 /help command received from user ${msg.from.id}`);
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
-    if (isPaid && accessControl) {
-      const tierInfo = await accessControl.getUserTierInfo(msg.from.id);
-      const helpMessage = await accessControl.getTierSpecificHelp(tierInfo);
-      await sendLongMessage(bot, msg.chat.id, helpMessage);
-    } else {
-      const helpMessage = `🏆 Money Flow Reset™ - ជំនួយ
+    // /help command - Use access control service
+    if (/^\/help(@MoneyFlowReset2025Bot)?$/.test(text)) {
+      console.log(`📞 /help command - calling access control`);
+      if (accessControl) {
+        const user = await User.findOne({ telegram_id: userId });
+        const isPaid = user?.is_paid === true || user?.is_paid === 't';
+        
+        if (isPaid) {
+          const tierInfo = await accessControl.getUserTierInfo(userId);
+          const helpMessage = await accessControl.getTierSpecificHelp(tierInfo);
+          await sendLongMessage(bot, chatId, helpMessage);
+        } else {
+          const helpMessage = `🏆 Money Flow Reset™ - ជំនួយ
 
 🎯 ពាក្យបញ្ជាទូទៅ
 /start - ចាប់ផ្តើមកម្មវិធី
@@ -73,76 +77,106 @@ bot.onText(/^\/help(@MoneyFlowReset2025Bot)?$/, async (msg) => {
 /help - ជំនួយនេះ
 
 📞 ជំនួយ: @Chendasum`;
-      
-      await sendLongMessage(bot, msg.chat.id, helpMessage);
-    }
-  } catch (error) {
-    console.error("❌ Error in /help command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការផ្ទុកជំនួយ។ សូមព្យាយាមម្តងទៀត។");
-  }
-});
-
-bot.onText(/^\/day([1-7])(@MoneyFlowReset2025Bot)?$/, async (msg, match) => {
-  try {
-    const dayNumber = parseInt(match[1]);
-    console.log(`📞 /day${dayNumber} command received from user ${msg.from.id}`);
-    
-    if (dailyCommands && dailyCommands.handleDay) {
-      await dailyCommands.handleDay(msg, bot, dayNumber);
-    } else {
-      await bot.sendMessage(msg.chat.id, `📚 Day ${dayNumber} content coming soon!`);
-    }
-  } catch (error) {
-    console.error(`❌ Error in /day command:`, error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការផ្ទុកមេរៀន។ សូមព្យាយាមម្តងទៀត។");
-  }
-});
-
-bot.onText(/^\/admin(@MoneyFlowReset2025Bot)?$/, async (msg) => {
-  try {
-    console.log(`📞 /admin command received from user ${msg.from.id}`);
-    
-    if (msg.from.id.toString() === process.env.ADMIN_CHAT_ID) {
-      if (adminCommands && adminCommands.showDashboard) {
-        await adminCommands.showDashboard(msg, bot);
-      } else {
-        await bot.sendMessage(msg.chat.id, "🔧 Admin Dashboard\n\nAdmin functions available!");
+          await sendLongMessage(bot, chatId, helpMessage);
+        }
+        return;
       }
-    } else {
-      await bot.sendMessage(msg.chat.id, "❌ Access denied");
     }
-  } catch (error) {
-    console.error("❌ Error in /admin command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការចូលប្រើ។");
-  }
-});
-
-bot.onText(/^\/pricing(@MoneyFlowReset2025Bot)?$/, async (msg) => {
-  try {
-    console.log(`📞 /pricing command received from user ${msg.from.id}`);
     
-    if (paymentCommands && paymentCommands.showPricing) {
-      await paymentCommands.showPricing(msg, bot);
-    } else {
-      const pricingMessage = `💰 7-Day Money Flow Reset™ Pricing
-
-🎯 Essential Program - $24 USD
-✅ Complete 7-day financial education
-✅ Daily lessons in Khmer
-✅ Progress tracking
-✅ Access to all tools
-
-🔥 Special Launch Price: $24 (50% off from $47)
-
-📞 Contact: @Chendasum`;
-      
-      await bot.sendMessage(msg.chat.id, pricingMessage);
+    // Daily lesson commands /day1-7 - Use daily module
+    const dayMatch = text.match(/^\/day([1-7])(@MoneyFlowReset2025Bot)?$/);
+    if (dayMatch) {
+      const dayNumber = parseInt(dayMatch[1]);
+      console.log(`📞 /day${dayNumber} command - calling dailyCommands.handleDay`);
+      if (dailyCommands && dailyCommands.handleDay) {
+        await dailyCommands.handleDay(msg, bot, dayNumber);
+        return;
+      }
     }
+    
+    // Admin commands - Use admin module
+    if (/^\/admin(@MoneyFlowReset2025Bot)?$/.test(text)) {
+      console.log(`📞 /admin command - calling adminCommands.showDashboard`);
+      if (userId.toString() === process.env.ADMIN_CHAT_ID) {
+        if (adminCommands && adminCommands.showDashboard) {
+          await adminCommands.showDashboard(msg, bot);
+          return;
+        }
+      } else {
+        await bot.sendMessage(chatId, "❌ Access denied");
+        return;
+      }
+    }
+    
+    // Pricing command - Use payment module
+    if (/^\/pricing(@MoneyFlowReset2025Bot)?$/.test(text)) {
+      console.log(`📞 /pricing command - calling paymentCommands.showPricing`);
+      if (paymentCommands && paymentCommands.showPricing) {
+        await paymentCommands.showPricing(msg, bot);
+        return;
+      }
+    }
+    
+    // Payment command - Use payment module
+    if (/^\/payment(@MoneyFlowReset2025Bot)?$/.test(text)) {
+      console.log(`📞 /payment command - calling paymentCommands.showInstructions`);
+      if (paymentCommands && paymentCommands.showInstructions) {
+        await paymentCommands.showInstructions(msg, bot);
+        return;
+      }
+    }
+    
+    // Preview commands - Use preview module
+    if (/^\/preview/.test(text)) {
+      console.log(`📞 Preview command - calling previewCommands`);
+      if (previewCommands) {
+        if (/^\/preview$/.test(text) && previewCommands.showMain) {
+          await previewCommands.showMain(msg, bot);
+          return;
+        }
+        if (/^\/preview_lessons$/.test(text) && previewCommands.showLessons) {
+          await previewCommands.showLessons(msg, bot);
+          return;
+        }
+        if (/^\/preview_results$/.test(text) && previewCommands.showResults) {
+          await previewCommands.showResults(msg, bot);
+          return;
+        }
+      }
+    }
+    
+    // Financial quiz - Use financial quiz module
+    if (/^\/financial_quiz(@MoneyFlowReset2025Bot)?$/.test(text)) {
+      console.log(`📞 /financial_quiz command - calling financialQuiz.startQuiz`);
+      if (financialQuiz && financialQuiz.startQuiz) {
+        await financialQuiz.startQuiz(msg, bot);
+        return;
+      }
+    }
+    
+    // Free tools - Use free tools module
+    if (/^\/calculate_daily|\/find_leaks|\/savings_potential|\/income_analysis/.test(text)) {
+      console.log(`📞 Free tools command - calling freeTools`);
+      if (freeTools) {
+        if (/^\/calculate_daily$/.test(text) && freeTools.calculateDaily) {
+          await freeTools.calculateDaily(msg, bot);
+          return;
+        }
+        if (/^\/find_leaks$/.test(text) && freeTools.findLeaks) {
+          await freeTools.findLeaks(msg, bot);
+          return;
+        }
+      }
+    }
+    
+    console.log(`⚠️ Command not recognized or module not available: ${text}`);
+    await bot.sendMessage(chatId, "❌ Command not recognized. Type /help for available commands.");
+    
   } catch (error) {
-    console.error("❌ Error in /pricing command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការបង្ហាញតម្លៃ។");
+    console.error(`❌ Error processing command ${text}:`, error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការដំណើរការ។ សូមព្យាយាមម្តងទៀត។");
   }
-});
+}
 
 // Webhook setup for Railway
 async function setupWebhook() {
@@ -166,11 +200,19 @@ async function setupWebhook() {
   }
 }
 
-// Webhook endpoint
-app.post(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
+// Enhanced webhook endpoint that processes commands through modular architecture
+app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
   try {
-    console.log("📨 Webhook received:", JSON.stringify(req.body, null, 2));
-    bot.processUpdate(req.body);
+    console.log("📨 Webhook received from Telegram");
+    const update = req.body;
+    
+    if (update.message && update.message.text) {
+      await handleCommand(update.message, bot);
+    } else {
+      // Process other update types through bot.processUpdate
+      bot.processUpdate(update);
+    }
+    
     res.sendStatus(200);
   } catch (error) {
     console.error("❌ Error processing webhook:", error);
