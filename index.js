@@ -28,7 +28,9 @@ try {
   User = {
     findOne: async () => null,
     findOneAndUpdate: async () => null,
-    updateLastActive: async () => null
+    updateLastActive: async () => null,
+    find: async () => [],
+    countDocuments: async () => 0
   };
   Progress = {
     findOne: async () => null,
@@ -503,64 +505,6 @@ bot.onText(/^\/day$/i, async (msg) => {
   }
 });
 
-// Handle /day[1-7] commands: Delivers daily lesson content - WEBHOOK MODE OPTIMIZED
-bot.onText(/\/day([1-7])/i, async (msg, match) => {
-  console.log(`🎯 /day${match[1]} command received from user ${msg.from.id}`);
-  try {
-    console.log(`🔍 Looking up user ${msg.from.id} in database...`);
-    // FIXED: Use correct PostgreSQL field names
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    console.log(`📊 User lookup result:`, {
-      found: !!user,
-      id: user?.telegram_id,
-      name: user?.first_name,
-      paid: user?.is_paid,
-      tier: user?.tier,
-    });
-
-    console.log(`Daily command access check for user ${msg.from.id}:`, {
-      user_found: !!user,
-      is_paid_raw: user?.is_paid,
-      is_paid_boolean: user?.is_paid === true || user?.is_paid === "t",
-      tier: user?.tier,
-    });
-
-    // FIXED: Check is_paid properly (PostgreSQL stores as 't'/'f' strings)
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-
-    if (!user || !isPaid) {
-      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
-      return;
-    }
-
-    if (dailyCommands && dailyCommands.handle) {
-      await dailyCommands.handle(msg, match, bot);
-    } else {
-      // Enhanced fallback daily content with full day content
-      const dayContent = getDayContent(match[1]);
-      await sendLongMessage(bot, msg.chat.id, dayContent, {}, MESSAGE_CHUNK_SIZE);
-      
-      // Update progress
-      try {
-        await Progress.findOneAndUpdate(
-          { user_id: msg.from.id },
-          { 
-            current_day: parseInt(match[1]),
-            [`day${match[1]}Accessed`]: true,
-            [`day${match[1]}AccessedAt`]: new Date()
-          },
-          { upsert: true }
-        );
-      } catch (dbError) {
-        console.log("Progress update skipped (using fallback)");
-      }
-    }
-  } catch (error) {
-    console.error("Error in daily command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
-});
-
 // VIP command handlers: Both /vip_program_info and /vip trigger VIP information
 bot.onText(/\/vip_program_info/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
@@ -701,150 +645,12 @@ function getExtendedDayContent(day) {
 
 មាតិកាថ្ងៃទី ${day} នឹងត្រូវបានផ្ញើមកអ្នកឆាប់ៗនេះ។
 
-📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ// ========================================
-// TELEGRAM BOT COMMAND HANDLERS - PART 2
+📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
+}
+
 // ========================================
-
-// Handle /day[1-7] commands: Delivers daily lesson content - WEBHOOK MODE OPTIMIZED
-bot.onText(/\/day([1-7])/i, async (msg, match) => {
-  console.log(`🎯 /day${match[1]} command received from user ${msg.from.id}`);
-  try {
-    console.log(`🔍 Looking up user ${msg.from.id} in database...`);
-    // FIXED: Use correct PostgreSQL field names
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    console.log(`📊 User lookup result:`, {
-      found: !!user,
-      id: user?.telegram_id,
-      name: user?.first_name,
-      paid: user?.is_paid,
-      tier: user?.tier,
-    });
-
-    console.log(`Daily command access check for user ${msg.from.id}:`, {
-      user_found: !!user,
-      is_paid_raw: user?.is_paid,
-      is_paid_boolean: user?.is_paid === true || user?.is_paid === "t",
-      tier: user?.tier,
-    });
-
-    // FIXED: Check is_paid properly (PostgreSQL stores as 't'/'f' strings)
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
-
-    if (!user || !isPaid) {
-      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
-      return;
-    }
-
-    if (dailyCommands && dailyCommands.handle) {
-      await dailyCommands.handle(msg, match, bot);
-    } else {
-      // Enhanced fallback daily content with full day content
-      const dayContent = getDayContent(match[1]);
-      await sendLongMessage(bot, msg.chat.id, dayContent, {}, MESSAGE_CHUNK_SIZE);
-      
-      // Update progress
-      try {
-        await Progress.findOneAndUpdate(
-          { user_id: msg.from.id },
-          { 
-            current_day: parseInt(match[1]),
-            [`day${match[1]}Accessed`]: true,
-            [`day${match[1]}AccessedAt`]: new Date()
-          },
-          { upsert: true }
-        );
-      } catch (dbError) {
-        console.log("Progress update skipped (using fallback)");
-      }
-    }
-  } catch (error) {
-    console.error("Error in daily command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
-});
-
-// Admin Commands: Restricted access commands for bot administrators
-bot.onText(/\/admin_users/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.showUsers(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_users:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_progress (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.checkProgress(msg, match, bot);
-  } catch (e) {
-    console.error("Error /admin_progress:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_analytics/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.showAnalytics(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_analytics:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_activity/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.showActivity(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_activity:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_followup/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.showFollowup(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_followup:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_message (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.sendMessage(msg, match, bot);
-  } catch (e) {
-    console.error("Error /admin_message:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_confirm_payment (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.confirmPayment(msg, match, bot);
-  } catch (e) {
-    console.error("Error /admin_confirm_payment:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_export/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.exportData(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_export:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_help/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await adminCommands.showHelp(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_help:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
+// ADMIN COMMANDS - PART 3
+// ========================================
 
 // Admin Commands: Restricted access commands for bot administrators
 const adminCommands_safe = {
@@ -1010,409 +816,69 @@ bot.onText(/\/admin_menu|\/admin/i, async (msg) => {
 
   const menuMessage = `🔧 ADMIN QUICK MENU
 
-
 📱 ការតាមដានប្រចាំថ្ងៃ:
-• /admin_activity - អ្នកប្រើប្រាស់សកម្មថ្ងៃនេះ
-• /admin_stuck - អ្នកប្រើប្រាស់ដែលជាប់គាំង
-• /admin_uploads - ការតាមដានការផ្ទុកឡើងរូបភាព
-• /admin_followup - អ្នកប្រើប្រាស់ដែលត្រូវការជំនួយ
-
-📊 ការវិភាគ:
-• /admin_analytics - ផ្ទាំងគ្រប់គ្រងពេញលេញ
-• /admin_completion - អត្រាបញ្ចប់
-• /admin_completed - អ្នកប្រើប្រាស់ដែលបានបញ្ចប់
+• /admin_users - បញ្ជីអ្នកប្រើប្រាស់
+• /admin_analytics - ការវិភាគទិន្នន័យ
 
 💬 សកម្មភាព:
-• /admin_progress [UserID] - ព័ត៌មានលម្អិតអ្នកប្រើប្រាស់
-• /admin_message [UserID] [text] - ផ្ញើសារ
-• /admin_remind [day] - ផ្ញើរំលឹក
 • /admin_confirm_payment [UserID] - បញ្ជាក់ការទូទាត់
 
-📋 របាយការណ៍:
-• /admin_users - ទិដ្ឋភាពទូទៅអ្នកប្រើប្រាស់ទាំងអស់
-• /admin_export - នាំចេញទិន្នន័យ CSV
-• /admin_photos [UserID] - រូបភាពអ្នកប្រើប្រាស់
+📋 ឧទាហរណ៍:
+• /admin_confirm_payment 123456789
 
 🆘 ជំនួយ:
-• /admin_help - បញ្ជីពាក្យបញ្ជាពេញលេញ
-• /whoami - ស្ថានភាព Admin របស់អ្នក
-
-📋 ឧបករណ៍ & ទម្រង់:
-• /admin_daily_template - ទម្រង់តាមដានប្រចាំថ្ងៃ
-• /admin_weekly_template - ទម្រង់របាយការណ៍ប្រចាំសប្តាហ៍
-• /admin_engagement_checklist - មគ្គុទេសក៍ការចូលរួមអ្នកប្រើប្រាស់
-• /admin_onboarding_template - ទម្រង់អ្នកប្រើប្រាស់ថ្មី
+• /whoami - ពិនិត្យសិទ្ធិ Admin
 
 វាយពាក្យបញ្ជាណាមួយដើម្បីប្រតិបត្តិភ្លាមៗ!`;
 
   await bot.sendMessage(msg.chat.id, menuMessage);
 });
 
-// Tools and Templates Admin Commands
-bot.onText(/\/admin_daily_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await toolsTemplates.generateDailyTemplate(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_daily_template:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_weekly_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await toolsTemplates.generateWeeklyTemplate(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_weekly_template:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_engagement_checklist/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await toolsTemplates.generateEngagementChecklist(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_engagement_checklist:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_onboarding_template/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await toolsTemplates.generateOnboardingTemplate(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_onboarding_template:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
+// ========================================
+// FREE TOOLS & FEATURES - PART 3
+// ========================================
 
-// Marketing Content Commands
-bot.onText(/\/marketing_hub/i, async (msg) => {
+// Preview System Commands: Free access to preview content
+bot.onText(/\/preview$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    await marketingContent.marketingHub(msg, bot);
-  } catch (e) {
-    console.error("Error /marketing_hub:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/post_success_story/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.postSuccessStory(msg, bot);
-  } catch (e) {
-    console.error("Error /post_success_story:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/post_program_promo/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.postProgramPromo(msg, bot);
-  } catch (e) {
-    console.error("Error /post_program_promo:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/launch_flash_sale/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.launchFlashSale(msg, bot);
-  } catch (e) {
-    console.error("Error /launch_flash_sale:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/content_week/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.contentWeek(msg, bot);
-  } catch (e) {
-    console.error("Error /content_week:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/send_newsletter/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.sendNewsletter(msg, bot);
-  } catch (e) {
-    console.error("Error /send_newsletter:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/marketing_stats/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.marketingStats(msg, bot);
-  } catch (e) {
-    console.error("Error /marketing_stats:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/roi_analysis/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.roiAnalysis(msg, bot);
-  } catch (e) {
-    console.error("Error /roi_analysis:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/referral_program/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await marketingContent.referralProgram(msg, bot);
-  } catch (e) {
-    console.error("Error /referral_program:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-
-// 30-Day Extended Content Commands: Access lessons from Day 8 to Day 30
-bot.onText(/\/extended(\d+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  const day = parseInt(match[1]);
-  if (isNaN(day) || day < 8 || day > 30) {
-    await bot.sendMessage(
-      msg.chat.id,
-      "❌ មាតិកាបន្ថែមអាចរកបានសម្រាប់ថ្ងៃទី ៨-៣០ ប៉ុណ្ណោះ។",
-    );
-    return;
-  }
-  try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    const isPaid = user?.is_paid === true || user?.is_paid === 't';
-    if (!user || !isPaid) {
-      await bot.sendMessage(
-        msg.chat.id,
-        "🔒 សូមទូទាត់មុនដើម្បីចូលប្រើមាតិកាបន្ថែម។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។",
-      );
-      return;
-    }
-    await extendedContent.handleExtendedDay(msg, bot, day);
-  } catch (error) {
-    console.error("Error in /extended command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
-});
-
-// 30-Day Admin Commands
-bot.onText(/\/admin_content_stats/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await thirtyDayAdmin.contentStats(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_content_stats:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_bulk_send/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await thirtyDayAdmin.sendBulkContent(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_bulk_send:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_content_calendar/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await thirtyDayAdmin.contentCalendar(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_content_calendar:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/admin_scheduler_status/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await thirtyDayAdmin.schedulerStatus(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_scheduler_status:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-
-// Admin Commands: Restricted access commands for bot administrators
-const adminCommands_safe = {
-  showUsers: async (msg, bot) => {
-    const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-    const secondaryAdminId = 484389665;
-    if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-      await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះទេ។");
-      return;
-    }
-    
-    try {
-      const users = await User.find().limit(50);
-      let usersList = "📊 អ្នកប្រើប្រាស់ចុងក្រោយ:\n\n";
-      
-      users.forEach((user, index) => {
-        const isPaid = user.is_paid === true || user.is_paid === 't';
-        usersList += `${index + 1}. ${user.first_name} (${user.telegram_id})\n`;
-        usersList += `   💰 ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់"}\n`;
-        usersList += `   📅 ${user.joined_at ? new Date(user.joined_at).toDateString() : "N/A"}\n\n`;
-      });
-      
-      await sendLongMessage(bot, msg.chat.id, usersList, {}, MESSAGE_CHUNK_SIZE);
-    } catch (error) {
-      await bot.sendMessage(msg.chat.id, "📊 Admin feature កំពុងត្រូវបានអភិវឌ្ឍ។");
-    }
-  },
-  
-  showAnalytics: async (msg, bot) => {
-    const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-    const secondaryAdminId = 484389665;
-    if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-      await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះទេ។");
-      return;
-    }
-    
-    try {
-      const totalUsers = await User.countDocuments();
-      const paidUsers = await User.countDocuments({ is_paid: { $in: [true, 't'] } });
-      const todayUsers = await User.countDocuments({
-        joined_at: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-      });
-      
-      const analyticsMessage = `📈 Analytics Dashboard
-
-👥 សរុបអ្នកប្រើប្រាស់: ${totalUsers}
-💰 បានទូទាត់: ${paidUsers}
-🆕 ថ្ងៃនេះ: ${todayUsers}
-📊 អត្រាបង្វែរ: ${totalUsers > 0 ? ((paidUsers/totalUsers)*100).toFixed(1) : 0}%
-
-🕒 ពេលវេលា: ${new Date().toLocaleString()}
-🖥️ Server Uptime: ${Math.floor(process.uptime() / 3600)}h`;
-      
-      await bot.sendMessage(msg.chat.id, analyticsMessage);
-    } catch (error) {
-      await bot.sendMessage(msg.chat.id, "📈 Analytics កំពុងត្រូវបានអភិវឌ្ឍ។");
-    }
-  },
-  
-  confirmPayment: async (msg, match, bot) => {
-    const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-    const secondaryAdminId = 484389665;
-    if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-      await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះទេ។");
-      return;
-    }
-    
-    const userId = match[1];
-    if (!userId) {
-      await bot.sendMessage(msg.chat.id, "❌ សូមបញ្ជាក់ User ID។ ឧទាហរណ៍: /admin_confirm_payment 123456789");
-      return;
-    }
-    
-    try {
-      const user = await User.findOneAndUpdate(
-        { telegram_id: userId },
-        { 
-          is_paid: true,
-          payment_date: new Date(),
-          tier: 'essential'
-        },
-        { new: true }
-      );
-      
-      if (user) {
-        await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.first_name} (${userId})`);
-        
-        // Notify user
-        try {
-          await bot.sendMessage(userId, `🎉 ការទូទាត់របស់អ្នកត្រូវបានបញ្ជាក់!
-
-✅ អ្នកឥឡូវនេះអាចចូលប្រើកម្មវិធី 7-Day Money Flow Reset™
-
-🚀 ចាប់ផ្តើមភ្លាម:
-👉 /day1 - ចាប់ផ្តើមថ្ងៃទី ១
-👉 /help - ជំនួយពេញលេញ
-
-💬 ជំនួយ: @Chendasum`);
-        } catch (notifyError) {
-          console.log("Could not notify user:", notifyError.message);
-        }
-      } else {
-        await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់ ${userId}`);
-      }
-    } catch (error) {
-      console.error("Payment confirmation error:", error);
-      await bot.sendMessage(msg.chat.id, "💳 Payment confirmation កំពុងត្រូវបានអភិវឌ្ឍ។");
-    }
-  }
-};
-
-bot.onText(/\/admin_users/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    if (adminCommands && adminCommands.showUsers) {
-      await adminCommands.showUsers(msg, bot);
+    if (previewCommands && previewCommands.preview) {
+      await previewCommands.preview(msg, bot);
     } else {
-      await adminCommands_safe.showUsers(msg, bot);
+      const previewMessage = `👀 មើលមុន (Preview) 7-Day Money Flow Reset™
+
+🎯 ចាប់ផ្តើមមើលមុនកម្មវិធី:
+
+📚 ថ្ងៃទី ១ - ស្គាល់ Money Flow:
+• រៀនពីរបៀបលុយចូល និងចេញ
+• ស្វែងរកកន្លែងលុយលេច
+• ចាប់ផ្តើមតាមដានប្រចាំថ្ងៃ
+
+📊 ថ្ងៃទី ២ - រក Money Leaks:
+• កំណត់ចំណាយមិនចាំបាច់
+• គណនាប្រាក់ខាតប្រចាំខែ
+• វិធីកាត់បន្ថយចំណាយ
+
+🗺️ ថ្ងៃទី ៣ - បង្កើតផែនការ:
+• ការរៀបចំផែនការចំណាយ
+• កំណត់គោលដៅសន្សំ
+• ការតាមដានវឌ្ឍនភាព
+
+💡 នេះគ្រាន់តែជាការមើលមុនតែប៉ុណ្ណោះ!
+
+🔓 ចង់ទទួលបានកម្មវិធីពេញលេញ?
+👉 /pricing - មើលតម្លៃ
+👉 /payment - ទូទាត់ភ្លាម
+
+🎯 អត្ថប្រយោជន៍នៃកម្មវិធីពេញលេញ:
+✅ មេរៀន ៧ ថ្ងៃលម្អិត
+✅ ការណែនាំសម្រាប់ករណីផ្ទាល់ខ្លួន
+✅ ឧបករណ៍តាមដាន
+✅ ការគាំទ្រ 24/7`;
+      await bot.sendMessage(msg.chat.id, previewMessage);
     }
   } catch (e) {
-    console.error("Error /admin_users:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-
-bot.onText(/\/admin_analytics/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    if (adminCommands && adminCommands.showAnalytics) {
-      await adminCommands.showAnalytics(msg, bot);
-    } else {
-      await adminCommands_safe.showAnalytics(msg, bot);
-    }
-  } catch (e) {
-    console.error("Error /admin_analytics:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-
-bot.onText(/\/admin_confirm_payment (.+)/i, async (msg, match) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    if (adminCommands && adminCommands.confirmPayment) {
-      await adminCommands.confirmPayment(msg, match, bot);
-    } else {
-      await adminCommands_safe.confirmPayment(msg, match, bot);
-    }
-  } catch (e) {
-    console.error("Error /admin_confirm_payment:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-
-// Quick Admin Menu: Provides a quick list of admin commands
-bot.onText(/\/admin_menu|\/admin/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-  const secondaryAdminId = 484389665;
-  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះទេ។");
-    return;
-  }
-
-  const menuMessage = `🔧 ADMIN QUICK MENU
-bot.onText(/\/preview_before_after/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await previewCommands.previewBeforeAfter(msg, bot);
-  } catch (e) {
-    console.error("Error /preview_before_after:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/preview_transformation/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await previewCommands.previewTransformation(msg, bot);
-  } catch (e) {
-    console.error("Error /preview_transformation:", e);
+    console.error("Error /preview:", e);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
   }
 });
@@ -1421,16 +887,47 @@ bot.onText(/\/preview_transformation/i, async (msg) => {
 bot.onText(/\/financial_quiz/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    await financialQuiz.startQuiz(msg, bot);
+    if (financialQuiz && financialQuiz.startQuiz) {
+      await financialQuiz.startQuiz(msg, bot);
+    } else {
+      await bot.sendMessage(msg.chat.id, `📊 Financial Health Quiz
+
+🎯 ពិនិត្យសុខភាពហិរញ្ញវត្ថុរបស់អ្នកក្នុង 2 នាទី!
+
+សំណួរ ១/៥: តើអ្នកមានផែនការចំណាយប្រចាំខែទេ?
+A) មាន និងតាមដានដោយម្ត
+B) មាន តែមិនតាមដាន
+C) គ្មាន
+
+សរសេរចម្លើយ A, B, ឬ C ដើម្បីបន្ត។
+
+💡 Quiz នេះឥតគិតថ្លៃ និងជួយអ្នកកំណត់កន្លែងត្រូវកែលម្អ!`);
+    }
   } catch (e) {
     console.error("Error /financial_quiz:", e);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
   }
 });
+
 bot.onText(/\/health_check/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    await financialQuiz.startQuiz(msg, bot);
+    if (financialQuiz && financialQuiz.startQuiz) {
+      await financialQuiz.startQuiz(msg, bot);
+    } else {
+      await bot.sendMessage(msg.chat.id, `🏥 ការពិនិត្យសុខភាពហិរញ្ញវត្ថុ
+
+🎯 ការវាយតម្លៃរហ័ស អំពីស្ថានភាពហិរញ្ញវត្ថុរបស់អ្នក
+
+📊 តើអ្នកស្ថិតនៅកម្រិតណា?
+• 🟢 Healthy: គ្រប់គ្រងបានល្អ
+• 🟡 Moderate: ត្រូវការកែលម្អ  
+• 🔴 Critical: ត្រូវការជំនួយបន្ទាន់
+
+ចាប់ផ្តើមវាយតម្លៃ: /financial_quiz
+
+🎁 ឥតគិតថ្លៃ 100%!`);
+    }
   } catch (e) {
     console.error("Error /health_check:", e);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -1566,7 +1063,11 @@ bot.onText(/\/income_analysis/i, async (msg) => {
   }
 });
 
-/ Badge Commands: Requires payment to view
+// ========================================
+// BADGES & PROGRESS COMMANDS - PART 3
+// ========================================
+
+// Badge Commands: Requires payment to view
 bot.onText(/\/badges/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
@@ -1708,14 +1209,17 @@ ${randomQuote}
   }
 });
 
+// ========================================
+// FAQ & STATUS COMMANDS - PART 4
+// ========================================
+
 // Smart FAQ Command: Shows different content based on user's payment status
 bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user && (user.is_paid === true || user.is_paid === 't');
-    const isPremiumOrVip =
-      user && (user.tier === "premium" || user.tier === "vip");
+    const isPremiumOrVip = user && (user.tier === "premium" || user.tier === "vip");
     const isVip = user && user.tier === "vip";
 
     let faqMessage;
@@ -1724,7 +1228,7 @@ bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
       faqMessage = `❓ សំណួរញឹកញាប់ (FAQ) - Welcome Guide
 
 💰 អំពីតម្លៃ:
-- តម្លៃប៉ុន្មាន? → $47 (Essential) / $97 (Premium) / $197 (VIP)
+- តម្លៃប៉ុន្មាន? → $24 (Essential) / $97 (Premium) / $197 (VIP)
 - ទូទាត់យ៉ាងដូចម្តេច? → ABA Bank, ACLEDA Bank, Wing Payment
 - បញ្ជាក់ការទូទាត់រយៈពេលប៉ុន្មាន? → ១-២ ម៉ោង
 - ទទួលបានអ្វីខ្លះ? → /pricing ដើម្បីមើលលម្អិត
@@ -1753,11 +1257,18 @@ bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
 - ❓ សំណួរនេះ → /faq
 - 👤 ព័ត៌មានខ្ញុំ → /whoami
 
-🔒 ពាក្យបញ្ជាពិសេស (បន្ទាប់ពីទូទាត់):
-- 📚 មេរៀន Day 1-7 → /day1 ដល់ /day7
-- 🏆 ការតាមដានការរីកចម្រើន → /badges, /progress
-- 📚 សម្រង់ប្រាជ្ញាខ្មែរ → /quote, /wisdom
-- 🌟 កម្មវិធីកម្រិតខ្ពស់ → VIP Programs
+🎯 Assessment ឥតគិតថ្លៃ:
+• /financial_quiz - ពិនិត្យសុខភាពហិរញ្ញវត្ថុ (២ នាទី)
+• /health_check - ពិនិត្យសុខភាពហិរញ្ញវត្ថុ (២ នាទី)
+
+💰 ឧបករណ៍គណនាឥតគិតថ្លៃ:
+• /calculate_daily - គណនាចំណាយប្រចាំថ្ងៃ
+• /find_leaks - រកកន្លែងលុយលេចធ្លាយ
+• /savings_potential - គណនាសក្តានុពលសន្សំ
+• /income_analysis - វិភាគចំណូល
+
+👀 មុនទិញ:
+• /preview - មើលមុនកម្មវិធី
 
 ❓ ប្រើប្រាស់ពេលចម្លែក:
 - ការទូទាត់មានបញ្ហា? → ផ្ញើរូបអេក្រង់មក @Chendasum
@@ -1772,12 +1283,6 @@ bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
 4. រង់ចាំការបញ្ជាក់ → ១-២ ម៉ោង
 5. ចាប់ផ្តើម Day 1 → /day1
 
-🎯 វិធីអនុវត្ត:
-- ចាប់ផ្តើមកែប្រែទម្លាប់ការចំណាយ
-- គ្រប់គ្រងលុយបានល្អជាងមុន
-- មានផែនការហិរញ្ញវត្ថុច្បាស់លាស់
-- ស្វែងរកវិធីបង្កើនចំណូល
-
 🔥 Ready to start?
 👉 /pricing ដើម្បីមើលតម្លៃ
 👉 /payment ដើម្បីទូទាត់
@@ -1788,20 +1293,9 @@ bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
       faqMessage = `❓ សំណួរញឹកញាប់ (FAQ) - Complete Member Guide
 
 💰 អំពីតម្លៃ (អ្នកបានទូទាត់រួច ✅):
-- តម្លៃរបស់អ្នក → ${user.tier === "vip" ? "$197 (VIP)" : user.tier === "premium" ? "$97 (Premium)" : "$47 (Essential)"}
-- ទូទាត់ពេល → ${user.paymentDate ? new Date(user.paymentDate).toDateString() : "មិនទាន់បញ្ជាក់"}
+- តម្លៃរបស់អ្នក → ${user.tier === "vip" ? "$197 (VIP)" : user.tier === "premium" ? "$97 (Premium)" : "$24 (Essential)"}
+- ទូទាត់ពេល → ${user.payment_date ? new Date(user.payment_date).toDateString() : "មិនទាន់បញ្ជាក់"}
 - Upgrade ទៅកម្រិតខ្ពស់? → /pricing
-
-⏰ អំពីពេលវេលា:
-- ចំណាយពេលប៉ុន្មាននាទី? → ១៥-២០ នាទីក្នុងមួយថ្ងៃ
-- អាចធ្វើលឿនជាងនេះបានទេ? → បាន តែណែនាំ ១ ថ្ងៃ/១ មេរៀន
-- ធ្វើរួចហើយ ទើបធ្វើបន្តបានទេ? → បាន ធ្វើតាមល្បឿនខ្លួនឯង
-- ភ្លេចធ្វើ Day ម្សិលមិញ? → គ្មានបញ្ហា! ធ្វើបន្តពីថ្ងៃបាត់បង់
-
-🎯 អំពីមាតិកា:
-- មេរៀនមានអ្វីខ្លះ? → ៧ ថ្ងៃ Money Management ពេញលេញ
-- ភាសាអ្វី? → ភាសាខ្មែរ ១០០% (ពាក្យពេចន៍អំពីប្រាក់)
-- ទទួលបានអ្វីខ្លះ? → ចំណេះដឹងគ្រប់គ្រងលុយ និងបង្កើនចំណូល
 
 📱 ពាក្យបញ្ជាមូលដ្ឋាន:
 - 🏠 ចាប់ផ្តើម → /start
@@ -1817,111 +1311,33 @@ bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
 - 🔍 ថ្ងៃទី ២ → /day2 - ស្វែងរក Money Leaks
 - 📊 ថ្ងៃទី ៣ → /day3 - វាយតម្លៃប្រព័ន្ធ
 - 🗺️ ថ្ងៃទី ៤ → /day4 - បង្កើតផែនទីលុយ
-- 📈 ថ្ងៃទី ៥ → /day5 - Survival vs Growth (ការរស់រាន និងការលូតលាស់)
+- 📈 ថ្ងៃទី ៥ → /day5 - Survival vs Growth
 - 📋 ថ្ងៃទី ៦ → /day6 - រៀបចំផែនការ
-- ✨ ថ្ងៃទី ៧ → /day7 - Integration (ការបញ្ចូលគ្នា)
+- ✨ ថ្ងៃទី ៧ → /day7 - Integration
 
 📈 ពាក្យបញ្ជាកម្មវិធីបន្ថែម (៣០ ថ្ងៃ):
-- /extended8 - ថ្ងៃទី ៨: ការវិភាគចំណូលកម្រិតខ្ពស់
-- /extended9 - ថ្ងៃទី ៩: ការគ្រប់គ្រងចំណាយអាជីវកម្ម
-- /extended10 - ថ្ងៃទី ១០: ការបង្កើតទម្លាប់ហិរញ្ញវត្ថុ
-- /extended11 - ថ្ងៃទី ១១: ការវិនិយោគដំបូងសាមញ្ញ
-- /extended12 - ថ្ងៃទី ១២: ការបង្កើតមូលនិធិសម្រាប់បន្ទាន់
-- /extended13 - ថ្ងៃទី ១៣: ការវាយតម្លៃហានិភ័យហិរញ្ញវត្ថុ
-- /extended14 - ថ្ងៃទី ១៤: ការបង្កើនប្រសិទ្ធភាពបំណុល
-- /extended15 - ថ្ងៃទី ១៥: ការរៀបចំផែនការចូលនិវត្តន៍
-- /extended16 - ថ្ងៃទី ១៦: ការគ្រប់គ្រងទ្រព្យសម្បត្តិ
-- /extended17 - ថ្ងៃទី ១៧: ការវិនិយោគអចលនទ្រព្យ
-- /extended18 - ថ្ងៃទី ១៨: ការវិនិយោគលើភាគហ៊ុន
-- /extended19 - ថ្ងៃទី ១៩: ការវិនិយោគលើមូលបត្របំណុល
-- /extended20 - ថ្ងៃទី ២០: ការវិនិយោគលើមូលនិធិរួម
-- /extended21 - ថ្ងៃទី ២១: ការវិនិយោគលើមាស និងប្រាក់
-- /extended22 - ថ្ងៃទី ២២: ការវិនិយោគលើរូបិយប័ណ្ណគ្រីបតូ
-- /extended23 - ថ្ងៃទី ២៣: ការវិនិយោគលើអាជីវកម្មខ្នាតតូច
-- /extended24 - ថ្ងៃទី ២៤: ការគ្រប់គ្រងហានិភ័យអាជីវកម្ម
-- /extended25 - ថ្ងៃទី ២៥: ការរៀបចំផែនការពង្រីកអាជីវកម្ម
-- /extended26 - ថ្ងៃទី ២៦: ការបង្កើតប្រភពចំណូលអកម្ម
-- /extended27 - ថ្ងៃទី ២៧: ការបង្កើនប្រសិទ្ធភាពពន្ធ
-- /extended28 - ថ្ងៃទី ២៨: ការរៀបចំផែនការអចលនទ្រព្យ
-- /extended29 - ថ្ងៃទី ២៩: ការការពារទ្រព្យសម្បត្តិ
-- /extended30 - ថ្ងៃទី ៣០: ការពិនិត្យឡើងវិញ និងគោលដៅអនាគត
+- /extended8 ដល់ /extended30 - មាតិកាកម្រិតខ្ពស់
 
 🏆 ការតាមដានការរីកចម្រើន:
 - 🎖️ សមិទ្ធផល → /badges
 - 📈 ការរីកចម្រើន → /progress
-- 🏁 សមិទ្ធផលសំខាន់ → /milestones
-- 🔥 ការធ្វើបន្តបន្ទាប់ → /streak
-
-📚 សម្រង់ប្រាជ្ញាខ្មែរ:
 - 💬 សម្រង់ប្រចាំថ្ងៃ → /quote
-- 🎭 ប្រាជ្ញាចៃដន្យ → /wisdom
-- 📖 ប្រភេទសម្រង់ → /quote_categories
-- 🏛️ ប្រាជ្ញាប្រពៃណី → /quote_traditional
-- 💰 ចិត្តគំនិតហិរញ្ញវត្ថុ → /quote_financial
-- 💪 ការលើកទឹកចិត្ត → /quote_motivation
-- 🏆 ជោគជ័យ → /quote_success
 
-${
-  isPremiumOrVip
-    ? `
+${isPremiumOrVip ? `
 🌟 Premium Features (អ្នកអាចប្រើបាន):
 - 📞 ទាក់ទងផ្ទាល់ → /admin_contact
 - 🆘 ជំនួយអាទិភាព → /priority_support
 - 📊 វិភាគកម្រិតខ្ពស់ → /advanced_analytics
 - 👑 ព័ត៌មាន VIP → /vip_program_info
-- 🎯 VIP ចូលរួម → សរសេរ "VIP APPLY"
-- 🏛️ Capital Strategy → សរសេរ "CAPITAL CLARITY"`
-    : ""
-}
+- 🎯 VIP ចូលរួម → សរសេរ "VIP APPLY"` : ""}
 
-${
-  isVip
-    ? `
+${isVip ? `
 👑 VIP Exclusive Features (អ្នកអាចប្រើបាន):
 - 🗓️ មើលម៉ោងទំនេរ → /book_session
 - 💼 Capital Assessment → /book_capital_assessment
 - 🔍 Business Review → /book_business_review
 - 📈 Investment Evaluation → /book_investment_evaluation
-- 🎯 Custom Session → /book_custom_session
-- 📋 របាយការណ៍ VIP → /vip_reports
-- 📊 ការតាមដានពង្រីក → /extended_tracking`
-    : ""
-}
-
-🎯 Assessment ឥតគិតថ្លៃ:
-• /financial_quiz - ពិនិត្យសុខភាពហិរញ្ញវត្ថុ (២ នាទី)
-• /health_check - ពិនិត្យសុខភាពហិរញ្ញវត្ថុ (២ នាទី)
-
-💰 ឧបករណ៍គណនាឥតគិតថ្លៃ:
-• /calculate_daily - គណនាចំណាយប្រចាំថ្ងៃ
-• /find_leaks - រកកន្លែងលុយលេចធ្លាយ
-• /savings_potential - គណនាសក្តានុពលសន្សំ
-• /income_analysis - វិភាគចំណូល
-
-❓ ប្រើប្រាស់ពេលចម្លែក:
-- ការទូទាត់មានបញ្ហា? → ផ្ញើរូបអេក្រង់មក @Chendasum
-- ចង់បានជំនួយបន្ថែម? → ទាក់ទាក់ @Chendasum ២៤/៧
-- បាត់ការតភ្ជាប់? → គេហទំព័រ 7daymoneyflow.com
-- Bot មិនដំណើរការ? → /start ម្តងទៀត
-- ចង់ Upgrade? → /pricing
-
-💡 Tips ពិសេស:
-- ប្រើ /help ដើម្បីមើលពាក្យបញ្ជាទាំងអស់
-- ប្រើ /status ដើម្បីពិនិត្យការរីកចម្រើន
-- ប្រើ /whoami ដើម្បីមើលព័ត៌មានគណនី
-- សរសេរសំណួរដោយផ្ទាល់ - Bot នឹងជួយ!
-
-🎯 វិធីអនុវត្ត:
-- ចាប់ផ្តើមកែប្រែទម្លាប់ការចំណាយ
-- គ្រប់គ្រងលុយបានល្អជាងមុន
-- មានផែនការហិរញ្ញវត្ថុច្បាស់លាស់
-- ស្វែងរកវិធីបង្កើនចំណូល
-
-🌟 ការគាំទ្រពិសេស:
-- 📱 Telegram Bot Support: ២៤/៧
-- 👨‍💼 Personal Support: @Chendasum
-- 🌐 Website: 7daymoneyflow.com
-- ⏰ Response Time: ១-២ ម៉ោង
+- 🎯 Custom Session → /book_custom_session` : ""}
 
 💬 ត្រូវការជំនួយបន្ថែម? ទាក់ទង @Chendasum
 
@@ -1929,15 +1345,7 @@ ${
 👉 Check /status to see your progress!`;
     }
 
-    await sendLongMessage(
-      bot,
-      msg.chat.id,
-      faqMessage,
-      {
-        parse_mode: "Markdown",
-      },
-      MESSAGE_CHUNK_SIZE,
-    );
+    await sendLongMessage(bot, msg.chat.id, faqMessage, { parse_mode: "Markdown" }, MESSAGE_CHUNK_SIZE);
   } catch (error) {
     console.error("Error in FAQ command:", error);
     const basicHelp = `❓ ជំនួយ (Help):
@@ -1950,7 +1358,7 @@ ${
 
 💬 ជំនួយ: សរសេរមកដោយផ្ទាល់!`;
 
-    await bot.sendMessage(bot, msg.chat.id, basicHelp); // Pass bot instance
+    await bot.sendMessage(msg.chat.id, basicHelp);
   }
 });
 
@@ -1962,10 +1370,7 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
     const user = await User.findOne({ telegram_id: userId });
 
     if (!user) {
-      await bot.sendMessage(
-        msg.chat.id,
-        "អ្នកមិនទាន់ចុះឈ្មោះ។ ប្រើ /start ដើម្បីចាប់ផ្តើម។",
-      );
+      await bot.sendMessage(msg.chat.id, "អ្នកមិនទាន់ចុះឈ្មោះ។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
 
@@ -1976,11 +1381,12 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
 
 👤 អ្នកប្រើប្រាស់: ${user.first_name || "មិនស្គាល់"}
 📅 ចូលរួម: ${user.joined_at ? new Date(user.joined_at).toDateString() : "មិនស្គាល់"}
-💰 ស្ថានភាព: ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់ទូទាត់"}`;
+💰 ស្ថានភាព: ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់ទូទាត់"}
+🎯 កម្រិត: ${user.tier || "Essential"}`;
 
     if (isPaid) {
       statusMessage += `
-📈 ថ្ងៃបច្ចុប្បន្ន: Day ${progress?.currentDay || 0}
+📈 ថ្ងៃបច្ចុប្បន្ន: Day ${progress?.current_day || 0}
 🎯 អ្នកអាចប្រើប្រាស់កម្មវិធីបានពេញលេញ!`;
 
       if (user.payment_date) {
@@ -1999,6 +1405,22 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
           statusMessage += `
 ✅ ថ្ងៃបញ្ចប់: ${completedDays.join(", ")}`;
         }
+        
+        const completionPercentage = Math.round((completedDays.length / 7) * 100);
+        statusMessage += `
+📊 ភាគរយបញ្ចប់: ${completionPercentage}%`;
+        
+        if (completionPercentage < 100) {
+          const nextDay = progress.current_day || 1;
+          if (nextDay <= 7) {
+            statusMessage += `
+🚀 ថ្ងៃបន្ទាប់: /day${nextDay}`;
+          }
+        } else {
+          statusMessage += `
+🎊 អបអរសាទរ! អ្នកបានបញ្ចប់កម្មវិធីពេញលេញ!
+👑 ពិចារណាចូលរួម VIP Program: /vip`;
+        }
       }
     } else {
       statusMessage += `
@@ -2006,13 +1428,7 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
 💡 ប្រើ /pricing ដើម្បីមើលតម្លៃ`;
     }
 
-    await sendLongMessage(
-      bot,
-      msg.chat.id,
-      statusMessage,
-      {},
-      MESSAGE_CHUNK_SIZE,
-    );
+    await sendLongMessage(bot, msg.chat.id, statusMessage, {}, MESSAGE_CHUNK_SIZE);
   } catch (error) {
     console.error("Error in status command:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការទាញយកស្ថានភាព។");
@@ -2037,12 +1453,11 @@ bot.onText(/\/whoami/i, async (msg) => {
     response += `• ឈ្មោះអ្នកប្រើ: ${msg.from.username ? "@" + msg.from.username : "N/A"}\n`;
     response += `• ស្ថានភាព Admin: ${isAdmin ? "✅ ADMIN" : "❌ មិនមែន ADMIN"}\n`;
     response += `• ID Admin ដែលត្រូវការ: ${adminId}\n`;
-    response += `• • ID របស់អ្នកត្រូវគ្នា: ${msg.from.id === adminId ? "✅ បាទ/ចាស" : "❌ ទេ"}\n`;
 
     if (user) {
       response += `• ស្ថានភាពមូលដ្ឋានទិន្នន័យ: ✅ បានចុះឈ្មោះ\n`;
       response += `• ស្ថានភាពទូទាត់: ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់ទូទាត់"}\n`;
-      response += `• ស្ថានភាព VIP: ${user.is_vip ? "🌟 VIP" : "❌ មិនមែន VIP"}\n`;
+      response += `• កម្រិត: ${user.tier || "Essential"}\n`;
       response += `• បានចូលរួម: ${user.joined_at ? new Date(user.joined_at).toDateString() : "មិនស្គាល់"}\n`;
       response += `• សកម្មភាពចុងក្រោយ: ${user.last_active ? new Date(user.last_active).toDateString() : "មិនស្គាល់"}\n`;
       if (isPaid && user.payment_date) {
@@ -2055,374 +1470,42 @@ bot.onText(/\/whoami/i, async (msg) => {
     await sendLongMessage(bot, msg.chat.id, response, {}, MESSAGE_CHUNK_SIZE);
   } catch (error) {
     console.error("Error in whoami command:", error);
-    await bot.sendMessage(
-      msg.chat.id,
-      `❌ មានបញ្ហាក្នុងការទាញយកព័ត៌មានអ្នកប្រើប្រាស់: ${error.message}`,
-    );
+    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហាក្នុងការទាញយកព័ត៌មានអ្នកប្រើប្រាស់: ${error.message}`);
   }
 });
 
-// Tier-based feature commands: These commands are typically restricted by user's tier (Premium/VIP)
-// Premium tier commands
-bot.onText(/\/admin_contact/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
+// === TEST COMMAND ===
+bot.onText(/\/test/i, async (msg) => {
   try {
-    await tierFeatures.adminContact(msg, bot);
-  } catch (e) {
-    console.error("Error /admin_contact:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/priority_support/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await tierFeatures.prioritySupport(msg, bot);
-  } catch (e) {
-    console.error("Error /priority_support:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/advanced_analytics/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await tierFeatures.advancedAnalytics(msg, bot);
-  } catch (e) {
-    console.error("Error /advanced_analytics:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+    await bot.sendMessage(msg.chat.id, "✅ Enhanced Railway bot is working! All core features loaded.");
+    console.log("Test command sent to:", msg.from.id);
+  } catch (error) {
+    console.error("Test command error:", error.message);
   }
 });
 
-// VIP tier commands
-bot.onText(/\/book_session/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await bookingCommands.showBookingSlots(msg, bot);
-  } catch (e) {
-    console.error("Error /book_session:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/book_capital_assessment/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await bookingCommands.bookCapitalClarity(msg, bot);
-  } catch (e) {
-    console.error("Error /book_capital_assessment:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/book_business_review/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await bookingCommands.bookBusinessReview(msg, bot);
-  } catch (e) {
-    console.error("Error /book_business_review:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/book_investment_evaluation/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await bookingCommands.bookInvestmentEvaluation(msg, bot);
-  } catch (e) {
-    console.error("Error /book_investment_evaluation:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/book_custom_session/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await bookingCommands.bookCustomSession(msg, bot);
-  } catch (e) {
-    console.error("Error /book_custom_session:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/vip_reports/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await tierFeatures.personalReports(msg, bot);
-  } catch (e) {
-    console.error("Error /vip_reports:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
-bot.onText(/\/extended_tracking/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    await tierFeatures.extendedTracking(msg, bot);
-  } catch (e) {
-    console.error("Error /extended_tracking:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-});
+// ========================================
+// MESSAGE HANDLERS - PART 4
+// ========================================
 
-// Consolidated message handler with smart question detection and routing
+// VIP Apply Handler & Main message handler with text processing
 bot.on("message", async (msg) => {
   if (isDuplicateMessage(msg)) return;
 
-  if (!msg.text || msg.text.startsWith("/")) {
-    return;
-  }
+  if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
+    try {
+      const user = await User.findOne({ telegram_id: msg.from.id });
+      const isPaid = user?.is_paid === true || user?.is_paid === "t";
 
-  const text = msg.text.toLowerCase();
-  const userId = msg.from.id;
-
-  try {
-    if (typeof User.updateLastActive === "function") {
-      await User.updateLastActive(userId);
-    } else {
-      // FIXED: Use correct PostgreSQL field name
-      await User.findOneAndUpdate(
-        { telegram_id: userId },
-        { last_active: new Date() },
-        { new: true },
-      );
-    }
-  } catch (error) {
-    console.error("Error updating lastActive timestamp:", error);
-  }
-
-  if (await financialQuiz.processQuizResponse(msg, bot)) {
-    return;
-  }
-
-  try {
-    if (
-      typeof freeTools.processToolResponse === "function" &&
-      (await freeTools.processToolResponse(
-        msg,
-        bot,
-        await User.findOne({ telegram_id: userId }),
-      ))
-    ) {
-      return;
-    }
-  } catch (error) {
-    console.error("Error processing free tools response:", error);
-  }
-
-  // FIXED: Don't return early for these text messages - process them properly
-  if (
-    text.includes("ready for day") ||
-    (text.includes("day") && text.includes("complete")) ||
-    text === "vip apply" ||
-    text.includes("program complete") ||
-    text.includes("capital clarity")
-  ) {
-    console.log("🎯🎯🎯 TEXT HANDLER TRIGGERED! 🎯🎯🎯");
-    console.log("User ID:", userId);
-    console.log("Original text:", msg.text);
-    console.log("Lowercase text:", text);
-    console.log("Calling handleTextResponse...");
-
-    // Call the proper text response handler instead of returning
-    await handleTextResponse(msg);
-    return;
-  }
-
-  const questionWords = [
-    "help",
-    "problem",
-    "issue",
-    "question",
-    "how",
-    "why",
-    "what",
-    "where",
-    "when",
-    "error",
-    "fail",
-    "broken",
-    "stuck",
-    "cannot",
-    "can't",
-    "unable",
-    "wrong",
-    "fix",
-    "repair",
-    "troubleshoot",
-    "បញ្ហា",
-    "ជំនួយ",
-    "សួរ",
-    "យ៉ាងម៉េច",
-    "ធ្វើម៉េច",
-    "ហេតុអ្វី",
-    "កំហុស",
-    "ខូច",
-    "មិនអាច",
-    "ជួសជុល",
-    "ដោះស្រាយ",
-  ];
-
-  const hasQuestionWord = questionWords.some((word) => text.includes(word));
-
-  const endsWithQuestionMark = msg.text.trim().endsWith("?");
-
-  if (hasQuestionWord || endsWithQuestionMark) {
-    const investmentWords = [
-      "វិនិយោគ",
-      "ហ៊ុន",
-      "ប្រាក់បញ្ញើ",
-      "ភាគហ៊ុន",
-      "មូលប័ត្រ",
-      "គម្រោង",
-      "ការលិតធ្វើ",
-      "ពាណិជ្ជកម្ម",
-      "investment",
-      "company",
-      "deposit",
-      "stock",
-      "fund",
-      "business",
-      "trading",
-      "portfolio",
-    ];
-    const isInvestmentQuestion = investmentWords.some((word) =>
-      text.includes(word),
-    );
-
-    if (isInvestmentQuestion) {
-      const investmentResponse = `💼 ការវិនិយោគ និងអាជីវកម្ម
-
-🎯 កម្មវិធីរបស់យើង:
-កម្មវិធី 7-Day Money Flow Reset™ ផ្តោតលើការគ្រប់គ្រងប្រាក់កម្រាល់ មិនមែនការវិនិយោគដោយផ្ទាល់ទេ។
-
-💡 ស្រាប់តែបានបញ្ចប់កម្មវិធី:
-- អ្នកនឹងមានគ្រឹះល្អក្នុងការគ្រប់គ្រងប្រាក់
-- យល់ពីលំហូរប្រាក់ និងការសន្សំ
-- ត្រៀមខ្លួនសម្រាប់ការវិនិយោគនាពេលខាងមុខ
-
-🔥 បើចង់ដឹងពីការវិនិយោគ:
-- បញ្ចប់កម្មវិធី ៧ ថ្ងៃមុន
-- ទាក់ទង @Chendasum សម្រាប់ការណែនាំបន្ត
-- ឬ ពិនិត្យ VIP Program → /vip_program_info
-
-✅ ចាប់ផ្តើមដំបូង → /start`;
-
-      await sendLongMessage(
-        bot,
-        msg.chat.id,
-        investmentResponse,
-        {},
-        MESSAGE_CHUNK_SIZE,
-      );
-      return;
-    }
-
-    let helpResponse = `🤔 ខ្ញុំឃើញអ្នកមានសំណួរ!
-
-🔥 ជំនួយរហ័ស:
-- បញ្ហាការទូទាត់ → ពិនិត្យ /faq ឬ ផ្ញើរូបបញ្ជាក់ការទូទាត់
-- បញ្ហាបច្ចេកទេស → ស្វែងរក /help មុន
-- សំណួរកម្មវិធី → ទាក់ទាក់ @Chendasum ដោយផ្ទាល់
-- ព័ត៌មាន VIP → ប្រើ /vip_program_info
-
-📱 ឬគ្រាន់តែសរសេរសំណួរអ្នក - ខ្ញុំនឹងជួយ!
-
-💬 ជំនួយ ២៤/៧ ជាភាសាខ្មែរ និង English!`;
-
-    await sendLongMessage(
-      bot,
-      msg.chat.id,
-      helpResponse,
-      {},
-      MESSAGE_CHUNK_SIZE,
-    );
-    return;
-  }
-
-  await handleTextResponse(msg);
-});
-
-bot.onText(/CAPITAL CLARITY|capital clarity/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    const userId = msg.from.id;
-    const firstName = msg.from.first_name || "មិត្ត";
-
-    const clarityResponse = `🏛️ វគ្គ Capital Clarity - យុទ្ធសាស្ត្រមូលធនឯកជន
-
-ជំរាបសួរ ${firstName}!
-
-🎯 តើអ្វីជាវគ្គ Capital Clarity?
-
-ជាវគ្គយុទ្ធសាស្ត្រឯកជនដែលមានរចនាសម្ព័ន្ធរៀបចំឡើងដើម្បី:
-- ពិនិត្យមើលកន្លែងដែលប្រព័ន្ធមូលធនរបស់អ្នកអាចត្រូវបានរារាំង ឬលេចធ្លាយ
-- ពិភាក្សាអំពីរបៀបដែលកិច្ចព្រមព្រៀង និងទំនាក់ទំនងវិនិយោគិនរបស់អ្នកដំណើរការ
-- ស្វែងយល់ពីគម្លាតទំនុកចិត្ត និងហានិភ័យនៃការដាក់ពង្រាយ
-- បង្កើតផ្លូវអភិវឌ្ឍន៍សក្តានុពលជាមួយនឹងវិធីសាស្ត្រមានរចនាសម្ព័ន្ធ
-
-💰 ការវិនិយោគ: $197 (តម្លៃធម្មតា: $497) - មានកំណត់ ៥ កន្លែង/ខែ
-
-🔍 ក្របខ័ណ្ឌវិភាគស្នូល:
-១. Opening Frame - កំណត់ទំនុកចិត្ត និងបរិបទយុទ្ធសាស្ត្រ
-២. Capital X-Ray - ពិនិត្យរចនាសម្ព័ន្ធមូលនិធិ/កិច្ចព្រមព្រៀង និងលំហូរ
-៣. Trust Mapping - កំណត់ការបែកបាក់ទំនាក់ទំនង
-៤. System Readiness Score - វាយតម្លៃសមត្ថភាពដាក់ពង្រាយ
-៥. Clarity Discussion - ផែនទីផ្លូវអភិវឌ្ឍន៍សក្តានុពល
-
-🎯 ល្អឥតខ្ចោះសម្រាប់:
-- ស្ថាបនិកដែលគ្រប់គ្រងមូលធនឯកជន ($100K+ ក្នុងមួយឆ្នាំ)
-- អ្នកប្រតិបត្តិដែលមានរចនាសម្ព័ន្ធមូលនិធិ
-- ម្ចាស់អាជីវកម្មដែលគ្រោងមូលនិធិសម្រាប់ការរីកចម្រើន
-- វិនិយោគិនដែលត្រូវការការដាក់ពង្រាយមានរចនាសម្ព័ន្ធ
-- សហគ្រិនដែលស្វែងរកការបង្កើនប្រសិទ្ធភាពមូលធន
-
-🇰🇭 ការផ្តោតលើកម្ពុជា: យើងយល់ដឹងពីរចនាសម្ព័ន្ធអាជីវកម្មក្នុងស្រុក ប្រព័ន្ធធនាគារ និងឱកាសរីកចម្រើន។
-
-⚠️ សំខាន់: នេះគឺជាយុទ្ធសាស្ត្រមូលធនកម្រិតខ្ពស់សម្រាប់ម្ចាស់អាជីវកម្មធ្ងន់ធ្ងរដែលគ្រប់គ្រងមូលធនសំខាន់ៗ។
-
-ត្រៀមខ្លួនដើម្បីបង្កើនប្រសិទ្ធភាពប្រព័ន្ធមូលធនរបស់អ្នកហើយឬនៅ? សូមផ្តល់ព័ត៌មានលម្អិតអំពីលក្ខណៈសម្បត្តិខាងលើ។
-
-មានសំណួរ? ទាក់ទង @Chendasum ដោយផ្ទាល់។`;
-
-    await sendLongMessage(
-      bot,
-      userId,
-      clarityResponse,
-      { parse_mode: "Markdown" },
-      MESSAGE_CHUNK_SIZE,
-    );
-
-    const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-    if (adminId) {
-      await bot.sendMessage(
-        adminId,
-        `🏛️ NEW CAPITAL CLARITY INTEREST:
-
-អ្នកប្រើប្រាស់: ${firstName} (${userId})
-ពេលវេលា: ${new Date().toLocaleString()}
-ប្រភេទ: វគ្គយុទ្ធសាស្ត្រមូលធនឯកជន ($197)
-
-អ្នកចាប់អារម្មណ៍កម្រិតខ្ពស់ចង់បង្កើនប្រសិទ្ធភាពរចនាសម្ព័ន្ធមូលធន។
-
-អ្នកប្រើប្រាស់ត្រូវផ្តល់ព័ត៌មានលក្ខណៈសម្បត្តិ។`,
-      );
-    }
-  } catch (error) {
-    console.error("Error handling Capital Clarity interest:", error);
-    await bot.sendMessage(
-      msg.chat.id,
-      "❌ មានបញ្ហាក្នុងការដំណើរការសំណើ Capital Clarity។",
-    );
-  }
-});
-
-async function handleVipApply(msg) {
-  try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    const isPaid = user?.is_paid === true || user?.is_paid === 't';
-
-    if (!user || !isPaid) {
-      await bot.sendMessage(
-        msg.chat.id,
-        "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី VIP។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។",
-      );
-      return;
-    }
-
-    const vipApplyMessage = `🌟 VIP PROGRAM + CAPITAL STRATEGY ACCESS
+      if (!user || !isPaid) {
+        await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី VIP។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+        return;
+      }
+      
+      if (vipCommands && vipCommands.apply) {
+        await vipCommands.apply(msg, bot);
+      } else {
+        const vipApplyMessage = `🌟 VIP PROGRAM + CAPITAL STRATEGY ACCESS
 
 សូមផ្ញើព័ត៌មានដូចខាងក្រោម:
 
@@ -2433,7 +1516,7 @@ async function handleVipApply(msg) {
 5️⃣ ម៉ោងដែលអ្នកអាចពិគ្រោះ:
 6️⃣ លេខទូរសព្ទ:
 
-💰 តម្លៃ VIP: $197 (789,576 រៀល)
+💰 តម្លៃ VIP: $197
 ✅ Strategic Foundation Session 1-on-1 (60 នាទី)
 ✅ ការតាមដាន 30 ថ្ងៃ + Implementation Support
 ✅ Capital Foundation Development
@@ -2444,153 +1527,78 @@ async function handleVipApply(msg) {
 
 📞 បន្ទាប់ពីអ្នកផ្ញើព័ត៌មាន Admin នឹងទាក់ទងអ្នក`;
 
-    await sendLongMessage(
-      bot,
-      msg.chat.id,
-      vipApplyMessage,
-      {},
-      MESSAGE_CHUNK_SIZE,
-    );
+        await sendLongMessage(bot, msg.chat.id, vipApplyMessage, {}, MESSAGE_CHUNK_SIZE);
 
-    const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-    if (adminId) {
-      await bot.sendMessage(
-        adminId,
-        `🌟 VIP APPLICATION REQUEST:
+        const adminId = parseInt(process.env.ADMIN_CHAT_ID);
+        if (adminId) {
+          await bot.sendMessage(adminId, `🌟 VIP APPLICATION REQUEST:
 
 អ្នកប្រើប្រាស់: ${user.first_name} ${user.last_name || ""}
 ID: ${user.telegram_id}
 ស្ថានភាព: ${isPaid ? "បានទូទាត់" : "មិនទាន់ទូទាត់"} ${user.is_vip ? "| VIP រួចហើយ" : ""}
 
 អ្នកប្រើប្រាស់ចង់ដាក់ពាក្យសម្រាប់កម្មវិធី VIP។
-តាមដានព័ត៌មានពាក្យសុំរបស់ពួកគេ។`,
-      );
+តាមដានព័ត៌មានពាក្យសុំរបស់ពួកគេ។`);
+        }
+      }
+    } catch (error) {
+      console.error("Error handling VIP APPLY message:", error);
+      await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការដំណើរការសំណើ VIP។");
     }
-  } catch (error) {
-    console.error("Error in VIP Apply handler:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការដំណើរការសំណើ VIP។");
+    return;
   }
-}
 
-async function handleCapitalClarityApplicationRequest(msg) {
+  if (!msg.text || msg.text.startsWith("/")) return;
+  
+  const text = msg.text.toLowerCase();
   const userId = msg.from.id;
-  const firstName = msg.from.first_name || "សហគ្រិន";
 
-  const applicationMessage = `📋 ទម្រង់ពាក្យសុំ Capital Clarity
-
-ជំរាបសួរ ${firstName}!
-
-ត្រៀមខ្លួនរួចរាល់ហើយឬនៅដើម្បីដាក់ពាក្យសុំ Capital Clarity របស់អ្នក? សូមផ្តល់ព័ត៌មានដែលត្រូវការទាំងអស់ក្នុងទម្រង់ខាងក្រោម:
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-CAPITAL CLARITY APPLICATION
-1. តួនាទី: [តួនាទីរបស់អ្នក - ស្ថាបនិក/អ្នកប្រតិបត្តិ/វិនិយោគិន]
-2. ក្រុមហ៊ុន: [ឈ្មោះក្រុមហ៊ុន និងជួរចំណូលប្រចាំឆ្នាំ]
-3. ស្ថានភាពមូលធន: [ស្ថានភាពមូលធន/មូលនិធិបច្ចុប្បន្ន]
-4. បញ្ហាប្រឈមចម្បង: [បញ្ហាប្រឈមរចនាសម្ព័ន្ធចម្បងរបស់អ្នក]
-5. កាលកំណត់: [កាលកំណត់ និងគោលដៅវិនិយោគ]
-6. ទំនាក់ទំនង: [អ៊ីមែល និងលេខទូរសព្ទ]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 ឧទាហរណ៍ពាក្យសុំ:
-CAPITAL CLARITY APPLICATION
-1. តួនាទី: ស្ថាបនិក
-2. ក្រុមហ៊ុន: Tech Startup - ចំណូលប្រចាំឆ្នាំ $200K
-3. ស្ថានភាពមូលធន: កំពុងគ្រប់គ្រងមូលធនបង្វិល $50K, ស្វែងរកមូលនិធិ $300K
-4. បញ្ហាប្រឈមចម្បង: ត្រូវការយុទ្ធសាស្ត្រដាក់ពង្រាយមូលធនដែលមានរចនាសម្ព័ន្ធ
-5. កាលកំណត់: ត្រៀមវិនិយោគក្នុងរយៈពេល ៣ ខែ
-6. ទំនាក់ទំនង: chendasum168@fmail.com, +855-11-665-697
-
-🎯 ការណែនាំ:
-• ចម្លងទម្រង់ខាងលើ
-• ជំនួសដោយព័ត៌មានពិតរបស់អ្នក
-• ផ្ញើជាសារពេញលេញមួយ
-• យើងនឹងពិនិត្យ និងឆ្លើយតបក្នុងរយៈពេល ២៤ ម៉ោង
-
-💰 ការវិនិយោគ: $197 (តម្លៃធម្មតា: $497)
-🔥 មានកំណត់: ៥ កន្លែងក្នុងមួយខែ
-
-មានសំណួរ? ទាក់ទង @Chendasum ដោយផ្ទាល់។`;
-
-  await sendLongMessage(
-    bot,
-    userId,
-    applicationMessage,
-    {},
-    MESSAGE_CHUNK_SIZE,
-  );
-
-  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-  if (adminId) {
-    await bot.sendMessage(
-      adminId,
-      `📋 APPLICATION FORM REQUESTED:
-
-អ្នកប្រើប្រាស់: ${firstName} (${userId})
-សារ: "${msg.text}"
-ពេលវេលា: ${new Date().toLocaleString()}
-
-អ្នកប្រើប្រាស់ត្រៀមដាក់ពាក្យសុំ Capital Clarity។`,
-    );
-  }
-}
-
-async function handleTextResponse(msg) {
-  const userId = msg.from.id;
-  const text = msg.text.toUpperCase();
-
+  // Update last active
   try {
-    // FIXED: Use correct PostgreSQL field name
-    const user = await User.findOne({ telegram_id: userId });
-
-    if (!user) {
-      await bot.sendMessage(
-        msg.chat.id,
-        "សូមចុះឈ្មោះមុន។ ប្រើ /start ដើម្បីចាប់ផ្តើម។",
-      );
-      return;
-    }
-
-    const restrictedActions = ["READY FOR DAY 1", "DAY", "PROGRAM COMPLETE"];
-    const isRestrictedAction = restrictedActions.some((action) =>
-      text.includes(action),
-    );
-
-    // FIXED: Check is_paid properly (PostgreSQL stores as 't'/'f' strings)
-    const isPaid = user.is_paid === "t" || user.is_paid === true;
-
-    console.log(`Text response access check for user ${userId}:`, {
-      text: text,
-      user_found: !!user,
-      is_paid_raw: user?.is_paid,
-      is_paid_boolean: isPaid,
-      is_restricted_action: isRestrictedAction,
-      tier: user?.tier,
-    });
-
-    if (isRestrictedAction && !isPaid) {
-      await bot.sendMessage(
-        msg.chat.id,
-        "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។",
-      );
-      return;
-    }
-
-    if (text === "READY FOR DAY 1") {
-      await handleReadyForDay1(msg);
-    } else if (text.includes("DAY") && text.includes("COMPLETE")) {
-      await handleDayComplete(msg);
-    } else if (text === "PROGRAM COMPLETE") {
-      await handleProgramComplete(msg);
-    }
+    await User.findOneAndUpdate({ telegram_id: userId }, { last_active: new Date() }, { new: true });
   } catch (error) {
-    console.error("Error handling general text response:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+    console.error("Error updating lastActive timestamp:", error);
   }
-}
 
+  // Check if it's a financial quiz response
+  if (financialQuiz && financialQuiz.processQuizResponse) {
+    try {
+      if (await financialQuiz.processQuizResponse(msg, bot)) {
+        return;
+      }
+    } catch (error) {
+      console.error("Error processing quiz response:", error);
+    }
+  }
+  
+  // Check if it's a free tools response
+  if (freeTools && freeTools.processToolResponse) {
+    try {
+      const user = await User.findOne({ telegram_id: userId });
+      if (await freeTools.processToolResponse(msg, bot, user)) {
+        return;
+      }
+    } catch (error) {
+      console.error("Error processing tools response:", error);
+    }
+  }
+  
+  // Handle specific text commands
+  if (text === "ready for day 1") {
+    await handleReadyForDay1(msg);
+  } else if (text.includes("day") && text.includes("complete")) {
+    await handleDayComplete(msg);
+  } else if (text === "program complete") {
+    await handleProgramComplete(msg);
+  } else if (text === "capital clarity" || text === "CAPITAL CLARITY") {
+    await handleCapitalClarity(msg);
+  } else {
+    // Smart question detection
+    await handleSmartResponse(msg);
+  }
+});
+
+// Handler functions
 async function handleReadyForDay1(msg) {
   try {
     const user = await User.findOne({ telegram_id: msg.from.id });
@@ -2811,7 +1819,11 @@ async function handleSmartResponse(msg) {
   }
 }
 
-/ Railway webhook handler
+// ========================================
+// EXPRESS ROUTES & SERVER SETUP - FINAL PART
+// ========================================
+
+// Railway webhook handler
 app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
   try {
     console.log("🔔 Webhook received");
@@ -2904,7 +1916,7 @@ app.post("/webhook/payment", async (req, res) => {
       if (paymentCommands && paymentCommands.confirmPayment) {
         await paymentCommands.confirmPayment(bot, userId, transactionId);
       } else {
-        console.log(`Payment confirmed for user ${userId}: $${amount}`);
+        console.log(`Payment confirmed for user ${userId}: ${amount}`);
         // Fallback payment confirmation
         try {
           await User.findOneAndUpdate(
@@ -3112,3 +2124,63 @@ const HOST = "0.0.0.0"; // Railway requires 0.0.0.0
     console.error('Promise:', promise);
   });
 })();
+
+// Handle /day[1-7] commands: Delivers daily lesson content - WEBHOOK MODE OPTIMIZED
+bot.onText(/\/day([1-7])/i, async (msg, match) => {
+  console.log(`🎯 /day${match[1]} command received from user ${msg.from.id}`);
+  if (isDuplicateMessage(msg)) return;
+  
+  try {
+    console.log(`🔍 Looking up user ${msg.from.id} in database...`);
+    // FIXED: Use correct PostgreSQL field names
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    console.log(`📊 User lookup result:`, {
+      found: !!user,
+      id: user?.telegram_id,
+      name: user?.first_name,
+      paid: user?.is_paid,
+      tier: user?.tier,
+    });
+
+    console.log(`Daily command access check for user ${msg.from.id}:`, {
+      user_found: !!user,
+      is_paid_raw: user?.is_paid,
+      is_paid_boolean: user?.is_paid === true || user?.is_paid === "t",
+      tier: user?.tier,
+    });
+
+    // FIXED: Check is_paid properly (PostgreSQL stores as 't'/'f' strings)
+    const isPaid = user?.is_paid === true || user?.is_paid === "t";
+
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+      return;
+    }
+
+    if (dailyCommands && dailyCommands.handle) {
+      await dailyCommands.handle(msg, match, bot);
+    } else {
+      // Enhanced fallback daily content with full day content
+      const dayContent = getDayContent(match[1]);
+      await sendLongMessage(bot, msg.chat.id, dayContent, {}, MESSAGE_CHUNK_SIZE);
+      
+      // Update progress
+      try {
+        await Progress.findOneAndUpdate(
+          { user_id: msg.from.id },
+          { 
+            current_day: parseInt(match[1]),
+            [`day${match[1]}Accessed`]: true,
+            [`day${match[1]}AccessedAt`]: new Date()
+          },
+          { upsert: true }
+        );
+      } catch (dbError) {
+        console.log("Progress update skipped (using fallback)");
+      }
+    }
+  } catch (error) {
+    console.error("Error in daily command:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
