@@ -1062,10 +1062,10 @@ const adminCommands_safe = {
     }
     
     try {
-      // Railway-compatible user listing (no MongoDB limit syntax)
+      // Railway-compatible user listing using correct database syntax
       let users = [];
       try {
-        users = await User.find() || [];
+        users = await db.select().from(users).orderBy(users.joined_at) || [];
       } catch (dbError) {
         console.log("Database not available, using fallback user list");
         users = [];
@@ -1100,10 +1100,10 @@ const adminCommands_safe = {
     }
     
     try {
-      // Railway-compatible user analytics (no MongoDB aggregations)
+      // Railway-compatible user analytics using correct database syntax
       let users = [];
       try {
-        users = await User.find() || [];
+        users = await db.select().from(users).orderBy(users.joined_at) || [];
       } catch (dbError) {
         console.log("Database not available, using fallback analytics");
         users = [];
@@ -1202,8 +1202,8 @@ bot.onText(/\/admin_users/i, async (msg) => {
   }
   
   try {
-    // FIX: Use embedded User model instead of Drizzle ORM syntax
-    const allUsers = await User.find() || [];
+    // FIX: Use correct database query syntax for embedded models
+    const allUsers = await db.select().from(users).orderBy(users.joined_at) || [];
     
     const totalUsers = allUsers.length;
     const paidUsers = allUsers.filter(u => u.is_paid === true || u.is_paid === 't').length;
@@ -1263,9 +1263,9 @@ bot.onText(/\/admin_analytics/i, async (msg) => {
   }
   
   try {
-    // FIX: Use embedded User and Progress models instead of Drizzle ORM syntax
-    const allUsers = await User.find() || [];
-    const allProgress = await Progress.find() || [];
+    // FIX: Use correct database query syntax for embedded models
+    const allUsers = await db.select().from(users).orderBy(users.joined_at) || [];
+    const allProgress = await db.select().from(progress) || [];
     
     // User statistics
     const totalUsers = allUsers.length;
