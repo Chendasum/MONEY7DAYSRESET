@@ -308,22 +308,31 @@ let lastProcessTime = {};
 
 function isDuplicateMessage(msg) {
   const messageId = `${msg.chat.id}-${msg.message_id}`;
-  
-  // WEBHOOK MODE FIX: Railway webhooks are reliable, no duplicate prevention needed
-  // Only track for cleanup, never block
-  processedMessages.add(messageId);
-  
-  // Clean up old entries every 200 messages
-  if (processedMessages.size > 200) {
-    const messagesToKeep = Array.from(processedMessages).slice(-100);
-    processedMessages.clear();
-    messagesToKeep.forEach(id => processedMessages.add(id));
+  const now = Date.now();
+
+  // Only block if same message processed within last 3 seconds (for webhook mode)
+  if (processedMessages.has(messageId) && lastProcessTime[messageId] && now - lastProcessTime[messageId] < 3000) {
+    console.log(`[isDuplicateMessage] Blocking recent duplicate: ${messageId} within 3s`);
+    return true;
   }
 
-  console.log(`[isDuplicateMessage] Processing message: ${messageId} (webhook mode - no blocking)`);
-  return false; // Never block in webhook mode
-}
+  processedMessages.add(messageId);
+  lastProcessTime[messageId] = now;
 
+  // Clean up old entries every 50 messages
+  if (processedMessages.size > 50) {
+    const cutoff = now - 30000; // 30 seconds
+    Object.keys(lastProcessTime).forEach((id) => {
+      if (lastProcessTime[id] < cutoff) {
+        processedMessages.delete(id);
+        delete lastProcessTime[id];
+      }
+    });
+  }
+
+  console.log(`[isDuplicateMessage] Processing message: ${messageId}`);
+  return false;
+}
 // Function to get the Railway URL
 function getRailwayUrl() {
   if (process.env.RAILWAY_PUBLIC_DOMAIN) {
