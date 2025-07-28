@@ -795,9 +795,9 @@ Ready to manage the system or test user experience?`;
 
       await bot.sendMessage(msg.chat.id, welcomeMessage);
       
-      // Register user in database
+      // Register user in database and trigger marketing automation
       try {
-        await User.findOneAndUpdate(
+        const user = await User.findOneAndUpdate(
           { telegram_id: msg.from.id },
           {
             first_name: msg.from.first_name,
@@ -807,8 +807,18 @@ Ready to manage the system or test user experience?`;
           },
           { upsert: true }
         );
+        
+        // Trigger automated marketing sequence for unpaid users
+        if (!user || !user.is_paid) {
+          console.log(`🚀 Starting automated marketing sequence for unpaid user: ${msg.from.id}`);
+          conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+        }
       } catch (dbError) {
         console.log("Database registration skipped (using fallback)");
+        
+        // Still trigger marketing automation even if database fails
+        console.log(`🚀 Starting automated marketing sequence for user: ${msg.from.id}`);
+        conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
       }
     }
     
@@ -889,6 +899,17 @@ bot.onText(/\/pricing/i, async (msg) => {
 👉 @Chendasum - ជំនួយផ្ទាល់`;
 
       await bot.sendMessage(msg.chat.id, emergencyPricing);
+    }
+    
+    // Trigger automated marketing sequence for unpaid users viewing pricing
+    try {
+      const user = await User.findOne({ telegram_id: msg.from.id });
+      if (!user || !user.is_paid) {
+        console.log(`🚀 Pricing viewed - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
+        conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+      }
+    } catch (error) {
+      console.log("Marketing automation trigger failed for pricing view");
     }
     
     console.log("✅ [PRICING] Sent");
@@ -1522,6 +1543,17 @@ bot.onText(/\/preview$/i, async (msg) => {
 ✅ ការគាំទ្រ 24/7`;
       await bot.sendMessage(msg.chat.id, previewMessage);
     }
+    
+    // Trigger automated marketing sequence for users viewing preview content
+    try {
+      const user = await User.findOne({ telegram_id: msg.from.id });
+      if (!user || !user.is_paid) {
+        console.log(`🚀 Preview viewed - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
+        conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+      }
+    } catch (error) {
+      console.log("Marketing automation trigger failed for preview view");
+    }
   } catch (e) {
     console.error("Error /preview:", e);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
@@ -1696,6 +1728,17 @@ C) គ្មាន
 សរសេរចម្លើយ A, B, ឬ C ដើម្បីបន្ត។
 
 💡 Quiz នេះឥតគិតថ្លៃ និងជួយអ្នកកំណត់កន្លែងត្រូវកែលម្អ!`);
+    }
+    
+    // Trigger automated marketing sequence for users taking financial quiz
+    try {
+      const user = await User.findOne({ telegram_id: msg.from.id });
+      if (!user || !user.is_paid) {
+        console.log(`🚀 Financial quiz started - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
+        conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+      }
+    } catch (error) {
+      console.log("Marketing automation trigger failed for financial quiz");
     }
   } catch (e) {
     console.error("Error /financial_quiz:", e);
