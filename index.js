@@ -2584,11 +2584,12 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       // Update progress with safe field names
       try {
         const dayNum = parseInt(match[1]);
+        const currentProgress = await Progress.findOne({ user_id: msg.from.id });
         
         await Progress.findOneAndUpdate(
           { user_id: msg.from.id },
           {
-            current_day: Math.max(dayNum, progressData?.current_day || 0)
+            current_day: Math.max(dayNum, currentProgress?.current_day || 0)
           },
           { upsert: true }
         );
@@ -2599,6 +2600,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
     }
 
     // ADD MISSING AUTOMATION: Auto next-day reminders (24h delay)
+    const dayNum = parseInt(match[1]);
     if (dayNum < 7) {
       setTimeout(async () => {
         const nextDay = dayNum + 1;
