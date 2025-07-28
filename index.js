@@ -302,8 +302,8 @@ AccessControl = safeRequire("./services/access-control", "AccessControl");
 ContentScheduler = safeRequire("./services/content-scheduler", "ContentScheduler");
 ConversionOptimizer = safeRequire("./services/conversion-optimizer", "ConversionOptimizer");
 
-// ENHANCED LONG MESSAGE UTILITY FOR RAILWAY
-async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500) {
+// ENHANCED LONG MESSAGE UTILITY FOR RAILWAY - IMPROVED FOR BETTER UX
+async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4000) {
   try {
     console.log(`📞 sendLongMessage called for chat ${chatId}, message length: ${text?.length || 0}`);
     
@@ -312,10 +312,16 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500
       return;
     }
 
-    const maxLength = Math.min(chunkSize, 3500); // Use safer limit
+    // Use larger chunks for better user experience
+    const maxLength = Math.min(chunkSize, 4000);
     
     if (text.length <= maxLength) {
-      return await bot.sendMessage(chatId, text, options);
+      const messageOptions = {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...options
+      };
+      return await bot.sendMessage(chatId, text, messageOptions);
     }
     
     console.log(`📝 Splitting long message (${text.length} chars) into chunks for chat ${chatId}`);
@@ -323,24 +329,30 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500
     const chunks = [];
     let currentChunk = '';
     
-    // Split by lines to preserve Khmer formatting
-    const lines = text.split('\n');
+    // Smart splitting by paragraphs first, then lines for better readability
+    const paragraphs = text.split('\n\n');
     
-    for (const line of lines) {
-      const testLength = currentChunk + (currentChunk ? '\n' : '') + line;
-      if (testLength.length > maxLength) {
-        if (currentChunk.trim()) {
-          chunks.push(currentChunk.trim());
-        }
-        // Handle extremely long single lines
-        if (line.length > maxLength) {
-          chunks.push(line.substring(0, maxLength - 10) + "...");
-          currentChunk = '';
-        } else {
-          currentChunk = line;
+    for (const paragraph of paragraphs) {
+      const testLength = currentChunk + (currentChunk ? '\n\n' : '') + paragraph;
+      
+      if (testLength.length > maxLength && currentChunk.trim()) {
+        // Save current chunk and start new one
+        chunks.push(currentChunk.trim());
+        currentChunk = paragraph;
+      } else if (paragraph.length > maxLength) {
+        // Handle very long paragraphs by splitting by sentences
+        const sentences = paragraph.split('. ');
+        for (const sentence of sentences) {
+          const sentenceTest = currentChunk + (currentChunk ? '. ' : '') + sentence;
+          if (sentenceTest.length > maxLength && currentChunk.trim()) {
+            chunks.push(currentChunk.trim());
+            currentChunk = sentence;
+          } else {
+            currentChunk += (currentChunk ? '. ' : '') + sentence;
+          }
         }
       } else {
-        currentChunk += (currentChunk ? '\n' : '') + line;
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
       }
     }
     
@@ -363,7 +375,7 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500
           console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars) - Message ID: ${result.message_id}`);
           
           if (i < chunks.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 600));
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Longer delay for better reading
           }
         } else {
           console.log(`⚠️ Skipping invalid chunk ${i + 1}: length=${chunks[i].length}`);
