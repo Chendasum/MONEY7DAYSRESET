@@ -532,8 +532,87 @@ function getDailyContent(day) {
 // Initialize Express app
 const app = express();
 const accessControl = new (AccessControl || class {
-  async getTierSpecificHelp() {
-    return `📱 ជំនួយ (Help):
+  async getTierSpecificHelp(telegramId) {
+    try {
+      // Check if user is paid
+      const user = await User.findOne({ telegram_id: telegramId });
+      const isPaid = user?.is_paid === true || user?.is_paid === 't';
+      const isVip = user?.is_vip === true || user?.is_vip === 't';
+      const tier = user?.tier || 'free';
+      
+      if (isPaid) {
+        // Full menu for paid users (Essential, Premium, VIP)
+        let helpMenu = `🏆 Money Flow Reset™ - ជំនួយ (${tier.toUpperCase()})
+
+🎯 ពាក្យបញ្ជាកម្មវិធីរៀន:
+/day1 - ថ្ងៃទី១: ស្គាល់លំហូរលុយ  
+/day2 - ថ្ងៃទី២: រកកន្លែងលុយលេច
+/day3 - ថ្ងៃទី៣: បង្កើតផែនការសន្សំ
+/day4 - ថ្ងៃទី៤: គ្រប់គ្រងចំណូល
+/day5 - ថ្ងៃទី៥: កំណត់គោលដៅ
+/day6 - ថ្ងៃទី៦: បង្កើតចំណូលបន្ថែម
+/day7 - ថ្ងៃទី៧: ផែនការយូរអង្វែង
+
+🏆 ការតាមដាន:
+/progress - បង្ហាញដំណើរការ
+/badges - បង្ហាញគុណវុឌ្ឍិ
+/milestones - រកមុខ
+/streak - ប្រវត្តិសកម្មភាព
+
+💬 គុណភាពជីវិត:
+/quote - សម្រង់លើកទឹកចិត្ត
+/quote_financial - សម្រង់ហិរញ្ញវត្ថុ
+/quote_motivation - សម្រង់ការលើកទឹកចិត្ត
+/quote_success - សម្រង់ជោគជ័យ
+/quote_traditional - សម្រង់ប្រពៃណី
+/wisdom - ប្រាជ្ញាទូទៅ`;
+
+        // Add VIP-specific commands for VIP users
+        if (isVip || tier === 'vip' || tier === 'premium') {
+          helpMenu += `
+
+👑 VIP ពិសេស:
+/vip - កម្មវិធី VIP
+/vip_apply - ចូលរួម VIP
+/capital_clarity - Capital Strategy
+/network_access - Network Building`;
+        }
+
+        // Add extended content for all paid users
+        helpMenu += `
+
+📚 មាតិកាបន្ថែម:
+/extended8 - /extended30 (30-day program)
+
+🛠️ ឧបករណ៍:
+/calculate_daily - គណនាប្រចាំថ្ងៃ
+/find_leaks - រកចំណុចលេចលុយ
+/savings_potential - វិភាគសន្សំ
+
+📞 ជំនួយ: @Chendasum`;
+
+        return helpMenu;
+      } else {
+        // Basic menu for free users
+        return `🏆 Money Flow Reset™ - ជំនួយ
+
+🎯 ពាក្យបញ្ជាទូទៅ:
+/start - ចាប់ផ្តើមកម្មវិធី
+/pricing - មើលតម្លៃ ($24)
+/payment - ការទូទាត់
+/preview - មើលមាតិកាឥតគិតថ្លៃ
+/financial_quiz - ពិនិត្យសុខភាពហិរញ្ញវត្ថុ
+
+🛠️ ឧបករណ៍ឥតគិតថ្លៃ:
+/calculate_daily - គណនាប្រចាំថ្ងៃ
+/find_leaks - រកចំណុចលេចលុយ
+
+📞 ជំនួយ: @Chendasum`;
+      }
+    } catch (error) {
+      console.error('Error in getTierSpecificHelp:', error);
+      // Fallback help
+      return `📱 ជំនួយ (Help):
 
 🌟 7-Day Money Flow Reset™ 
 
@@ -542,9 +621,9 @@ const accessControl = new (AccessControl || class {
 - /pricing - មើលតម្លៃ
 - /payment - ការទូទាត់
 - /help - ជំនួយ
-- /faq - សំណួរញឹកញាប់
 
 💬 ជំនួយ: @Chendasum`;
+    }
   }
 })();
 
@@ -3122,7 +3201,7 @@ function getDailyContent(dayNumber) {
 
 💡 ប្រភេទការវិនិយោគ:
 • សន្សំធនាគារ (សុវត្ថិភាព)
-• ហុ៊នពាណិជ្ជកម្ម (មធ្យម)
+• ហ៊ុនពាណិជ្ជកម្ម (មធ្យម)
 • អាជីវកម្មខ្លួនឯង (ខ្ពស់)
 
 📖 សៀវភៅណែនាំ:
