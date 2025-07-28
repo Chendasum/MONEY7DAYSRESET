@@ -1921,7 +1921,8 @@ bot.onText(/\/test/i, async (msg) => {
 
 // VIP Apply Handler & Main message handler with text processing
 bot.on("message", async (msg) => {
-  if (isDuplicateMessage(msg)) return;
+  // WEBHOOK MODE: No duplicate blocking for text messages
+  console.log(`📝 Text message received: "${msg.text}" from user ${msg.from.id}`);
 
   if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
     try {
@@ -2837,7 +2838,8 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
 
 // ADD MISSING TEXT MESSAGE HANDLERS
 bot.on("message", async (msg) => {
-  if (isDuplicateMessage(msg)) return;
+  // WEBHOOK MODE: No duplicate blocking for text messages
+  console.log(`📝 Processing text message: "${msg.text}" from user ${msg.from.id}`);
   
   if (!msg.text) return;
   
