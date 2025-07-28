@@ -302,8 +302,8 @@ AccessControl = safeRequire("./services/access-control", "AccessControl");
 ContentScheduler = safeRequire("./services/content-scheduler", "ContentScheduler");
 ConversionOptimizer = safeRequire("./services/conversion-optimizer", "ConversionOptimizer");
 
-// ENHANCED LONG MESSAGE UTILITY FOR RAILWAY - IMPROVED FOR BETTER UX
-async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4000) {
+// ENHANCED LONG MESSAGE UTILITY FOR RAILWAY - AGGRESSIVE CHUNKING FOR FEWER MESSAGES
+async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4090) {
   try {
     console.log(`📞 sendLongMessage called for chat ${chatId}, message length: ${text?.length || 0}`);
     
@@ -312,8 +312,8 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4000
       return;
     }
 
-    // Use larger chunks for better user experience
-    const maxLength = Math.min(chunkSize, 4000);
+    // Use maximum safe Telegram limit for fewer chunks
+    const maxLength = 4090; // Close to Telegram's 4096 limit but safe
     
     if (text.length <= maxLength) {
       const messageOptions = {
@@ -324,40 +324,33 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4000
       return await bot.sendMessage(chatId, text, messageOptions);
     }
     
-    console.log(`📝 Splitting long message (${text.length} chars) into chunks for chat ${chatId}`);
+    console.log(`📝 Splitting long message (${text.length} chars) into MINIMAL chunks for chat ${chatId}`);
+    console.log(`📏 Using maxLength: ${maxLength} chars`);
     
     const chunks = [];
-    let currentChunk = '';
     
-    // Smart splitting by paragraphs first, then lines for better readability
-    const paragraphs = text.split('\n\n');
+    // SUPER AGGRESSIVE: Split text into minimal number of chunks
+    let startIndex = 0;
     
-    for (const paragraph of paragraphs) {
-      const testLength = currentChunk + (currentChunk ? '\n\n' : '') + paragraph;
+    while (startIndex < text.length) {
+      let endIndex = Math.min(startIndex + maxLength, text.length);
+      let chunk = text.substring(startIndex, endIndex);
       
-      if (testLength.length > maxLength && currentChunk.trim()) {
-        // Save current chunk and start new one
-        chunks.push(currentChunk.trim());
-        currentChunk = paragraph;
-      } else if (paragraph.length > maxLength) {
-        // Handle very long paragraphs by splitting by sentences
-        const sentences = paragraph.split('. ');
-        for (const sentence of sentences) {
-          const sentenceTest = currentChunk + (currentChunk ? '. ' : '') + sentence;
-          if (sentenceTest.length > maxLength && currentChunk.trim()) {
-            chunks.push(currentChunk.trim());
-            currentChunk = sentence;
-          } else {
-            currentChunk += (currentChunk ? '. ' : '') + sentence;
-          }
+      // If we're not at the end and we cut off mid-line, find the last newline
+      if (endIndex < text.length) {
+        const lastNewline = chunk.lastIndexOf('\n');
+        if (lastNewline > maxLength * 0.7) { // Only adjust if we're not losing too much content
+          endIndex = startIndex + lastNewline;
+          chunk = text.substring(startIndex, endIndex);
         }
-      } else {
-        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
       }
-    }
-    
-    if (currentChunk.trim()) {
-      chunks.push(currentChunk.trim());
+      
+      if (chunk.trim()) {
+        chunks.push(chunk.trim());
+        console.log(`📦 Created chunk ${chunks.length}: ${chunk.length} chars (startIndex: ${startIndex}, endIndex: ${endIndex})`);
+      }
+      
+      startIndex = endIndex;
     }
     
     // Send chunks with error handling for each chunk
@@ -375,7 +368,7 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4000
           console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars) - Message ID: ${result.message_id}`);
           
           if (i < chunks.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Longer delay for better reading
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Even longer delay for better reading
           }
         } else {
           console.log(`⚠️ Skipping invalid chunk ${i + 1}: length=${chunks[i].length}`);
