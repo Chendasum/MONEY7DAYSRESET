@@ -1264,7 +1264,8 @@ bot.onText(/\/badges/i, async (msg) => {
       // Check completed days and award badges
       const completedDays = [];
       for (let i = 1; i <= 7; i++) {
-        if (progress[`day${i}_completed`]) {
+        const dayField = 'day' + i + '_completed';
+        if (progress[dayField]) {
           completedDays.push(i);
           badgesMessage += `✅ Day ${i} Completion Badge\n`;
         }
@@ -1323,7 +1324,8 @@ bot.onText(/\/progress/i, async (msg) => {
 
       let completedCount = 0;
       for (let i = 1; i <= 7; i++) {
-        const isCompleted = progress[`day${i}_completed`];
+        const dayField = 'day' + i + '_completed';
+        const isCompleted = progress[dayField];
         if (isCompleted) completedCount++;
         progressMessage += `\n${isCompleted ? "✅" : "⏳"} Day ${i} ${isCompleted ? "- បញ្ចប់" : "- មិនទាន់"}`;
       }
@@ -1571,7 +1573,8 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
       if (progress) {
         const completedDays = [];
         for (let i = 1; i <= 7; i++) {
-          if (progress[`day${i}_completed`]) {
+          const dayField = 'day' + i + '_completed';
+          if (progress[dayField]) {
             completedDays.push(`Day ${i}`);
           }
         }
@@ -1807,19 +1810,22 @@ async function handleDayComplete(msg) {
   if (!dayMatch) return;
   
   const dayNumber = parseInt(dayMatch[1]);
-  const updateField = `day${dayNumber}_completed`;
-  const completedAtField = `day${dayNumber}_completed_at`;
   const nextDay = dayNumber + 1;
   
-  await Progress.findOneAndUpdate(
-    { user_id: msg.from.id },
-    {
-      [updateField]: true,
-      [completedAtField]: new Date(),
-      current_day: nextDay <= 7 ? nextDay : 7
-    },
-    { upsert: true }
-  );
+  try {
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      {
+        current_day: nextDay <= 7 ? nextDay : 7,
+        program_progress: Math.round((dayNumber / 7) * 100),
+        last_completed_day: dayNumber,
+        completion_date: new Date()
+      },
+      { upsert: true }
+    );
+  } catch (dbError) {
+    console.log("Progress update failed:", dbError.message);
+  }
   
   const completeReaction = emojiReactions?.lessonCompleteReaction 
     ? emojiReactions.lessonCompleteReaction(dayNumber)
@@ -2341,15 +2347,14 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       // Update progress with safe field names
       try {
         const dayNum = parseInt(match[1]);
-        const updateData = {
-          current_day: dayNum,
-          [`day${dayNum}_accessed`]: true,
-          [`day${dayNum}_accessed_at`]: new Date()
-        };
         
         await Progress.findOneAndUpdate(
           { user_id: msg.from.id },
-          updateData,
+          {
+            current_day: dayNum,
+            last_accessed: new Date(),
+            program_progress: Math.round((dayNum / 7) * 100)
+          },
           { upsert: true }
         );
         console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
@@ -2429,20 +2434,21 @@ async function handleDayComplete(msg) {
   if (!dayMatch) return;
 
   const dayNumber = parseInt(dayMatch[1]);
-  const updateField = `day${dayNumber}_completed`;
-  const completedAtField = `day${dayNumber}_completed_at`;
   const nextDay = dayNumber + 1;
 
-  // Update progress with correct PostgreSQL field names
-  await Progress.findOneAndUpdate(
-    { user_id: msg.from.id },
-    {
-      [updateField]: true,
-      [completedAtField]: new Date(),
-      current_day: nextDay <= 7 ? nextDay : 7,
-    },
-    { upsert: true },
-  );
+  // Update progress with static field names to avoid SQL syntax errors
+  try {
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      {
+        current_day: nextDay <= 7 ? nextDay : 7,
+        program_progress: Math.round((dayNumber / 7) * 100)
+      },
+      { upsert: true }
+    );
+  } catch (dbError) {
+    console.log("Progress update failed:", dbError.message);
+  }
 
   // Day completion celebration
   const completeReaction = `🎉 បានល្អណាស់! អ្នកបានបញ្ចប់ Day ${dayNumber}!`;
@@ -2475,7 +2481,8 @@ ${dayNumber < 7 ? `🚀 ត្រៀមរួចសម្រាប់ Day ${next
       if (user && progress) {
         const completedDays = [];
         for (let i = 1; i <= 7; i++) {
-          if (progress[`day${i}_completed`]) {
+          const dayField = 'day' + i + '_completed';
+          if (progress[dayField]) {
             completedDays.push(i);
           }
         }
