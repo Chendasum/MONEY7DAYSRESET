@@ -1,12 +1,10 @@
-const User = require("../models/User"); // User model for interacting with user data
-const Progress = require("../models/Progress"); // Progress model for tracking user program progress
-const TierManager = require("../services/tier-manager"); // Service to manage user tiers and get tier-specific messages
-const { sendLongMessage } = require("../utils/message-splitter"); // Utility to split long messages for Telegram
+const User = require("../models/User");
+const Progress = require("../models/Progress");
+const TierManager = require("../services/tier-manager");
 
-const tierManager = new TierManager(); // Instantiate TierManager
-const MESSAGE_CHUNK_SIZE = 800; // Define as a constant for consistency in message splitting
+const tierManager = new TierManager();
 
-// Enhanced message for unpaid users (Telegram bot) - Cleaned and formatted
+// Message for unpaid users (coming from Facebook)
 const unpaidStartMessage = `🎉 ស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
 
 🚨 ចង់ដឹងទេ? អ្នកកំពុងខាតបង់លុយរាល់ថ្ងៃដោយមិនដឹងខ្លួន...
@@ -109,111 +107,75 @@ const paidReadyMessage = `🎉 ស្វាគមន៍ត្រឡប់មក�
 
 💎 នៅថ្ងៃទី៧ អ្នកនឹងមានប្រព័ន្ធគ្រប់គ្រងលុយពេញលេញ!`;
 
-/**
- * Handles the /start command. This is the entry point for users interacting with the bot.
- * It registers/updates user information, checks their payment status, and directs them
- * to the appropriate welcome message or program content.
- * @param {Object} msg - The Telegram message object.
- * @param {Object} bot - The Telegram bot instance.
- */
 async function handle(msg, bot) {
-  // Input validation: Ensure essential parameters are present
-  if (!msg || !msg.from || !bot) {
-    console.error("Invalid parameters in start command");
-    return;
-  }
-
   const userId = msg.from.id;
   const chatId = msg.chat.id;
 
-  if (!userId || !chatId) {
-    console.error("Missing userId or chatId");
-    return;
-  }
-
-  // Analytics logging: Log when the start command is triggered
-  console.log(`Start command triggered by user ${userId} at ${new Date()}`);
-
   try {
-    // Perform database operations in parallel for better performance:
-    // 1. Find and update user information (or create new user if not exists)
-    // 2. Find and update user's progress (or create new progress entry if not exists)
-    const [user, userProgress] = await Promise.all([
-      User.findOneAndUpdate(
-        { telegram_id: userId },
-        {
-          telegram_id: userId,
-          username: msg.from.username,
-          first_name: msg.from.first_name,
-          last_name: msg.from.last_name,
-          last_active: new Date(), // Update last active timestamp
-        },
-        { upsert: true, new: true }, // upsert: create if not exists; new: return updated document
-      ),
-      Progress.findOneAndUpdate(
-        { user_id: userId },
-        { user_id: userId },
-        { upsert: true, new: true },
-      ),
-    ]);
+    // Create or update user
+    const user = await User.findOneAndUpdate(
+      { telegramId: userId },
+      {
+        telegramId: userId,
+        username: msg.from.username,
+        firstName: msg.from.first_name,
+        lastName: msg.from.last_name,
+        lastActive: new Date(),
+      },
+      { upsert: true, new: true },
+    );
 
-    // Conditional logic based on user's payment status
-    if (user.is_paid) {
-      // If user is paid, check if they have completed Day 0 preparation (readyForDay1)
-      if (!userProgress || !userProgress.ready_for_day_1) {
-        // Send the preparation message for paid users
-        await sendLongMessage(
-          bot,
-          chatId,
-          paidPreparationMessage,
-          {},
-          MESSAGE_CHUNK_SIZE,
-        );
+    // Initialize progress
+    await Progress.findOneAndUpdate(
+      { userId: userId },
+      { userId: userId },
+      { upsert: true, new: true },
+    );
+
+    // Check payment status and show appropriate message
+    if (user.isPaid) {
+      // Check if they need to do Day 0 preparation first
+      const userProgress = await Progress.findOne({ userId: userId });
+
+      if (!userProgress || !userProgress.readyForDay1) {
+        // Show tier-specific welcome message if available
+        const tierWelcome = tierManager.getTierWelcomeMessage(user.tier);
+        await bot.sendMessage(chatId, tierWelcome);
+
+        // Show preparation message for unprepared users
+        const preparationHomework = `${paidPreparationMessage}
+
+🎯 ជំហានសំខាន់មុនចាប់ផ្តើម:
+
+មុនពេលចាប់ផ្តើមមេរៀនថ្ងៃទី១ អ្នកត្រូវត្រៀមចិត្តជាមុនសិន:
+
+💭 ពិចារណាសំណួរទាំងនេះ:
+• តើអ្នកត្រៀមរួចសម្រាប់ការផ្លាស់ប្តូរឬនៅ?
+• តើអ្នកមានពេល ១៥-២០ នាទីរាល់ថ្ងៃឬទេ?
+• តើអ្នកពិតជាចង់ដោះស្រាយបញ្ហាលុយឬទេ?
+
+🚀 ត្រៀមរួចហើយ? សរសេរ "READY FOR DAY 1" ដើម្បីចាប់ផ្តើម!`;
+
+        await bot.sendMessage(chatId, preparationHomework);
       } else {
-        // If user is paid and already prepared for Day 1, send a quick access message
-        await sendLongMessage(
-          bot,
-          chatId,
-          paidReadyMessage,
-          {},
-          MESSAGE_CHUNK_SIZE,
-        );
+        // They're already prepared, show quick access message
+        const tierWelcome = tierManager.getTierWelcomeMessage(user.tier);
+        await bot.sendMessage(chatId, tierWelcome);
+        await bot.sendMessage(chatId, paidReadyMessage);
       }
     } else {
-      // If user is not paid, show the unpaid user welcome message
-      await sendLongMessage(
-        bot,
-        chatId,
-        unpaidStartMessage,
-        {},
-        MESSAGE_CHUNK_SIZE,
-      );
+      // Show unpaid user message
+      await bot.sendMessage(chatId, unpaidStartMessage);
     }
-
-    // Success logging: Confirm command completion
-    console.log(`Start command completed successfully for user ${userId}`);
   } catch (error) {
-    // Error handling: Log the error and send a user-friendly error message
     console.error("Error in start command:", error);
-
-    let errorMessage =
-      "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។"; // Generic error message
-
-    // More specific error messages based on error type
-    if (error.code === "ETELEGRAM") {
-      errorMessage = "បញ្ហាទំនាក់ទំនងជាមួយ Telegram ។ សូមព្យាយាមម្តងទៀត។";
-    } else if (error.name === "MongoError") {
-      errorMessage = "បញ្ហាទិន្នន័យ។ សូមព្យាយាមម្តងទៀត។";
-    }
-
-    try {
-      await bot.sendMessage(chatId, errorMessage);
-    } catch (sendError) {
-      // Fallback error logging if sending the error message also fails
-      console.error("Failed to send error message:", sendError);
-    }
+    await bot.sendMessage(
+      chatId,
+      "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀត។",
+    );
   }
 }
 
+module.exports = { handle };
 // Export the handle function to be used by the main bot file (e.g., index.js)
 module.exports = { handle };
