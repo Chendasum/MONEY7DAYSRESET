@@ -21,7 +21,7 @@ const unpaidStartMessage = `🎉 ស្វាគមន៍មកកាន់ 7-Da
 
 🏆 រឿងរ៉ាវជោគជ័យពីអ្នកប្រើប្រាស់នៅកម្ពុជា:
 👤 "ខ្ញុំបានរកឃើញ money leaks កន្លែងលុយលេចធ្លាយ ដែលមិនបានដឹងខ្លួន!" - សុខា, ភ្នំពេញ
-👤 "ការគ្រប់គ្រងលុយរបស់ខ្ញុំកាន់តែប្រសើរឡើងៗ!" - សុភី, សៀមរាប
+👤 "ការគ្រប់គ្រងលុយរបស់ខ្ញុំកាន់តែប្រសើរឡើងៗ!" - សុភី, సៀមរាប
 
 🔥 អ្នកដែលចូលរួម និងអនុវត្តបានល្អ តែងតែឃើញការកែប្រែ!
 
@@ -64,7 +64,7 @@ const paidPreparationMessage = `🎉 ស្វាគមន៍ត្រឡប់�
 ✅ បិទ money leaks ដែលធ្វើឱ្យលុយលេចធ្លាយដោយមិនដឹងខ្លួន
 ✅ ប្រព័ន្ធគ្រប់គ្រងលុយដែលពិតជាដំណើរការ
 
-📊 ការផ្លាស់ប្តូររយៈពេលវែង:
+📊 ការផ្លាស់ប្តូរយៈពេលវែង:
 ✅ ផែនទីហិរញ្ញវត្ថុច្បាស់លាស់សម្រាប់អនាគត
 ✅ ការយល់ដឹងពីចំណាយ "រស់រាន" ទល់នឹង "លូតលាស់"
 ✅ ផែនការហិរញ្ញវត្ថុដែលអនុវត្តបាន
@@ -112,32 +112,32 @@ async function handle(msg, bot) {
   const chatId = msg.chat.id;
 
   try {
-    // Create or update user
+    // Create or update user with corrected field mapping
     const user = await User.findOneAndUpdate(
-      { telegramId: userId },
+      { telegram_id: userId }, // Use new field name
       {
-        telegramId: userId,
+        telegram_id: userId,    // Use new field name
         username: msg.from.username,
-        firstName: msg.from.first_name,
-        lastName: msg.from.last_name,
-        lastActive: new Date(),
+        first_name: msg.from.first_name,    // Use new field name
+        last_name: msg.from.last_name,      // Use new field name
+        last_active: new Date(),            // Use new field name
       },
       { upsert: true, new: true },
     );
 
-    // Initialize progress
+    // Initialize progress with corrected field mapping
     await Progress.findOneAndUpdate(
-      { userId: userId },
-      { userId: userId },
+      { user_id: userId }, // Use new field name
+      { user_id: userId }, // Use new field name
       { upsert: true, new: true },
     );
 
     // Check payment status and show appropriate message
-    if (user.isPaid) {
+    if (user && user.is_paid) { // Use new field name
       // Check if they need to do Day 0 preparation first
-      const userProgress = await Progress.findOne({ userId: userId });
+      const userProgress = await Progress.findOne({ user_id: userId }); // Use new field name
 
-      if (!userProgress || !userProgress.readyForDay1) {
+      if (!userProgress || !userProgress.ready_for_day_1) { // Use new field name
         // Show tier-specific welcome message if available
         const tierWelcome = tierManager.getTierWelcomeMessage(user.tier);
         await bot.sendMessage(chatId, tierWelcome);
@@ -176,6 +176,4 @@ async function handle(msg, bot) {
   }
 }
 
-module.exports = { handle };
-// Export the handle function to be used by the main bot file (e.g., index.js)
 module.exports = { handle };
