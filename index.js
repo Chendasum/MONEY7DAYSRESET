@@ -582,7 +582,7 @@ function getRailwayUrl() {
   if (process.env.RAILWAY_PUBLIC_DOMAIN) {
     return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
   }
-  return `https://7daysmoney-production.up.railway.app`;
+  return `https://money7daysreset-production.up.railway.app`;
 }
 
 // Initialize Telegram bot for webhook mode
@@ -620,13 +620,13 @@ async function initBotWebhook() {
       console.log("Failed to delete webhook (via bot.deleteWebHook()):", deleteError.message);
     }
 
-    // 3. Construct the webhook URL for Railway - FORCE CORRECT DOMAIN
-    const correctDomain = "https://7daysmoney-production.up.railway.app";
-    const actualWebhookUrl = `${correctDomain}/bot${process.env.BOT_TOKEN}`;
+    // 3. Construct the webhook URL for Railway - USE CORRECT DOMAIN FROM LOGS
+    const correctRailwayDomain = "https://money7daysreset-production.up.railway.app";
+    const actualWebhookUrl = `${correctRailwayDomain}/bot${process.env.BOT_TOKEN}`;
 
     // Debug: Show which domain we're using
     console.log("🔍 Domain check - getRailwayUrl():", getRailwayUrl());
-    console.log("🔍 Forcing correct Railway domain:", correctDomain);
+    console.log("🔍 Using correct Railway domain from logs:", correctRailwayDomain);
 
     console.log(`Attempting to set webhook to: ${actualWebhookUrl}`);
     const setWebhookResult = await bot.setWebHook(actualWebhookUrl);
