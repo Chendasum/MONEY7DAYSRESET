@@ -630,14 +630,14 @@ bot.onText(/^\/day$/i, async (msg) => {
 
     await sendLongMessage(bot, chatId, introMessage, { parse_mode: "Markdown" }, MESSAGE_CHUNK_SIZE);
 
-    if (progress.currentDay && progress.currentDay > 1) {
+    if (progress?.current_day && progress.current_day > 1) {
       setTimeout(async () => {
         const progressMessage = `📊 វឌ្ឍនភាពរបស់អ្នក:
 
-🔥 ថ្ងៃបានបញ្ចប់: ${progress.currentDay - 1}/7
-📈 ភាគរយបញ្ចប់: ${progress.completionPercentage || 0}%
+🔥 ថ្ងៃបានបញ្ចប់: ${progress.current_day - 1}/7
+📈 ភាគរយបញ្ចប់: ${progress.completion_percentage || 0}%
 
-🎯 ថ្ងៃបន្ទាប់: /day${progress.currentDay}`;
+🎯 ថ្ងៃបន្ទាប់: /day${progress.current_day}`;
         await bot.sendMessage(chatId, progressMessage);
       }, 1500);
     }
@@ -1232,7 +1232,7 @@ bot.onText(/\/badges/i, async (msg) => {
       // Check completed days and award badges
       const completedDays = [];
       for (let i = 1; i <= 7; i++) {
-        if (progress[`day${i}Completed`]) {
+        if (progress[`day${i}_completed`]) {
           completedDays.push(i);
           badgesMessage += `✅ Day ${i} Completion Badge\n`;
         }
@@ -1250,11 +1250,11 @@ bot.onText(/\/badges/i, async (msg) => {
         badgesMessage += `🏆 Champion Badge - បានបញ្ចប់ទាំងអស់!\n`;
       }
 
-      if (progress.programCompleted) {
+      if (progress.program_completed) {
         badgesMessage += `🎊 Program Master Badge - បញ្ចប់កម្មវិធីពេញលេញ!\n`;
       }
 
-      badgesMessage += `\n📊 សរុប Badges: ${completedDays.length + (completedDays.length >= 3 ? 1 : 0) + (completedDays.length >= 5 ? 1 : 0) + (completedDays.length === 7 ? 1 : 0) + (progress.programCompleted ? 1 : 0)}
+      badgesMessage += `\n📊 សរុប Badges: ${completedDays.length + (completedDays.length >= 3 ? 1 : 0) + (completedDays.length >= 5 ? 1 : 0) + (completedDays.length === 7 ? 1 : 0) + (progress.program_completed ? 1 : 0)}
 
 🎯 បន្តធ្វើដើម្បីទទួលបាន Badges បន្ថែម!`;
 
@@ -1291,7 +1291,7 @@ bot.onText(/\/progress/i, async (msg) => {
 
       let completedCount = 0;
       for (let i = 1; i <= 7; i++) {
-        const isCompleted = progress[`day${i}Completed`];
+        const isCompleted = progress[`day${i}_completed`];
         if (isCompleted) completedCount++;
         progressMessage += `\n${isCompleted ? "✅" : "⏳"} Day ${i} ${isCompleted ? "- បញ្ចប់" : "- មិនទាន់"}`;
       }
@@ -1539,7 +1539,7 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
       if (progress) {
         const completedDays = [];
         for (let i = 1; i <= 7; i++) {
-          if (progress[`day${i}Completed`]) {
+          if (progress[`day${i}_completed`]) {
             completedDays.push(`Day ${i}`);
           }
         }
@@ -1775,8 +1775,8 @@ async function handleDayComplete(msg) {
   if (!dayMatch) return;
   
   const dayNumber = parseInt(dayMatch[1]);
-  const updateField = `day${dayNumber}Completed`;
-  const completedAtField = `day${dayNumber}CompletedAt`;
+  const updateField = `day${dayNumber}_completed`;
+  const completedAtField = `day${dayNumber}_completed_at`;
   const nextDay = dayNumber + 1;
   
   await Progress.findOneAndUpdate(
@@ -1861,7 +1861,7 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
     
     await Progress.findOneAndUpdate(
       { user_id: msg.from.id },
-      { programCompleted: true, programCompletedAt: new Date() },
+      { program_completed: true, program_completed_at: new Date() },
       { upsert: true }
     );
     
@@ -2306,19 +2306,23 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       const dayContent = getDailyContent(parseInt(match[1]));
       await sendLongMessage(bot, msg.chat.id, dayContent);
       
-      // Update progress
+      // Update progress with safe field names
       try {
+        const dayNum = parseInt(match[1]);
+        const updateData = {
+          current_day: dayNum,
+          [`day${dayNum}_accessed`]: true,
+          [`day${dayNum}_accessed_at`]: new Date()
+        };
+        
         await Progress.findOneAndUpdate(
           { user_id: msg.from.id },
-          { 
-            current_day: parseInt(match[1]),
-            [`day${match[1]}Accessed`]: true,
-            [`day${match[1]}AccessedAt`]: new Date()
-          },
+          updateData,
           { upsert: true }
         );
+        console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
       } catch (dbError) {
-        console.log("Progress update skipped (using fallback)");
+        console.log("Progress update skipped (fallback mode):", dbError.message);
       }
     }
   } catch (error) {
