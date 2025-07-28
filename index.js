@@ -3167,27 +3167,27 @@ bot.onText(/\/admin_performance$/i, async (msg) => {
     return;
   }
 
-  const performanceDashboard = `🚀 **Performance Dashboard**
+  const performanceDashboard = `🚀 Performance Dashboard
 
-📊 **Current Metrics:**
+📊 Current Metrics:
 • Bot Status: ✅ Online & Active on Railway
 • Response Time: ~150ms average
 • Database Queries: PostgreSQL optimized
 • Webhook Processing: ✅ Active
 
-💻 **System Health:**
+💻 System Health:
 • Memory Usage: Railway deployment optimized
 • Database: PostgreSQL with Drizzle ORM
 • Error Rate: <1% (excellent performance)
 • Uptime: 99.9% Railway reliability
 
-📈 **User Activity:**
+📈 User Activity:
 • Active Commands: All 95+ handlers operational
 • Daily Lessons: Full 7-day program
 • Extended Content: 30-day program
 • VIP Features: Premium features working
 
-**Commands:**
+Commands:
 /admin_performance_test - Run system test
 /admin_conversion - Conversion analytics
 /admin_database - Database dashboard
@@ -3230,24 +3230,24 @@ bot.onText(/\/admin_conversion$/i, async (msg) => {
     const conversionRate = totalUsers > 0 ? ((paidUsers / totalUsers) * 100).toFixed(1) : 0;
     const totalRevenue = (essentialUsers * 24) + (premiumUsers * 97) + (vipUsers * 197);
 
-    const conversionStats = `📊 **CONVERSION ANALYTICS**
+    const conversionStats = `📊 CONVERSION ANALYTICS
 
-👥 **USER METRICS:**
+👥 USER METRICS:
 • Total Users: ${totalUsers}
 • Paid Users: ${paidUsers}
 • Conversion Rate: ${conversionRate}%
 
-💎 **TIER BREAKDOWN:**
+💎 TIER BREAKDOWN:
 • Essential ($24): ${essentialUsers} users
 • Premium ($97): ${premiumUsers} users  
 • VIP ($197): ${vipUsers} users
 
-💰 **REVENUE METRICS:**
+💰 REVENUE METRICS:
 • Total Revenue: $${totalRevenue}
 • Monthly Target: $2,000-3,000
 • Railway deployment: ✅ Operational
 
-**Analysis Commands:**
+Analysis Commands:
 /admin_users - User details
 /admin_revenue - Revenue analysis
 /admin_optimize - Optimization recommendations`;
@@ -3267,27 +3267,27 @@ bot.onText(/\/admin_database$/i, async (msg) => {
     return;
   }
 
-  const databaseDashboard = `📊 **DATABASE DASHBOARD**
+  const databaseDashboard = `📊 DATABASE DASHBOARD
 
-**🔗 Connection Status:**
+🔗 Connection Status:
 • Database: ✅ PostgreSQL Connected
 • ORM: ✅ Drizzle ORM Active
 • Connection Pool: ✅ Railway optimized
 • SSL: ✅ Production enabled
 
-**📈 Performance:**
+📈 Performance:
 • Query Response: ~50ms average
 • Connection Pool: Optimized
 • Database Size: Healthy growth
 • Index Performance: ✅ All indexed
 
-**🔍 Schema Status:**
+🔍 Schema Status:
 • Users Table: ✅ 15+ fields optimized
 • Progress Table: ✅ Day tracking active
 • Field Consistency: ✅ PostgreSQL compatible
 • Data Integrity: ✅ All constraints active
 
-**📊 Commands:**
+📊 Commands:
 /admin_db_users - User table analysis
 /admin_db_progress - Progress analysis
 /admin_db_backup - Backup status`;
@@ -3303,21 +3303,21 @@ bot.onText(/\/admin_testimonials$/i, async (msg) => {
     return;
   }
 
-  const testimonialsManagement = `📝 **TESTIMONIAL MANAGEMENT**
+  const testimonialsManagement = `📝 TESTIMONIAL MANAGEMENT
 
-**📊 Collection Status:**
+📊 Collection Status:
 • System: ✅ Active collection
 • Day 3 Completion: Auto testimonial requests
 • Day 7 Completion: Success story collection
 • VIP Users: Premium testimonial gathering
 
-**📈 Content Categories:**
+📈 Content Categories:
 • Money Saving Success: "$150+ saved in first week"
 • Habit Formation: "Finally understand spending"
 • Goal Achievement: "Reached emergency fund"
 • Life Transformation: "Changed financial mindset"
 
-**🔧 Management Tools:**
+🔧 Management Tools:
 /admin_testimonials_export - Export testimonials
 /admin_testimonials_social - Social media posts
 /admin_testimonials_stats - Analytics
@@ -3341,27 +3341,655 @@ bot.onText(/\/admin_performance_test$/i, async (msg) => {
     const dbTest = await User.findOne({ telegram_id: msg.from.id });
     const dbTime = Date.now() - testStartTime;
 
-    const testResults = `✅ **System Performance Test**
+    const testResults = `✅ System Performance Test
 
-**🔍 Test Completed:** ${Date.now() - testStartTime}ms total
+🔍 Test Completed: ${Date.now() - testStartTime}ms total
 
-**📊 Component Performance:**
+📊 Component Performance:
 • Database Query: ${dbTime}ms ${dbTime < 100 ? '✅' : '⚠️'}
 • User Lookup: ${dbTest ? '✅ Found' : '❌ Failed'}
 • Bot Response: ✅ Active
 • Railway deployment: ✅ Stable
 
-**🚀 System Status:**
+🚀 System Status:
 • Core features: ✅ Operational
 • Daily lessons: ✅ Working
 • Payment system: ✅ Active
 • Admin commands: ✅ Responsive
 
-**📈 Performance Score: 95/100**
+📈 Performance Score: 95/100
 ${dbTime < 50 ? '🏆 Excellent' : dbTime < 100 ? '✅ Good' : '⚠️ Needs attention'}`;
 
     await bot.sendMessage(msg.chat.id, testResults, { parse_mode: 'Markdown' });
   } catch (error) {
     await bot.sendMessage(msg.chat.id, `❌ Test failed: ${error.message}`);
   }
+});
+
+// MISSING QUOTES COMMANDS: Add all quote functionality from commands/quotes.js
+
+// Main quote command
+bot.onText(/\/wisdom$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
+
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មានការចូលរួម។");
+      return;
+    }
+
+    const wisdomQuotes = [
+      `💎 បញ្ញាប្រាជ្ញាប្រចាំថ្ងៃ
+
+"ការគ្រប់គ្រងលុយគឺដូចការដាំដុំ។ ត្រូវមានការរុំ ការស្រង់ និងការអត់ធ្មត់។"
+
+🌱 ការអនុវត្ត:
+• ការរៀបចំផែនការពិចារណា
+• ការតាមដានចំណាយប្រចាំថ្ងៃ
+• ការបង្កើតទម្លាប់ល្អ
+
+💪 ចងចាំ: ជោគជ័យគឺមកពីការអនុវត្តពិតប្រាកដ មិនមែនពីការគិតប៉ុណ្ណោះ`,
+
+      `🏆 ការកម្ដាត់ភ័យ
+
+"មនុស្សដែលចេះគ្រប់គ្រងលុយ គឺជាមនុស្សដែលគ្រប់គ្រងជីវិតខ្លួនឯង។"
+
+🎯 គោលដៅ:
+• បង្កើនភាពមាំបំផុត
+• កាត់បន្ថយការស្ត្រេស
+• បង្កើតឱកាសថ្មី
+
+💡 គន្លឹះ: ចាប់ផ្តើមពីចំណុចតូច ហើយកសាងបន្តិចម្តងៗ`
+    ];
+
+    const randomQuote = wisdomQuotes[Math.floor(Math.random() * wisdomQuotes.length)];
+    await bot.sendMessage(chatId, randomQuote);
+
+  } catch (error) {
+    console.error("Error /wisdom:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហាបច្ចេកទេស។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។");
+  }
+});
+
+// Quote categories command
+bot.onText(/\/quote_categories$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
+
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។");
+      return;
+    }
+
+    const categoriesMessage = `📚 ប្រភេទសម្រង់ប្រាជ្ញា
+
+🏦 /quote_financial - សម្រង់ហិរញ្ញវត្ថុ
+💪 /quote_motivation - សម្រង់លើកទឹកចិត្ត  
+🏆 /quote_success - សម្រង់ជោគជ័យ
+🌟 /quote_traditional - សម្រង់ប្រពេណី
+
+📖 ឬប្រើ /wisdom សម្រាប់សម្រង់ចៃដន្យ
+
+💡 គន្លឹះ: សម្រង់ទាំងនេះនឹងជួយលើកកម្ពស់ចិត្តគិតវិជ្ជមាន!`;
+
+    await bot.sendMessage(chatId, categoriesMessage);
+
+  } catch (error) {
+    console.error("Error /quote_categories:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
+// Financial quotes
+bot.onText(/\/quote_financial$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក។");
+      return;
+    }
+
+    const financialQuotes = [
+      `💰 សម្រង់ហិរញ្ញវត្ថុ
+
+"លុយមិនមែនជាគ្រឿងសំខាន់បំផុតក្នុងជីវិត ប៉ុន្តែវាជាឧបករណ៍សំខាន់ដើម្បីសម្រេចគោលដៅ។"
+
+🎯 ការអនុវត្ត:
+• កំណត់គោលដៅច្បាស់លាស់  
+• បង្កើតផែនការសន្សំ
+• វិនិយោគយ៉ាងប្រាកដប្រជា
+
+💪 ចាំថា: ការគ្រប់គ្រងលុយល្អ = ការរស់នៅស្រួល`,
+
+      `📈 ការវិនិយោគ
+
+"អ្នកមានម្នាក់ដាំដុំថ្ងៃនេះ ដើម្បីនៅដំបាក់ក្រោមនៅថ្ងៃស្អែក។"
+
+🌱 យុទ្ធសាស្ត្រ:
+• ចាប់ផ្តើមតាំងពីតូច
+• បន្តបន្ថែមជាទៀងទាត់
+• ជ្រើសរើសការវិនិយោគប្រកបដោយសុវត្ថិភាព
+
+🏆 លទ្ធផល: ការធានាខ្លួនឯងនៅអនាគត`
+    ];
+
+    const randomQuote = financialQuotes[Math.floor(Math.random() * financialQuotes.length)];
+    await bot.sendMessage(chatId, randomQuote);
+
+  } catch (error) {
+    console.error("Error /quote_financial:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា។");
+  }
+});
+
+// Motivation quotes
+bot.onText(/\/quote_motivation$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់លើកទឹកចិត្ត សម្រាប់តែសមាជិក។");
+      return;
+    }
+
+    const motivationQuotes = [
+      `🔥 សម្រង់លើកទឹកចិត្ត
+
+"កុំអស់សង្ឃឹម! រាល់ការចាប់ផ្តើមដ៏ល្អ សុទ្ធតែចាប់ផ្តើមពីការធ្វើជំហានតូចៗ។"
+
+💪 ថាមពល:
+• ជំហានតូចៗ = លទ្ធផលធំ
+• ការឈប់មើលខុស = ការឈប់រីកចម្រើន
+• ការអត់ធ្មត់ = ការទទួលបានជោគជ័យ
+
+🎯 ចាំថា: អ្នកអាចធ្វើបាន! ចាប់ផ្តើមថ្ងៃនេះ`,
+
+      `⚡ ការប្តេជ្ញាចិត្ត
+
+"សម្រាប់ការផ្លាស់ប្តូរជីវិត អ្នកត្រូវតែចាប់ផ្តើមផ្លាស់ប្តូរទម្លាប់។"
+
+🌟 ការកែប្រែ:
+• បន្ថែមទម្លាប់ល្អម្តងៗ
+• លុបចោលទម្លាប់អាក្រក់
+• តាមដានការវិវត្ត
+
+🏅 វិធីអនុវត្ត: ២១ ថ្ងៃទម្លាប់ថ្មីនឹងក្លាយជាធម្មតា`
+    ];
+
+    const randomQuote = motivationQuotes[Math.floor(Math.random() * motivationQuotes.length)];
+    await bot.sendMessage(chatId, randomQuote);
+
+  } catch (error) {
+    console.error("Error /quote_motivation:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា។");
+  }
+});
+
+// Success quotes
+bot.onText(/\/quote_success$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ជោគជ័យ សម្រាប់តែសមាជិក។");
+      return;
+    }
+
+    const successQuotes = [
+      `🏆 សម្រង់ជោគជ័យ
+
+"ជោគជ័យពិតប្រាកដគឺការធានាបានថា អ្នកមិនត្រូវការព្រួយបារម្ភអំពីលុយនៅពេលចាំបាច់។"
+
+💎 កត្តាជោគជ័យ:
+• ការគ្រប់គ្រងលុយយ៉ាងប្រាកដប្រជា
+• ការបង្កើតចំណូលច្រើនប្រភព
+• ការវិនិយោគឆ្លាតវៃ
+
+🌟 គោលដៅ: ស្វយ្យភាពហិរញ្ញវត្ថុពេញលេញ`,
+
+      `💪 ការតស៊ូ
+
+"មនុស្សជោគជ័យមិនមែនជាអ្នកដែលមិនដើរ ទេ គឺជាអ្នកដែលក្រោកឡើងវិញរាល់ពេលដួល។"
+
+🔥 ការបង្កើតភាពខ្លាំង:
+• រៀនពីកំហុស
+• មិនអស់សង្ឃឹម
+• បន្តព្យាយាម
+
+🏅 លទ្ធផល: ការបក្សាភាពនិងការរីកចម្រើន`
+    ];
+
+    const randomQuote = successQuotes[Math.floor(Math.random() * successQuotes.length)];
+    await bot.sendMessage(chatId, randomQuote);
+
+  } catch (error) {
+    console.error("Error /quote_success:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា។");
+  }
+});
+
+// Traditional quotes
+bot.onText(/\/quote_traditional$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រពេណី សម្រាប់តែសមាជិក។");
+      return;
+    }
+
+    const traditionalQuotes = [
+      `🏛️ សម្រង់ប្រពេណីខ្មែរ
+
+"ម្រេចផលម្រេចប្រយោជន៍ ប្រាប់កុំលែងអំណោយ
+រីករាយនឹងការងារ ធ្វើអោយគេទុកចិត្ត"
+
+🌺 អត្ថាធិប្បាយ:
+• ការធ្វើការខិតខំ នឹងនាំមកនូវផល
+• ការជួយគេ គឺការជួយខ្លួនឯង
+• ការរីករាយ នឹងធ្វើអោយការងារងាយ
+
+💫 ការអនុវត្ត: យកចិត្តទុកដាក់ក្នុងអ្វីដែលធ្វើ`,
+
+      `⭐ ប្រាជ្ញាបុរាណ
+
+"ចេះកាន់កាប់ មិនអាចកាន់ខ្មាំង
+ចេះប្រយ័ត្នលុយកាក់ អាចរស់បានយូរ"
+
+🎯 សេចក្តីសម្មត:
+• ការចេះចំណាយតែចាំបាច់
+• ការសន្សំសំចៃ
+• ការគ្រប់គ្រងទ្រព្យសម្បត្តិ
+
+🌟 លទ្ធផល: ជីវភាពស្រួលនិងមានសុភមង្គល`
+    ];
+
+    const randomQuote = traditionalQuotes[Math.floor(Math.random() * traditionalQuotes.length)];
+    await bot.sendMessage(chatId, randomQuote);
+
+  } catch (error) {
+    console.error("Error /quote_traditional:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា។");
+  }
+});
+
+// MISSING BOOKING COMMANDS: Add VIP booking functionality from commands/booking.js
+
+// VIP booking menu
+bot.onText(/\/book_vip$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+      await bot.sendMessage(chatId, "🔒 ការកក់ VIP សម្រាប់តែសមាជិកដែលបានទូទាត់។");
+      return;
+    }
+
+    const bookingMenu = `📅 VIP BOOKING SYSTEM
+
+🎯 ការកក់ម្ដងក្រុម (1-on-1):
+/book_consultation - កក់ការពិគ្រោះសាធារណៈ (30 នាទី)
+/book_financial_review - កក់ការពិនិត្យហិរញ្ញវត្ថុ (45 នាទី)
+/book_business_strategy - កក់យុទ្ធសាស្ត្រអាជីវកម្ម (60 នាទី)
+
+⏰ ពេលវេលាអាច:
+• ច័ន្ទ-សុក្រ: 9:00-17:00
+• សៅរ៍: 9:00-12:00
+• អាទិត្យ: បិទ
+
+💡 ការត្រៀមខ្លួន:
+• រៀបចំសំណួរ
+• ត្រៀមឯកសារហិរញ្ញវត្ថុ
+• កំណត់គោលដៅច្បាស់លាស់
+
+📞 ជំនួយ: @Chendasum`;
+
+    await bot.sendMessage(chatId, bookingMenu);
+
+  } catch (error) {
+    console.error("Error /book_vip:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា booking.");
+  }
+});
+
+// Consultation booking
+bot.onText(/\/book_consultation$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+      await bot.sendMessage(chatId, "🔒 ការកក់ការពិគ្រោះ សម្រាប់តែសមាជិក។");
+      return;
+    }
+
+    const consultationBooking = `📞 VIP CONSULTATION BOOKING
+
+⏰ រយៈពេល: 30 នាទី
+💰 តម្លៃ: រួមបញ្ចូលក្នុងកម្មវិធី VIP
+
+🎯 អ្វីដែលទទួលបាន:
+• ការវិភាគស្ថានភាពហិរញ្ញវត្ថុ
+• ការណែនាំកែប្រែផែនការ
+• ការឆ្លើយសំណួរផ្ទាល់ខ្លួន
+• ការណែនាំជំហានបន្ទាប់
+
+📋 ការត្រៀមខ្លួន:
+1️⃣ ត្រៀមបញ្ជីចំណូលចំណាយ
+2️⃣ រៀបចំសំណួរសំខាន់
+3️⃣ កំណត់គោលដៅ 3-6 ខែ
+
+📅 ដើម្បីកក់: សរសេរ "BOOK CONSULTATION" + ថ្ងៃចង់បាន
+
+📞 ឧទាហរណ៍: "BOOK CONSULTATION Monday 2PM"
+
+💬 ជំនួយ: @Chendasum`;
+
+    await bot.sendMessage(chatId, consultationBooking);
+
+  } catch (error) {
+    console.error("Error /book_consultation:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា consultation.");
+  }
+});
+
+// Financial review booking
+bot.onText(/\/book_financial_review$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+      await bot.sendMessage(chatId, "🔒 ការកក់ការពិនិត្យហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក VIP។");
+      return;
+    }
+
+    const financialReview = `📊 VIP FINANCIAL REVIEW BOOKING
+
+⏰ រយៈពេល: 45 នាទី
+💰 តម្លៃ: រួមបញ្ចូលក្នុងកម្មវិធី VIP
+
+🎯 ការវិភាគលម្អិត:
+• ពិនិត្យចំណូលចំណាយ
+• វិភាគការសន្សំបច្ចុប្បន្ន
+• ផែនការកែប្រែហិរញ្ញវត្ថុ
+• យុទ្ធសាស្ត្របង្កើនចំណូល
+
+📋 ត្រៀមយកមក:
+• របាយការណ៍ធនាគារ 3 ខែ
+• បញ្ជីចំណាយប្រចាំខែ
+• គោលដៅហិរញ្ញវត្ថុ
+• បញ្ហាដែលកំពុងប្រឈម
+
+💡 លទ្ធផលបាន:
+• ផែនការហិរញ្ញវត្ថុផ្ទាល់ខ្លួន
+• យុទ្ធសាស្ត្រកាត់បន្ថយចំណាយ
+• ការណែនាំបង្កើនចំណូល
+• Follow-up plan 90 ថ្ងៃ
+
+📅 ដើម្បីកក់: "BOOK FINANCIAL REVIEW" + ថ្ងៃពេល
+
+💬 ជំនួយ: @Chendasum`;
+
+    await bot.sendMessage(chatId, financialReview);
+
+  } catch (error) {
+    console.error("Error /book_financial_review:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា financial review.");
+  }
+});
+
+// MISSING MILESTONE & PROGRESS COMMANDS
+
+// Milestones command
+bot.onText(/\/milestones$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
+
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 ការតាមដានកម្រិត សម្រាប់តែសមាជិកដែលបានទូទាត់។\n\nប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+      return;
+    }
+
+    let progress;
+    try {
+      progress = await Progress.findOne({ user_id: userId });
+    } catch (error) {
+      console.log("Progress lookup failed, using defaults");
+      progress = null;
+    }
+
+    const currentDay = progress?.current_day || 1;
+
+    const milestonesMessage = `🏆 កម្រិតសមិទ្ធិភាព
+
+🎯 កម្រិតបច្ចុប្បន្ន: ថ្ងៃទី ${currentDay}/7
+
+📊 កម្រិតសមិទ្ធផល:
+
+${currentDay >= 1 ? '✅' : '⏳'} Day 1 Complete - ការយល់ដឹងពីលំហូរលុយ
+${currentDay >= 2 ? '✅' : '⏳'} Day 2 Complete - ការស្វែងរកលេចលុយ  
+${currentDay >= 3 ? '✅' : '⏳'} Day 3 Complete - ការបង្កើតគោលដៅ
+${currentDay >= 4 ? '✅' : '⏳'} Day 4 Complete - ការតាមដានប្រចាំថ្ងៃ
+${currentDay >= 5 ? '✅' : '⏳'} Day 5 Complete - ការបង្កើតម្ហូបអាសន្ន
+${currentDay >= 6 ? '✅' : '⏳'} Day 6 Complete - ការបង្កើតចំណូលបន្ថែម
+${currentDay >= 7 ? '✅' : '⏳'} Day 7 Complete - ការរក្សាការវិវត្តន៍
+
+🎖️ បានទទួល Badges:
+• ${currentDay >= 3 ? '🥉 Bronze' : '⏳ Bronze'} - បញ្ចប់ថ្ងៃទី 3
+• ${currentDay >= 5 ? '🥈 Silver' : '⏳ Silver'} - បញ្ចប់ថ្ងៃទី 5
+• ${currentDay >= 7 ? '🥇 Gold' : '⏳ Gold'} - បញ្ចប់កម្មវិធីពេញលេញ
+
+📈 ភាគរយបញ្ចប់: ${Math.round((currentDay / 7) * 100)}%
+
+${currentDay < 7 ? `🚀 ជំហានបន្ទាប់: /day${currentDay + 1}` : '🎊 អបអរសាទរ! បានបញ្ចប់ពេញលេញ!'}
+
+💬 ជំនួយ: @Chendasum`;
+
+    await bot.sendMessage(chatId, milestonesMessage);
+
+  } catch (error) {
+    console.error("Error /milestones:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា milestones.");
+  }
+});
+
+// Streak command
+bot.onText(/\/streak$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
+
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 ការតាមដានជួរ សម្រាប់តែសមាជិកដែលបានទូទាត់។");
+      return;
+    }
+
+    let progress;
+    try {
+      progress = await Progress.findOne({ user_id: userId });
+    } catch (error) {
+      progress = null;
+    }
+
+    const currentDay = progress?.current_day || 1;
+    const consecutiveDays = currentDay - 1;
+
+    const streakMessage = `🔥 ជួរការសិក្សា (Learning Streak)
+
+📊 ស្ថិតិបច្ចុប្បន្ន:
+• ជួរបច្ចុប្បន្ន: ${consecutiveDays} ថ្ងៃ
+• កម្រិតបច្ចុប្បន្ន: ថ្ងៃទី ${currentDay}/7
+• អត្រាបញ្ចប់: ${Math.round((currentDay / 7) * 100)}%
+
+🎯 កម្រិតជួរ:
+${consecutiveDays >= 1 ? '🔥' : '⚫'} 1+ ថ្ងៃ - ការចាប់ផ្តើម
+${consecutiveDays >= 3 ? '🔥🔥' : '⚫⚫'} 3+ ថ្ងៃ - ការបង្កើតទម្លាប់
+${consecutiveDays >= 5 ? '🔥🔥🔥' : '⚫⚫⚫'} 5+ ថ្ងៃ - ការប្តេជ្ញាចិត្ត
+${consecutiveDays >= 7 ? '🔥🔥🔥🔥' : '⚫⚫⚫⚫'} 7 ថ្ងៃ - Money Flow Master!
+
+💪 គន្លឹះរក្សាជួរ:
+• រៀនរាល់ថ្ងៃ 15-20 នាទី
+• អនុវត្តសកម្មភាពដែលបានរៀន
+• តាមដានការវិវត្តប្រចាំថ្ងៃ
+• កុំខកខានមេរៀនណាមួយ
+
+${currentDay < 7 ? `🚀 បន្តជួរ: /day${currentDay + 1}` : '🏆 ជួរពេញលេញ - ស្តាយណាស់!'}
+
+🎖️ រក្សាជួរដើម្បីទទួលបាន badges ពិសេស!
+
+💬 ជំនួយ: @Chendasum`;
+
+    await bot.sendMessage(chatId, streakMessage);
+
+  } catch (error) {
+    console.error("Error /streak:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា streak.");
+  }
+});
+
+// Leaderboard command
+bot.onText(/\/leaderboard$/i, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
+
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 បញ្ជីអ្នកនាំមុខ សម្រាប់តែសមាជិកដែលបានទូទាត់។");
+      return;
+    }
+
+    const leaderboardMessage = `🏆 បញ្ជីអ្នកនាំមុខ Money Flow Reset™
+
+👑 TOP PERFORMERS:
+
+🥇 #1 មេដឹកនាំ
+    • បានបញ្ចប់: ថ្ងៃទី 7/7
+    • សន្សំបាន: $300+ ក្នុង 30 ថ្ងៃ
+    • Streak: 45 ថ្ងៃ ជាប់គ្នា
+
+🥈 #2 អ្នកអនុវត្ត
+    • បានបញ្ចប់: ថ្ងៃទី 7/7
+    • សន្សំបាន: $250+ ក្នុង 30 ថ្ងៃ
+    • Streak: 35 ថ្ងៃ ជាប់គ្នា
+
+🥉 #3 អ្នកសិក្សា
+    • បានបញ្ចប់: ថ្ងៃទី 6/7
+    • សន្សំបាន: $200+ ក្នុង 30 ថ្ងៃ
+    • Streak: 28 ថ្ងៃ ជាប់គ្នា
+
+📊 ស្ថិតិរបស់អ្នក:
+• កម្រិតបច្ចុប្បន្ន: កំពុងអនុវត្ត
+• ចំណាត់ថ្នាក់: កំពុងវាយតម្លៃ
+• គោលដៅ: ចូលក្នុង TOP 10
+
+🎯 វិធីឡើងលេខ 1:
+• បញ្ចប់មេរៀនទាំងអស់
+• អនុវត្តសកម្មភាពពិតប្រាកដ
+• ចែករំលែកបទពិសោធន៍
+• ជួយសមាជិកដទៃ
+
+💪 រួមគ្នាសម្រេចជោគជ័យ!
+
+💬 ជំនួយ: @Chendasum`;
+
+    await bot.sendMessage(chatId, leaderboardMessage);
+
+  } catch (error) {
+    console.error("Error /leaderboard:", error);
+    await bot.sendMessage(chatId, "❌ មានបញ្ហា leaderboard.");
+  }
+});
+
+// MISSING MARKETING COMMANDS FOR ADMIN
+
+bot.onText(/\/marketing_content$/i, async (msg) => {
+  const adminIds = [176039, 484389665];
+  if (!adminIds.includes(msg.from.id)) {
+    await bot.sendMessage(msg.chat.id, "❌ Admin access required");
+    return;
+  }
+
+  const marketingContent = `📢 MARKETING CONTENT LIBRARY
+
+🎯 Facebook Ad Copy:
+• "រកលុយ $30-50 ក្នុង 7 ថ្ងៃ - វិធីសាស្ត្រដែលប្រជាជនកម្ពុជា 500+ នាក់បានប្រើ"
+• "ឈប់ព្រួយបារម្ភអំពីលុយ! ចូលរួម Money Flow Reset™ ថ្ងៃនេះ"
+• "មិនចាំបាច់ជាអ្នកមាន ក៏អាចគ្រប់គ្រងលុយបានល្អ - រៀនពីអ្នកជំនាញ"
+
+💬 Testimonial Templates:
+• "បានសន្សំ $200+ ក្នុង 30 ថ្ងៃ"
+• "ជីវិតស្រួលជាងមុន បានគ្រប់គ្រងចំណាយ"
+• "រៀនដឹងតម្លៃលុយ និងការសន្សំ"
+
+🌐 Website Copy:
+• Landing page headlines
+• Program descriptions
+• Success story content
+• Call-to-action buttons
+
+📊 Email Templates:
+• Welcome sequences
+• Daily lesson reminders
+• Upgrade promotions
+• Re-engagement campaigns
+
+Use /marketing_facebook, /marketing_email, /marketing_website for specific content.`;
+
+  await bot.sendMessage(msg.chat.id, marketingContent, { parse_mode: 'Markdown' });
 });
