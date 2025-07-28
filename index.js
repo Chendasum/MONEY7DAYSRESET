@@ -2839,9 +2839,9 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
 // ADD MISSING TEXT MESSAGE HANDLERS
 bot.on("message", async (msg) => {
   // WEBHOOK MODE: No duplicate blocking for text messages
-  console.log(`📝 Processing text message: "${msg.text}" from user ${msg.from.id}`);
+  if (!msg.text || msg.text.startsWith('/')) return; // Skip empty messages and commands
   
-  if (!msg.text) return;
+  console.log(`📝 Processing text message: "${msg.text}" from user ${msg.from.id}`);
   
   const text = msg.text.toUpperCase();
   
@@ -2857,18 +2857,29 @@ bot.on("message", async (msg) => {
     return;
   }
   
-  // Handle ready for day 1
-  if (text.includes("READY FOR DAY 1")) {
+  // Handle ready for day 1 - ENHANCED DETECTION
+  if (text.includes("READY FOR DAY 1") || text.includes("READY") || text === "READY FOR DAY 1") {
+    console.log(`🔥 "READY FOR DAY 1" detected from user ${msg.from.id}: "${msg.text}"`);
+    
     try {
       const user = await User.findOne({ telegram_id: msg.from.id });
+      console.log(`🔍 User lookup for ${msg.from.id}:`, user ? {
+        found: true,
+        paid: user.is_paid,
+        tier: user.tier,
+        name: user.first_name
+      } : { found: false });
+      
       if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+        console.log(`❌ User ${msg.from.id} not paid, sending upgrade message`);
         await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
         return;
       }
 
+      console.log(`✅ Updating ready_for_day_1 for user ${msg.from.id}`);
       await Progress.findOneAndUpdate(
         { user_id: msg.from.id },
-        { ready_for_day_1: true },
+        { ready_for_day_1: true, current_day: 1 },
         { upsert: true }
       );
 
@@ -2876,11 +2887,15 @@ bot.on("message", async (msg) => {
 
 🚀 ចាប់ផ្តើម Day 1 ឥឡូវនេះ: /day1
 
-💪 រយៈពេល: ត្រឹមតែ ១៥-២០ នាទីប៉ុណ្ណោះ!`;
+💪 រយៈពេល: ត្រឹមតែ ១៥-២០ នាទីប៉ុណ្ណោះ!
 
+💡 គន្លឹះ: អ្នកអាចធ្វើ screenshot ចំណុចសំខាន់ៗ ដើម្បីងាយអនុវត្ត`;
+
+      console.log(`📤 Sending ready confirmation to user ${msg.from.id}`);
       await sendLongMessage(bot, msg.chat.id, readyMessage, {}, MESSAGE_CHUNK_SIZE);
+      console.log(`✅ Ready for Day 1 process completed for user ${msg.from.id}`);
     } catch (error) {
-      console.error("Error handling ready for day 1:", error);
+      console.error("❌ Error handling ready for day 1:", error);
       await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
     }
     return;
