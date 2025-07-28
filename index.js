@@ -15,31 +15,174 @@ process.env.LANG = "en_US.UTF-8";
 // Constants for message handling
 const MESSAGE_CHUNK_SIZE = 3500; // Maximum safe message size for Khmer text
 
-// Database connection is assumed to be handled by Drizzle ORM with PostgreSQL
-console.log("🔍 Database configured with Drizzle ORM and PostgreSQL (via models)");
-console.log("✅ Database ready for operations");
+// Database connection setup for Railway deployment
+const { drizzle } = require('drizzle-orm/node-postgres');
+const { Pool } = require('pg');
+const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
+const { eq } = require('drizzle-orm');
 
-// Database Models with error handling
-let User, Progress;
-try {
-  User = require("./models/User");
-  Progress = require("./models/Progress");
-  console.log("✅ Database models loaded successfully");
-} catch (error) {
-  console.error("❌ Database models not found:", error.message);
-  // Create fallback models
-  User = {
-    findOne: async () => null,
-    findOneAndUpdate: async () => null,
-    updateLastActive: async () => null,
-    find: async () => [],
-    countDocuments: async () => 0
-  };
-  Progress = {
-    findOne: async () => null,
-    findOneAndUpdate: async () => null
-  };
+console.log("🔍 Setting up database connection for Railway...");
+
+// Database Schema (embedded for Railway deployment)
+const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
+  username: text('username'),
+  first_name: text('first_name'),
+  last_name: text('last_name'),
+  phone_number: text('phone_number'),
+  email: text('email'),
+  joined_at: timestamp('joined_at').defaultNow(),
+  is_paid: boolean('is_paid').default(false),
+  payment_date: timestamp('payment_date'),
+  transaction_id: text('transaction_id'),
+  is_vip: boolean('is_vip').default(false),
+  tier: text('tier').default('free'),
+  tier_price: integer('tier_price').default(0),
+  last_active: timestamp('last_active').defaultNow(),
+  timezone: text('timezone').default('Asia/Phnom_Penh'),
+  testimonials: jsonb('testimonials'),
+  testimonial_requests: jsonb('testimonial_requests'),
+  upsell_attempts: jsonb('upsell_attempts'),
+  conversion_history: jsonb('conversion_history'),
+});
+
+const progress = pgTable('progress', {
+  id: serial('id').primaryKey(),
+  user_id: bigint('user_id', { mode: 'number' }).notNull().unique(),
+  current_day: integer('current_day').default(0),
+  ready_for_day_1: boolean('ready_for_day_1').default(false),
+  day_0_completed: boolean('day_0_completed').default(false),
+  day_1_completed: boolean('day_1_completed').default(false),
+  day_2_completed: boolean('day_2_completed').default(false),
+  day_3_completed: boolean('day_3_completed').default(false),
+  day_4_completed: boolean('day_4_completed').default(false),
+  day_5_completed: boolean('day_5_completed').default(false),
+  day_6_completed: boolean('day_6_completed').default(false),
+  day_7_completed: boolean('day_7_completed').default(false),
+  program_completed: boolean('program_completed').default(false),
+  program_completed_at: timestamp('program_completed_at'),
+  responses: jsonb('responses'),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+// Database Connection Pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
+const db = drizzle(pool, { schema: { users, progress } });
+
+// Database Models (embedded for Railway deployment)
+class User {
+  static async findOne(condition) {
+    try {
+      if (condition.telegram_id) {
+        const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegram_id));
+        return result[0] || null;
+      }
+      if (condition.telegramId) {
+        const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegramId));
+        return result[0] || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Database error in User.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    const { upsert = false } = options;
+    
+    try {
+      if (condition.telegram_id || condition.telegramId) {
+        const existing = await this.findOne(condition);
+        
+        if (existing) {
+          const validUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([key, value]) => 
+              key !== '$inc' && value !== undefined && value !== null
+            )
+          );
+          
+          if (Object.keys(validUpdates).length > 0) {
+            const result = await db
+              .update(users)
+              .set({ ...validUpdates, last_active: new Date() })
+              .where(eq(users.telegram_id, condition.telegram_id || condition.telegramId))
+              .returning();
+            return result[0];
+          }
+          return existing;
+        } else if (upsert) {
+          const result = await db
+            .insert(users)
+            .values({ telegram_id: condition.telegram_id || condition.telegramId, ...updates, last_active: new Date() })
+            .returning();
+          return result[0];
+        }
+      }
+    } catch (error) {
+      console.error('Database error in User.findOneAndUpdate:', error.message);
+      return null;
+    }
+    
+    return null;
+  }
 }
+
+class Progress {
+  static async findOne(condition) {
+    try {
+      if (condition.userId || condition.user_id) {
+        const id = condition.userId || condition.user_id;
+        const result = await db.select().from(progress).where(eq(progress.user_id, id));
+        return result[0] || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Database error in Progress.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    const { upsert = false } = options;
+    
+    try {
+      if (condition.userId || condition.user_id) {
+        const id = condition.userId || condition.user_id;
+        const existing = await this.findOne(condition);
+        
+        if (existing) {
+          const result = await db
+            .update(progress)
+            .set({ ...updates, updated_at: new Date() })
+            .where(eq(progress.user_id, id))
+            .returning();
+          return result[0];
+        } else if (upsert) {
+          const insertData = { user_id: id, ...updates, created_at: new Date(), updated_at: new Date() };
+          const result = await db
+            .insert(progress)
+            .values(insertData)
+            .returning();
+          return result[0];
+        }
+      }
+    } catch (error) {
+      console.error('Database error in Progress.findOneAndUpdate:', error.message);
+      return null;
+    }
+    
+    return null;
+  }
+}
+
+console.log("✅ Database models embedded and ready for Railway deployment");
 
 // Command Modules with error handling for each module
 let startCommand, dailyCommands, paymentCommands, vipCommands, adminCommands;
