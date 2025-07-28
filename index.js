@@ -216,7 +216,7 @@ bot.onText(/^\/admin_analytics(@MoneyFlowReset2025Bot)?$/, async (msg) => {
 // Preview commands
 bot.onText(/^\/preview(@MoneyFlowReset2025Bot)?$/, async (msg) => {
   try {
-    await previewCommands.showPreview(msg, bot);
+    await previewCommands.preview(msg, bot);
   } catch (error) {
     console.error("❌ Error in /preview command:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការបង្ហាញការមើលជាមុន។");
@@ -229,6 +229,41 @@ bot.onText(/^\/financial_quiz(@MoneyFlowReset2025Bot)?$/, async (msg) => {
   } catch (error) {
     console.error("❌ Error in /financial_quiz command:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការចាប់ផ្តើមការធ្វើតេស្ត។");
+  }
+});
+
+// Whoami command
+bot.onText(/^\/whoami(@MoneyFlowReset2025Bot)?$/, async (msg) => {
+  try {
+    console.log(`📞 /whoami command received from user ${msg.from.id}`);
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    
+    if (!user) {
+      await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់នេះទេ។ សូមធ្វើ /start ជាមុនសិន។
+      
+💡 Your Telegram ID: ${msg.from.id}
+📝 Name: ${msg.from.first_name || 'Unknown'} ${msg.from.last_name || ''}`);
+      return;
+    }
+    
+    const isPaid = user.is_paid === true || user.is_paid === 't';
+    const paymentStatus = isPaid ? "✅ បានបង់ប្រាក់" : "❌ មិនទាន់បង់ប្រាក់";
+    const tier = user.tier || "ទំនេរ";
+    
+    const userInfo = `👤 ព័ត៌មានអ្នកប្រើប្រាស់:
+
+🆔 Telegram ID: ${user.telegram_id}
+📛 ឈ្មោះ: ${user.first_name || 'N/A'} ${user.last_name || ''}
+💰 ស្ថានភាព: ${paymentStatus}
+🎯 កម្រិត: ${tier}
+📅 ចូលរួម: ${user.joined_at ? new Date(user.joined_at).toLocaleDateString('km-KH') : 'Unknown'}
+
+${isPaid ? '🎉 អ្នកមានសិទ្ធិប្រើប្រាស់កម្មវិធីពេញលេញ!' : '💡 សូមទិញកម្មវិធីដើម្បីទទួលបានមាតិকាពេញលេញ - /pricing'}`;
+    
+    await bot.sendMessage(msg.chat.id, userInfo);
+  } catch (error) {
+    console.error("❌ Error in /whoami command:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការបង្ហាញព័ត៌មានអ្នកប្រើប្រាស់។");
   }
 });
 
