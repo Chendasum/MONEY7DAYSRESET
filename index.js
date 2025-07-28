@@ -4316,3 +4316,387 @@ Use /marketing_facebook, /marketing_email, /marketing_website for specific conte
 
   await bot.sendMessage(msg.chat.id, marketingContent, { parse_mode: 'Markdown' });
 });
+
+// ========================================
+// MISSING FAQ COMMANDS IMPLEMENTATION
+// ========================================
+
+// Admin Contact Command
+bot.onText(/\/admin_?contact$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីទាក់ទងភ្នាក់ងារ។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+      return;
+    }
+
+    const contactMessage = `📞 ទាក់ទងភ្នាក់ងារផ្ទាល់
+
+🎯 សម្រាប់សមាជិកបានទូទាត់:
+• Telegram: @Chendasum
+• Response ពេល: 2-4 ម៉ោង (ពេលធ្វើការ)
+• សំណួរអាទិភាព: បច្ចេកទេស និង VIP
+
+💬 អ្វីដែលអ្នកអាចសួរ:
+• បញ្ហាបច្ចេកទេស
+• ការណែនាំផ្ទាល់ខ្លួន
+• ការកែលម្អកម្មវិធី
+• ការដំឡើងកម្រិត VIP
+
+🔥 សម្រាប់ VIP Members:
+• ការទាក់ទងលឿនជាង
+• ការជួបផ្ទាល់ 1-on-1
+• ការណែនាំលម្អិត
+
+💪 ទាក់ទងឥឡូវនេះ: @Chendasum`;
+
+    await bot.sendMessage(msg.chat.id, contactMessage);
+  } catch (error) {
+    console.error("Error /admin_contact:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Priority Support Command
+bot.onText(/\/priority_?support$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សេវាកម្មនេះសម្រាប់តែសមាជិកដែលបានទូទាត់។ /pricing");
+      return;
+    }
+
+    const supportMessage = `🆘 ជំនួយអាទិភាព
+
+✅ អ្នកមានសិទ្ធិ:
+• ការឆ្លើយតបលឿន (2-4 ម៉ោង)
+• ការណែនាំផ្ទាល់ខ្លួន
+• ការដោះស្រាយបញ្ហាបច្ចេកទេស
+• ការសួរសំណួរគ្មានដែនកំណត់
+
+🔥 VIP Members ទទួលបាន:
+• ការឆ្លើយតបភ្លាមៗ (30នាទី-2ម៉ោង)
+• ការបង្រៀនផ្ទាល់មុខ
+• ការណែនាំយុទ្ធសាស្ត្រកំរិតខ្ពស់
+
+📞 វិធីទទួលជំនួយ:
+1. ទាក់ទង @Chendasum
+2. ចែករំលែកបញ្ហាលម្អិត
+3. រង់ចាំការឆ្លើយតប
+
+💪 យើងនៅទីនេះដើម្បីជួយអ្នក!`;
+
+    await bot.sendMessage(msg.chat.id, supportMessage);
+  } catch (error) {
+    console.error("Error /priority_support:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Advanced Analytics Command
+bot.onText(/\/advanced_?analytics$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សេវាកម្មនេះសម្រាប់តែសមាជិក Premium/VIP។ /pricing");
+      return;
+    }
+
+    const progress = await Progress.findOne({ user_id: msg.from.id });
+    const currentDay = progress?.current_day || 1;
+    const completionRate = Math.round((currentDay / 7) * 100);
+
+    const analyticsMessage = `📊 វិភាគកម្រិតខ្ពស់
+
+📈 ការវិវត្តរបស់អ្នក:
+• កម្រិតបច្ចុប្បន្ន: ថ្ងៃទី ${currentDay}/7
+• អត្រាបញ្ចប់: ${completionRate}%
+• ពេលវេលាសរុប: ${currentDay * 45} នាទី
+• ការចូលរួម: ${currentDay >= 3 ? 'ខ្ពស់' : 'មធ្យម'}
+
+💰 ការវិភាគហិរញ្ញវត្ថុ:
+• Money Flow Score: ${Math.min(currentDay * 15, 100)}/100
+• ការសន្សំសក្តានុពល: $${currentDay * 8}-${currentDay * 15}/សប្តាហ៍
+• ការធ្វើឱ្យប្រសើរឡើង: ${currentDay >= 5 ? '90%' : currentDay >= 3 ? '70%' : '45%'}
+
+🎯 ការណែនាំផ្ទាល់:
+${currentDay < 3 ? '• ត្រូវការ consistency ខ្ពស់ជាង\n• បន្តមេរៀនបន្ទាប់' : 
+  currentDay < 5 ? '• ការវិវត្តល្អ!\n• ចាប់ផ្តើមអនុវត្តកម្រិតខ្ពស់' :
+  '• ដំណើរការពិសេស!\n• ត្រៀមខ្លួនសម្រាប់កម្រិត VIP'}
+
+📊 ស្ថិតិមធ្យម Program:
+• អ្នកចូលរួម: 500+ នាក់
+• អត្រាជោគជ័យ: 85%
+• ការធ្វើឱ្យប្រសើរលុយ: $50-200/ខែ
+
+💪 បន្តទៅមុខ: /day${Math.min(currentDay + 1, 7)}`;
+
+    await bot.sendMessage(msg.chat.id, analyticsMessage);
+  } catch (error) {
+    console.error("Error /advanced_analytics:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// VIP Program Info Command  
+bot.onText(/\/vip_?program_?info$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (vipCommands && vipCommands.vipProgramInfo) {
+      await vipCommands.vipProgramInfo(bot, msg);
+    } else {
+      // Fallback VIP info
+      const vipMessage = `👑 VIP PROGRAM ព័ត៌មានពេញលេញ
+
+🌟 ភាពខុសគ្នាពី Essential:
+• ការទាក់ទងផ្ទាល់ជាមួយ experts
+• ការណែនាំផ្ទាល់ខ្លួន 1-on-1
+• Access ទៅកាន់ tools កម្រិតខ្ពស់
+• Priority support 24/7
+
+💼 សេវាកម្ម VIP:
+• Capital Assessment (តម្លៃ $300)
+• Business Strategy Session (តម្លៃ $500)  
+• Investment Consultation (តម្លៃ $400)
+• Custom Financial Planning
+
+📅 ការកក់ session:
+• /book_session - ជ្រើសរើសប្រភេទ session
+• /book_capital_assessment - Capital analysis
+• /book_business_review - Business review
+• /book_investment_evaluation - Investment help
+
+💰 តម្លៃ VIP: $197 (តម្លៃធម្មតា $500)
+• រាប់បញ្ចូលកម្មវិធី 7 ថ្ងៃ + 30 ថ្ងៃ
+• រាប់បញ្ចូល VIP sessions $1,200+
+• រាប់បញ្ចូល lifetime access
+
+🎯 សម្រាប់: អ្នកអាជីវកម្ម, entrepreneurs, investors
+
+💪 Upgrade ទៅ VIP: សរសេរ "VIP APPLY"`;
+
+      await bot.sendMessage(msg.chat.id, vipMessage);
+    }
+  } catch (error) {
+    console.error("Error /vip_program_info:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Book Session Command
+bot.onText(/\/book_?session$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (bookingCommands && bookingCommands.bookSession) {
+      await bookingCommands.bookSession(bot, msg);
+    } else {
+      // Already implemented above in the file
+      await bot.sendMessage(msg.chat.id, "📅 Session booking ប្រើ /book_session");
+    }
+  } catch (error) {
+    console.error("Error /book_session:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Book Capital Assessment Command
+bot.onText(/\/book_?capital_?assessment$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (bookingCommands && bookingCommands.bookCapitalAssessment) {
+      await bookingCommands.bookCapitalAssessment(bot, msg);
+    } else {
+      // Already implemented above in the file
+      await bot.sendMessage(msg.chat.id, "💼 Capital Assessment ប្រើ /book_capital_assessment");
+    }
+  } catch (error) {
+    console.error("Error /book_capital_assessment:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Book Business Review Command
+bot.onText(/\/book_?business_?review$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    const isVip = user?.is_vip === true || user?.is_vip === 't';
+
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីកក់ session។ /pricing");
+      return;
+    }
+
+    if (!isVip) {
+      await bot.sendMessage(msg.chat.id, "👑 សេវាកម្មនេះសម្រាប់តែ VIP members។ សរសេរ 'VIP APPLY'");
+      return;
+    }
+
+    const reviewMessage = `🔍 BUSINESS REVIEW SESSION
+
+📊 អ្វីដែលនឹងបានវិភាគ:
+• ចំណូល និង ចំណាយ structure
+• ការគ្រប់គ្រង cash flow  
+• ការវិនិយោគនិងការរីកចម្រើន
+• Marketing និង customer acquisition
+• ការដំឡើងប្រាក់ចំណេញ
+
+⏰ រយៈពេល: 90 នាទី
+💰 តម្លៃ: រួមបញ្ចូលក្នុង VIP (តម្លៃធម្មតា $500)
+
+📋 ត្រូវការ:
+• Business financial statements (3 ខែចុងក្រោយ)
+• មាតិកាអំពី goals និង challenges  
+• សំណួរជាក់លាក់ដែលចង់ដឹង
+
+📅 កក់ពេលវេលា:
+• ផ្ញើសារទៅ @Chendasum
+• រាប់បញ្ចូល: "BUSINESS REVIEW - [ឈ្មោះ business]"
+• យើងនឹងទាក់ទងក្នុង 2-4 ម៉ោង
+
+🎯 លទ្ធផលរំពឹងទុក:
+• ផែនការកែលម្អ business
+• យុទ្ធសាស្ត្រកាត់បន្ថយចំណាយ
+• ការណែនាំបង្កើនចំណូល
+
+💪 ចាប់ផ្តើម: @Chendasum`;
+
+    await bot.sendMessage(msg.chat.id, reviewMessage);
+  } catch (error) {
+    console.error("Error /book_business_review:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Book Investment Evaluation Command
+bot.onText(/\/book_?investment_?evaluation$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    const isVip = user?.is_vip === true || user?.is_vip === 't';
+
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីកក់ session។ /pricing");
+      return;
+    }
+
+    if (!isVip) {
+      await bot.sendMessage(msg.chat.id, "👑 សេវាកម្មនេះសម្រាប់តែ VIP members។ សរសេរ 'VIP APPLY'");
+      return;
+    }
+
+    const investmentMessage = `📈 INVESTMENT EVALUATION SESSION
+
+🎯 អ្វីដែលនឹងបានវិភាគ:
+• ការវាយតម្លៃ investment opportunities
+• Risk assessment និង mitigation
+• Portfolio diversification strategy
+• ROI calculations និង projections
+• Market timing និង entry/exit strategies
+
+⏰ រយៈពេល: 75 នាទី
+💰 តម្លៃ: រួមបញ្ចូលក្នុង VIP (តម្លៃធម្មតា $400)
+
+📊 ប្រភេទ investment ដែលអាចវិភាគ:
+• Real estate opportunities
+• Stock market investments
+• Business partnerships
+• Cryptocurrency options
+• Traditional savings/bonds
+
+📋 ត្រូវការយកមក:
+• ព័ត៌មានអំពី investment opportunity
+• ការវិភាគហិរញ្ញវត្ថុបច្ចុប្បន្ន
+• គោលដៅហិរញ្ញវត្ថុ និង timeline
+• Risk tolerance level
+
+📅 កក់ពេលវេលា:
+• ផ្ញើសារទៅ @Chendasum
+• រាប់បញ្ចូល: "INVESTMENT EVAL - [ប្រភេទ investment]"
+• យើងនឹងទាក់ទងក្នុង 2-4 ម៉ោង
+
+🏆 លទ្ធផលរំពឹងទុក:
+• ការណែនាំច្បាស់លាស់ (ទិញ/រង់ចាំ/កុំទិញ)
+• Risk analysis report
+• Alternative investment options
+• Timeline និង strategy plan
+
+💪 ចាប់ផ្តើម: @Chendasum`;
+
+    await bot.sendMessage(msg.chat.id, investmentMessage);
+  } catch (error) {
+    console.error("Error /book_investment_evaluation:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
+// Book Custom Session Command
+bot.onText(/\/book_?custom_?session$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const user = await User.findOne({ telegram_id: msg.from.id });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    const isVip = user?.is_vip === true || user?.is_vip === 't';
+
+    if (!user || !isPaid) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីកក់ session។ /pricing");
+      return;
+    }
+
+    if (!isVip) {
+      await bot.sendMessage(msg.chat.id, "👑 សេវាកម្មនេះសម្រាប់តែ VIP members។ សរសេរ 'VIP APPLY'");
+      return;
+    }
+
+    const customMessage = `🎯 CUSTOM SESSION DESIGN
+
+✨ អ្នកអាចកែប្រែ session តាមត្រូវការ:
+• ប្រធានបទជាក់លាក់ដែលអ្នកចង់ដឹង
+• រយៈពេលអាចកែប្រែបាន (30នាទី - 2ម៉ោង)
+• ការណែនាំផ្ទាល់ខ្លួនទាំងស្រុង
+• ការដោះស្រាយបញ្ហាជាក់លាក់
+
+📋 ឧទាហរណ៍ Custom Sessions:
+• Personal Financial Crisis Resolution
+• Business Scaling Strategy
+• Debt Elimination Plan
+• Passive Income Development
+• Tax Optimization Cambodia
+• Family Financial Planning
+
+⏰ រយៈពេល: អាស្រ័យលើត្រូវការ
+💰 តម្លៃ: រួមបញ្ចូលក្នុង VIP
+
+🔧 វិធីរៀបចំ:
+1. បញ្ជាក់ប្រធានបទ និង goals
+2. ចែករំលែកបរិបទបច្ចុប្បន្ន
+3. កំណត់រយៈពេលចង់បាន
+4. រកពេលវេលាសមរម្យទាំងពីរ
+
+📅 ការកក់:
+• ផ្ញើសារទៅ @Chendasum  
+• រាប់បញ្ចូល: "CUSTOM SESSION - [ប្រធានបទ]"
+• ពណ៌នាលម្អិតអំពីអ្វីដែលចង់ដឹង
+
+💪 កុំភ្លេចថា: ការសិក្សាផ្ទាល់ខ្លួនគឺវិធីលឿនបំផុត!
+
+🚀 ចាប់ផ្តើម: @Chendasum`;
+
+    await bot.sendMessage(msg.chat.id, customMessage);
+  } catch (error) {
+    console.error("Error /book_custom_session:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
+  }
+});
+
