@@ -13,7 +13,7 @@ process.env.NODE_ICU_DATA = "/usr/share/nodejs/node-icu-data";
 process.env.LANG = "en_US.UTF-8";
 
 // Constants for message handling
-const MESSAGE_CHUNK_SIZE = 3500; // Maximum safe message size for Khmer text
+const MESSAGE_CHUNK_SIZE = 4090; // Maximum safe message size for Khmer text (near Telegram's 4096 limit)
 
 // Database connection setup for Railway deployment
 const { drizzle } = require('drizzle-orm/node-postgres');
