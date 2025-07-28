@@ -4,9 +4,10 @@ const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
 
-console.log("🚀 Starting 7-Day Money Flow Bot - Clean Modular Version...");
+console.log("🚀 Starting 7-Day Money Flow Bot - Clean Modular Version (FIXED) ...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
+console.log("📦 Loading modular architecture with function compatibility fixes...");
 
 // Import Models
 const User = require("./models/User");
