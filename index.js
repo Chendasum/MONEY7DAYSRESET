@@ -305,8 +305,10 @@ ConversionOptimizer = safeRequire("./services/conversion-optimizer", "Conversion
 // ENHANCED LONG MESSAGE UTILITY FOR RAILWAY
 async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500) {
   try {
+    console.log(`📞 sendLongMessage called for chat ${chatId}, message length: ${text?.length || 0}`);
+    
     if (!text || text.length === 0) {
-      console.log("Empty message, skipping send");
+      console.log("❌ Empty message, skipping send");
       return;
     }
 
@@ -350,8 +352,15 @@ async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500
     for (let i = 0; i < chunks.length; i++) {
       try {
         if (chunks[i].length > 0 && chunks[i].length <= 4096) {
-          await bot.sendMessage(chatId, chunks[i], i === 0 ? options : {});
-          console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+          // Enhanced message options for better Telegram compatibility
+          const messageOptions = {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            ...options
+          };
+          
+          const result = await bot.sendMessage(chatId, chunks[i], i === 0 ? messageOptions : { parse_mode: 'HTML', disable_web_page_preview: true });
+          console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars) - Message ID: ${result.message_id}`);
           
           if (i < chunks.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 600));
@@ -611,13 +620,13 @@ async function initBotWebhook() {
       console.log("Failed to delete webhook (via bot.deleteWebHook()):", deleteError.message);
     }
 
-    // 3. Construct the webhook URL for Railway
-    const railwayDomain = getRailwayUrl();
-    const actualWebhookUrl = `${railwayDomain}/bot${process.env.BOT_TOKEN}`;
+    // 3. Construct the webhook URL for Railway - FORCE CORRECT DOMAIN
+    const correctDomain = "https://7daysmoney-production.up.railway.app";
+    const actualWebhookUrl = `${correctDomain}/bot${process.env.BOT_TOKEN}`;
 
     // Debug: Show which domain we're using
     console.log("🔍 Domain check - getRailwayUrl():", getRailwayUrl());
-    console.log("🔍 Using Railway domain:", railwayDomain);
+    console.log("🔍 Forcing correct Railway domain:", correctDomain);
 
     console.log(`Attempting to set webhook to: ${actualWebhookUrl}`);
     const setWebhookResult = await bot.setWebHook(actualWebhookUrl);
