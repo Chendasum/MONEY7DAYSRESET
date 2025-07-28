@@ -102,31 +102,61 @@ class User {
         const existing = await this.findOne(condition);
         
         if (existing) {
-          const validUpdates = Object.fromEntries(
-            Object.entries(updates).filter(([key, value]) => 
-              key !== '$inc' && value !== undefined && value !== null
-            )
-          );
+          // Only update fields that exist in the users schema
+          const validFields = [
+            'telegram_id', 'username', 'first_name', 'last_name', 'phone_number', 
+            'email', 'joined_at', 'is_paid', 'payment_date', 'transaction_id', 
+            'is_vip', 'tier', 'tier_price', 'last_active', 'timezone', 
+            'testimonials', 'testimonial_requests', 'upsell_attempts', 'conversion_history'
+          ];
           
-          if (Object.keys(validUpdates).length > 0) {
+          const safeUpdates = {};
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc') {
+              safeUpdates[key] = value;
+            }
+          });
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            safeUpdates.last_active = new Date();
             const result = await db
               .update(users)
-              .set({ ...validUpdates, last_active: new Date() })
+              .set(safeUpdates)
               .where(eq(users.telegram_id, condition.telegram_id || condition.telegramId))
               .returning();
             return result[0];
           }
           return existing;
         } else if (upsert) {
+          const insertData = { 
+            telegram_id: condition.telegram_id || condition.telegramId, 
+            last_active: new Date() 
+          };
+          
+          // Only add valid fields for insert
+          const validFields = [
+            'username', 'first_name', 'last_name', 'phone_number', 
+            'email', 'joined_at', 'is_paid', 'payment_date', 'transaction_id', 
+            'is_vip', 'tier', 'tier_price', 'timezone', 
+            'testimonials', 'testimonial_requests', 'upsell_attempts', 'conversion_history'
+          ];
+          
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              insertData[key] = value;
+            }
+          });
+          
           const result = await db
             .insert(users)
-            .values({ telegram_id: condition.telegram_id || condition.telegramId, ...updates, last_active: new Date() })
+            .values(insertData)
             .returning();
           return result[0];
         }
       }
     } catch (error) {
       console.error('Database error in User.findOneAndUpdate:', error.message);
+      console.error('Updates attempted:', updates);
       return null;
     }
     
@@ -158,14 +188,52 @@ class Progress {
         const existing = await this.findOne(condition);
         
         if (existing) {
-          const result = await db
-            .update(progress)
-            .set({ ...updates, updated_at: new Date() })
-            .where(eq(progress.user_id, id))
-            .returning();
-          return result[0];
+          // Only update fields that exist in the progress schema
+          const validFields = [
+            'user_id', 'current_day', 'ready_for_day_1', 
+            'day_0_completed', 'day_1_completed', 'day_2_completed', 'day_3_completed',
+            'day_4_completed', 'day_5_completed', 'day_6_completed', 'day_7_completed',
+            'program_completed', 'program_completed_at', 'responses', 'created_at', 'updated_at'
+          ];
+          
+          const safeUpdates = {};
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc') {
+              safeUpdates[key] = value;
+            }
+          });
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            safeUpdates.updated_at = new Date();
+            const result = await db
+              .update(progress)
+              .set(safeUpdates)
+              .where(eq(progress.user_id, id))
+              .returning();
+            return result[0];
+          }
+          return existing;
         } else if (upsert) {
-          const insertData = { user_id: id, ...updates, created_at: new Date(), updated_at: new Date() };
+          const insertData = { 
+            user_id: id, 
+            created_at: new Date(), 
+            updated_at: new Date() 
+          };
+          
+          // Only add valid fields for insert
+          const validFields = [
+            'current_day', 'ready_for_day_1', 
+            'day_0_completed', 'day_1_completed', 'day_2_completed', 'day_3_completed',
+            'day_4_completed', 'day_5_completed', 'day_6_completed', 'day_7_completed',
+            'program_completed', 'program_completed_at', 'responses'
+          ];
+          
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              insertData[key] = value;
+            }
+          });
+          
           const result = await db
             .insert(progress)
             .values(insertData)
@@ -175,6 +243,7 @@ class Progress {
       }
     } catch (error) {
       console.error('Database error in Progress.findOneAndUpdate:', error.message);
+      console.error('Updates attempted:', updates);
       return null;
     }
     
