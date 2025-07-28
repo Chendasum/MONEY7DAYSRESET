@@ -573,7 +573,7 @@ function getRailwayUrl() {
   if (process.env.RAILWAY_PUBLIC_DOMAIN) {
     return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
   }
-  return `https://money7daysreset-production.up.railway.app`;
+  return `https://7daysmoney-production.up.railway.app`;
 }
 
 // Initialize Telegram bot for webhook mode
