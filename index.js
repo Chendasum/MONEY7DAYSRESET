@@ -805,15 +805,28 @@ const adminCommands_safe = {
     }
     
     try {
-      const users = await User.find().limit(50);
-      let usersList = "📊 អ្នកប្រើប្រាស់ចុងក្រោយ:\n\n";
+      // Railway-compatible user listing (no MongoDB limit syntax)
+      let users = [];
+      try {
+        users = await User.find() || [];
+      } catch (dbError) {
+        console.log("Database not available, using fallback user list");
+        users = [];
+      }
       
-      users.forEach((user, index) => {
-        const isPaid = user.is_paid === true || user.is_paid === 't';
-        usersList += `${index + 1}. ${user.first_name} (${user.telegram_id})\n`;
-        usersList += `   💰 ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់"}\n`;
-        usersList += `   📅 ${user.joined_at ? new Date(user.joined_at).toDateString() : "N/A"}\n\n`;
-      });
+      const limitedUsers = users.slice(0, 50); // Limit to 50 users  
+      let usersList = limitedUsers.length > 0 ? "📊 អ្នកប្រើប្រាស់ចុងក្រោយ:\n\n" : "📊 មិនមានអ្នកប្រើប្រាស់ក្នុងមូលដ្ឋានទិន្នន័យ\n\n";
+      
+      if (limitedUsers.length > 0) {
+        limitedUsers.forEach((user, index) => {
+          const isPaid = user?.is_paid === true || user?.is_paid === 't';
+          usersList += `${index + 1}. ${user?.first_name || 'Unknown'} (${user?.telegram_id || 'N/A'})\n`;
+          usersList += `   💰 ${isPaid ? "✅ បានទូទាត់" : "❌ មិនទាន់"}\n`;
+          usersList += `   📅 ${user?.joined_at ? new Date(user.joined_at).toDateString() : "N/A"}\n\n`;
+        });
+      } else {
+        usersList += "ពុំមានអ្នកប្រើប្រាស់នៅឡើយទេ។";
+      }
       
       await sendLongMessage(bot, msg.chat.id, usersList, {}, MESSAGE_CHUNK_SIZE);
     } catch (error) {
@@ -830,11 +843,27 @@ const adminCommands_safe = {
     }
     
     try {
-      const totalUsers = await User.countDocuments();
-      const paidUsers = await User.countDocuments({ is_paid: { $in: [true, 't'] } });
-      const todayUsers = await User.countDocuments({
-        joined_at: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-      });
+      // Railway-compatible user analytics (no MongoDB aggregations)
+      let users = [];
+      try {
+        users = await User.find() || [];
+      } catch (dbError) {
+        console.log("Database not available, using fallback analytics");
+        users = [];
+      }
+      
+      const totalUsers = users.length;
+      const paidUsers = users.filter(u => u?.is_paid === true || u?.is_paid === 't').length;
+      const todayUsers = users.filter(u => {
+        if (!u?.joined_at) return false;
+        try {
+          const joinDate = new Date(u.joined_at);
+          const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          return joinDate >= yesterday;
+        } catch {
+          return false;
+        }
+      }).length;
       
       const analyticsMessage = `📈 Analytics Dashboard
 
