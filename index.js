@@ -1369,6 +1369,54 @@ bot.onText(/\/admin_menu|\/admin/i, async (msg) => {
 🆘 ជំនួយ:
 • /whoami - ពិនិត្យសិទ្ធិ Admin
 
+📱 DAILY MONITORING:
+• /admin_activity - Today's active users
+• /admin_stuck - Users stuck on days  
+• /admin_uploads - Photo uploads tracking
+• /admin_followup - Users needing help
+
+📊 ANALYTICS:
+• /admin_analytics - Full dashboard
+• /admin_completion - Completion rates
+• /admin_completed - Finished users
+• /admin_upsell_analytics - Upsell metrics
+• /admin_conversion_stats - Tier conversions
+
+💬 ACTIONS:
+• /admin_progress [userID] - User details
+• /admin_message [userID] [text] - Send message
+• /admin_remind [day] - Send reminders
+• /admin_confirm_payment [userID] - Confirm payment`;
+
+  const helpText2 = `🚀 MARKETING AUTOMATION:
+• /admin_marketing - Marketing dashboard
+• /admin_campaigns - Active campaigns
+• /admin_nurture unpaid - Launch nurture campaign
+• /admin_upsell essential - Launch upgrade campaign
+• /admin_marketing_test - Test all sequences
+• /admin_marketing_report - Performance report
+
+📈 REVENUE OPTIMIZATION:
+• /admin_testimonials - Testimonial management
+• /admin_follow_up_upsells - Send follow-up upsells
+• /admin_export_testimonials - Export testimonials
+• /admin_social_testimonials - Social media posts`;
+
+  const helpText3 = `📋 REPORTS:
+• /admin_users - All users overview
+• /admin_export - Export CSV data
+• /admin_photos [userID] - User photos
+
+📋 TOOLS & TEMPLATES:
+• /admin_daily_template - Daily tracking template
+• /admin_weekly_template - Weekly report template
+• /admin_engagement_checklist - User engagement guide
+• /admin_onboarding_template - New user templates
+
+🆘 HELP:
+• /admin_help - Full command list
+• /whoami - Your admin status
+
 វាយពាក្យបញ្ជាណាមួយដើម្បីប្រតិបត្តិភ្លាមៗ!`;
 
   await bot.sendMessage(msg.chat.id, menuMessage);
