@@ -1192,29 +1192,141 @@ const adminCommands_safe = {
 
 bot.onText(/\/admin_users/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
+  
+  // Check admin permissions
+  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
+  if (msg.from.id !== adminId) {
+    await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
+    return;
+  }
+  
   try {
-    if (adminCommands && adminCommands.showUsers) {
-      await adminCommands.showUsers(msg, bot);
-    } else {
-      await adminCommands_safe.showUsers(msg, bot);
-    }
+    // Get all users from database
+    const allUsers = await db.select().from(users).orderBy(users.joined_at);
+    
+    const totalUsers = allUsers.length;
+    const paidUsers = allUsers.filter(u => u.is_paid === true || u.is_paid === 't').length;
+    const vipUsers = allUsers.filter(u => u.is_vip === true || u.is_vip === 't').length;
+    
+    // Calculate revenue
+    const totalRevenue = allUsers.reduce((sum, user) => {
+      if (user.is_paid === true || user.is_paid === 't') {
+        return sum + (user.tier_price || 24); // Default to $24 if no price set
+      }
+      return sum;
+    }, 0);
+    
+    let response = `📊 ADMIN - បញ្ជីអ្នកប្រើប្រាស់
+
+📈 សង្ខេប:
+• អ្នកប្រើប្រាស់សរុប: ${totalUsers}
+• បានទូទាត់: ${paidUsers}
+• VIP: ${vipUsers}  
+• ចំណូលសរុប: $${totalRevenue}
+
+👥 អ្នកប្រើប្រាស់ថ្មីៗ (5 នាក់ចុងក្រោយ):
+
+`;
+
+    // Show last 5 users
+    const recentUsers = allUsers.slice(-5).reverse();
+    recentUsers.forEach((user, index) => {
+      const status = user.is_paid === true || user.is_paid === 't' ? '✅ បានទូទាត់' : '❌ មិនទាន់ទូទាត់';
+      const vipStatus = user.is_vip === true || user.is_vip === 't' ? ' (VIP)' : '';
+      response += `${index + 1}. ${user.first_name} ${user.last_name || ''}\n`;
+      response += `   ID: ${user.telegram_id}\n`;
+      response += `   ស្ថានភាព: ${status}${vipStatus}\n`;
+      response += `   កម្រិត: ${user.tier || 'free'}\n`;
+      response += `   ចុះឈ្មោះ: ${new Date(user.joined_at).toLocaleDateString()}\n\n`;
+    });
+    
+    response += `💡 ប្រើ /admin_analytics សម្រាប់ការវិភាគលម្អិត`;
+    
+    await sendLongMessage(bot, msg.chat.id, response, {}, MESSAGE_CHUNK_SIZE);
+    
   } catch (e) {
     console.error("Error /admin_users:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ: ${e.message}`);
   }
 });
 
 bot.onText(/\/admin_analytics/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
+  
+  // Check admin permissions
+  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
+  if (msg.from.id !== adminId) {
+    await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
+    return;
+  }
+  
   try {
-    if (adminCommands && adminCommands.showAnalytics) {
-      await adminCommands.showAnalytics(msg, bot);
-    } else {
-      await adminCommands_safe.showAnalytics(msg, bot);
-    }
+    // Get all users and progress data
+    const allUsers = await db.select().from(users).orderBy(users.joined_at);
+    const allProgress = await db.select().from(progress);
+    
+    // User statistics
+    const totalUsers = allUsers.length;
+    const paidUsers = allUsers.filter(u => u.is_paid === true || u.is_paid === 't');
+    const freeUsers = totalUsers - paidUsers.length;
+    const vipUsers = allUsers.filter(u => u.is_vip === true || u.is_vip === 't').length;
+    
+    // Revenue statistics
+    const totalRevenue = paidUsers.reduce((sum, user) => sum + (user.tier_price || 24), 0);
+    const avgRevenuePerUser = paidUsers.length > 0 ? (totalRevenue / paidUsers.length).toFixed(2) : 0;
+    
+    // Tier breakdown
+    const essentialUsers = paidUsers.filter(u => u.tier === 'essential').length;
+    const premiumUsers = paidUsers.filter(u => u.tier === 'premium').length;
+    const vipTierUsers = paidUsers.filter(u => u.tier === 'vip').length;
+    
+    // Progress statistics
+    const usersWithProgress = allProgress.length;
+    const programCompletions = allProgress.filter(p => p.program_completed === true).length;
+    const day1Completions = allProgress.filter(p => p.day_1_completed === true).length;
+    const day7Completions = allProgress.filter(p => p.day_7_completed === true).length;
+    
+    // Recent activity (last 7 days)
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const recentUsers = allUsers.filter(u => new Date(u.joined_at) > weekAgo).length;
+    const recentPayments = paidUsers.filter(u => u.payment_date && new Date(u.payment_date) > weekAgo).length;
+    
+    const response = `📊 ADMIN - ការវិភាគទិន្នន័យ
+
+👥 អ្នកប្រើប្រាស់:
+• សរុប: ${totalUsers} នាក់
+• បានទូទាត់: ${paidUsers.length} នាក់ (${(paidUsers.length/totalUsers*100).toFixed(1)}%)
+• ឥតគិតថ្លៃ: ${freeUsers} នាក់ (${(freeUsers/totalUsers*100).toFixed(1)}%)
+• VIP: ${vipUsers} នាក់
+
+💰 ចំណូល:
+• ចំណូលសរុប: $${totalRevenue}
+• ម្ធ្យមភាគ/អ្នកប្រើប្រាស់: $${avgRevenuePerUser}
+• អត្រាបម្លែង: ${(paidUsers.length/totalUsers*100).toFixed(1)}%
+
+🎯 កម្រិត:
+• Essential ($24): ${essentialUsers} នាក់
+• Premium ($97): ${premiumUsers} នាក់  
+• VIP ($197): ${vipTierUsers} នាក់
+
+📚 ការរៀន:
+• មានរុបបផ្សេង: ${usersWithProgress} នាក់
+• បញ្ចប់ថ្ងៃទី១: ${day1Completions} នាក់
+• បញ្ចប់ថ្ងៃទី៧: ${day7Completions} នាក់
+• បញ្ចប់កម្មវិធី: ${programCompletions} នាក់
+
+📅 សកម្មភាព ៧ ថ្ងៃចុងក្រោយ:
+• អ្នកប្រើប្រាស់ថ្មី: ${recentUsers} នាក់
+• ការទូទាត់ថ្មី: ${recentPayments} នាក់
+
+💡 ប្រើ /admin_menu សម្រាប់ជម្រើសបន្ថែម`;
+    
+    await sendLongMessage(bot, msg.chat.id, response, {}, MESSAGE_CHUNK_SIZE);
+    
   } catch (e) {
     console.error("Error /admin_analytics:", e);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ: ${e.message}`);
   }
 });
 
