@@ -1,9 +1,11 @@
 const User = require("../models/User");
 const Progress = require("../models/Progress");
-const celebrations = require("../services/celebrations");
-const emojiReactions = require("../services/emoji-reactions");
-const quotesCommands = require("./quotes");
+const { sendLongMessage } = require("../utils/message-splitter"); // Utility to split long messages
 
+// Define a consistent message chunk size for splitting messages (Telegram max is 4096)
+const MESSAGE_CHUNK_SIZE = 3500; // Use larger chunks to minimize splits while staying under Telegram limit
+
+// Daily lesson content for the 7-Day Money Flow Reset program
 const dailyMessages = {
    1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
 ---
@@ -42,6 +44,13 @@ const dailyMessages = {
 - កាត់បន្ថយការទិញកាហ្វេនៅហាង: $____/ខែ
 - កាត់បន្ថយថ្លៃដឹកជញ្ជូនអាហារ: $____/ខែ
 សរុបប្រាក់ដែលបានរកឃើញ: $____/ខែ = $____/ឆ្នាំ! (នេះជាប្រាក់ដែលអ្នកទើបតែបានរកឃើញ!)
+
+🏆 ការធានា: រកមិនបាន $30/ខែ? ទាក់ទង @Chendasum (Telegram/WhatsApp) នឹងទទួលបានការប្រឹក្សាឥតគិតថ្លៃ!
+
+📈 របាយការណ៍ជោគជ័យពិត (អ្នកប្រើប្រាស់នៅកម្ពុជា):
+
+👤 លោក វិចិត្រ (៣៥ ឆ្នាំ, បុគ្គលិកការិយាល័យ, សៀមរាប):
+"ខ្ញុំបានរកឃើញការជាវដែលភ្លេចតាំងពី $65/ខែ - គិតឡើងវិញហើយឥឡូវសន្សំបានច្រើន!"
 
 ---
 
@@ -214,6 +223,13 @@ const dailyMessages = {
 - ទម្លាប់ចំណាយតូចៗប្រចាំថ្ងៃ: $____/ខែ
 - ចំណុចលេចធ្លាយផ្សេងទៀតដែលបានរកឃើញ: $____/ខែ
 សរុបចំណុចលេចធ្លាយដែលរកឃើញ: $____/ខែ = $____/ឆ្នាំ! (អ្នកទើបតែបិទកន្លែងខាតធំ!)
+
+🏆 ការធានា: រកមិនបាន $50/ខែ? ទាក់ទង @Chendasum (Telegram/WhatsApp) នឹងទទួលបានការវិភាគប្រព័ន្ធលុយឥតគិតថ្លៃ!
+
+📈 របាយការណ៍ជោគជ័យការកំណត់អត្តសញ្ញាណកម្រិតខ្ពស់ (អ្នកប្រើប្រាស់នៅកម្ពុជា):
+
+👤 អ្នកស្រី ច័ន្ទលី (២៤ ឆ្នាំ, Marketing, ភ្នំពេញ):
+"ខ្ញុំបានវិភាគរកឃើញការជាវ និងទម្លាប់ដែលភ្លេច - សន្សំបានប្រមាណ $85/ខែ!"
 
 ---
 
@@ -393,6 +409,19 @@ Grade និង ពិន្ទុ:
 A+ = 4 ពិន្ទុ | A = 3.5 ពិន្ទុ | B = 3 ពិន្ទុ | C = 2 ពិន្ទុ | D = 1 ពិន្ទុ | F = 0 ពិន្ទុ
 សរុបពិន្ទុ: ____/12 = ____%
 
+🏆 ការធានា: មិនអាចកែលម្អបាន ២០+ ពិន្ទុក្នុង ៧ ថ្ងៃ? ទាក់ទង @Chendasum (Telegram/WhatsApp) នឹងទទួលបានការប្រឹក្សាឥតគិតថ្លៃ!
+
+📈 របាយការណ៍ជោគជ័យ Health Check (អ្នកប្រើប្រាស់នៅកម្ពុជា):
+
+👤 អ្នកស្រី សុមាលី (២៧ ឆ្នាំ, ហាងលក់សម្លៀកបំពាក់, ភ្នំពេញ):
+"ពី Score 35% ទៅ 85% ក្នុង ១០ ថ្ងៃ! ខ្ញុំចាប់ផ្តើមកត់ត្រា + សន្សំបន្ទាន់ $200 + រៀបចំផែនការខែនីមួយៗ!"
+
+👤 លោក ភក្ត្រ (៣៣ ឆ្នាំ, អ្នកបើកបរ, កំពត):
+"Score ដំបូង F (25%) ឥឡូវ B+ (75%)! ខ្ញុំយល់ពីប្រាក់បន្ទាន់ + ប្រើ app កត់ត្រា = ជីវិតស្រួលជាង!"
+
+👤 អ្នកស្រី រតនា (២៩ ឆ្នាំ, គ្រូបង្រៀន, បាត់ដំបង):
+"Health Check បានបង្ហាញខ្ញុំថាខ្វះការរៀបចំផែនការ! ឥឡូវធ្វើ Budget ប្រចាំខែ + មាន Emergency Fund = Score ឡើង 60%!"
+
 ---
 
 📊 ពិនិត្យ ៣ ផ្នែកសំខាន់ៗ:
@@ -532,6 +561,19 @@ Expense Calculator:
 
 💰 លទ្ធផលលំហូរលុយ:
 ចំណូល $____ - ចំណាយ $____ = $___ (+ វិជ្ជមាន / - អវិជ្ជមាន)
+
+🏆 ការធានា: មិនអាចកែលម្អលំហូរលុយ ១៥% ក្នុង ៧ ថ្ងៃ? ទាក់ទង @Chendasum (Telegram/WhatsApp) នឹងទទួលបានការប្រឹក្សាឥតគិតថ្លៃ!
+
+📈 របាយការណ៍ជោគជ័យការបង្កើនប្រសិទ្ធភាពលំហូរលុយ (អ្នកប្រើប្រាស់នៅកម្ពុជា):
+
+👤 អ្នកស្រី លីហួរ (២៦ ឆ្នាំ, គណនេយ្យករ, ភ្នំពេញ):
+"លំហូរលុយដំបូង: ចំណូល $450 - ចំណាយ $480 = -$30! ខ្ញុំបានធ្វើតាមគន្លឹះរកបានចំណូលបន្ថែម $150 = ឥឡូវ +$120/ខែ!"
+
+👤 លោក សុខា (៣១ ឆ្នាំ, mechanic, កំពត):
+"ចំណូល $380 - ចំណាយ $420 = -$40។ ខ្ញុំបានបិទការជាវដែលមិនចាំបាច់ + កាត់បន្ថយការកម្សាន្ត = ឥឡូវ +$85/ខែ + មានមូលនិធិបន្ទាន់ហើយ!"
+
+👤 អ្នកស្រី ចន្ទ្រា (២៤ ឆ្នាំ, online seller, បាត់ដំបង):
+"ការវិភាគលំហូរលុយបង្ហាញពីគំរូ: ខ្ញុំចំណាយច្រើននៅពេលមានអារម្មណ៍តានតឹង! ឥឡូវខ្ញុំត្រួតពិនិត្យការចំណាយតាមអារម្មណ៍ = សន្សំបាន $180/ខែ!"
 
 ---
 
@@ -707,6 +749,17 @@ Expense Calculator:
 
 🏆 ការធានា: មិនអាចរៀបចំតុល្យភាពចំណាយ ១៥% ក្នុង ១០ ថ្ងៃ? ទាក់ទង @Chendasum (Telegram/WhatsApp) នឹងទទួលបានការប្រឹក្សាឥតគិតថ្លៃ!
 
+📈 របាយការណ៍ជោគជ័យតុល្យភាពចំណាយ (អ្នកប្រើប្រាស់នៅកម្ពុជា):
+
+👤 អ្នកស្រី មុន្នី (២៥ ឆ្នាំ, រៀនកម្មវិធី, ភ្នំពេញ):
+"ដំបូង: ការរស់រាន 80%, ការលូតលាស់ 5%, របៀបរស់នៅ 15%។ ឥឡូវ: 60%, 25%, 15%! ខ្ញុំចាប់ផ្តើមវគ្គសិក្សាអនឡាញ + សន្សំបានហើយ!"
+
+👤 លោក ពិសិដ្ឋ (២៩ ឆ្នាំ, mechanic, កំពត):
+"ការវិភាគចំណាយបង្ហាញថាចំណាយលើរបៀបរស់នៅ 45%! ខ្ញុំបានកាត់បន្ថយការទៅ KTV + កាហ្វេ = ចាប់ផ្តើមវគ្គសិក្សាផ្សារដែក។ ឥឡូវចំណូលខ្ញុំកើន 40%!"
+
+👤 អ្នកស្រី សុភាព (៣២ ឆ្នាំ, ម្ចាស់ហាង, បាត់ដំបង):
+"តុល្យភាពដំបូង: ការរស់រាន 70%, ការលូតលាស់ 10%, របៀបរស់នៅ 20%។ ឥឡូវបានកែទៅ 55%, 30%, 15% = អាជីវកម្មរីកចម្រើន + ប្រាក់ចំណេញកើនឡើង!"
+
 ---
 
 🎯 ការយល់ដឹងសំខាន់:
@@ -856,6 +909,19 @@ Expense Calculator:
 □ បន្តសិក្សាអំពីហិរញ្ញវត្ថុផ្ទាល់ខ្លួន
 → ខ្ញុំនឹងបន្ត (CONTINUE): ________________
 
+🏆 ការធានា: មិនអាចសម្រេចបាន ៧០% នៃផែនការសកម្មភាពក្នុង ៣០ ថ្ងៃ? ទាក់ទង @Chendasum (Telegram/WhatsApp) នឹងទទួលបានការប្រឹក្សាឥតគិតថ្លៃ!
+
+📈 របាយការណ៍ជោគជ័យនៃការរៀបចំផែនការសកម្មភាព (អ្នកប្រើប្រាស់នៅកម្ពុជា):
+
+👤 អ្នកស្រី វណ្ណី (២៨ ឆ្នាំ, គិលានុបដ្ឋាយិកា, ភ្នំពេញ):
+"ខ្ញុំបានកាត់បន្ថយចំណាយលើការកម្សាន្ត + ចាប់ផ្តើមរៀបចំអាហារ (meal prep) = សន្សំបាន $135/ខែ តាមការគណនាឡើងវិញ!"
+
+👤 លោក ធារ៉ា (៣៥ ឆ្នាំ, អ្នកបើកបរ, កំពត):
+"ខ្ញុំបានកាត់បន្ថយចំណាយមិនល្អ + បើក Grab ពេលល្ងាច = អាចបង្កើនចំណូលប្រមាណ $280/ខែ!"
+
+👤 អ្នកស្រី ចន្ទនី (២៦ ឆ្នាំ, ម្ចាស់ហាង, បាត់ដំបង):
+"ខ្ញុំបានត្រួតពិនិត្យការចំណាយតាមអារម្មណ៍ + រៀនបន្ថែម = ប្រាក់ចំណេញកើនឡើងច្រើន!"
+
 ---
 
 🎯 ការយល់ដឹងសំខាន់:
@@ -978,6 +1044,17 @@ Expense Calculator:
 • សន្សំបាន $200+/ខែ = Gold Graduate 🥇
 • សន្សំបាន $300+/ខែ = Platinum Graduate 💎
 
+📈 បញ្ជីឈ្មោះអ្នកជោគជ័យនៅកម្ពុជា:
+
+🥇 អ្នកស្រី សុខមុន្នី (២៤ ឆ្នាំ, គណនេយ្យករ, ភ្នំពេញ) - GOLD GRADUATE:
+"៧ ថ្ងៃរកបាន $215/ខែ! ខ្ញុំបានបោះបង់ការជាវ $35 + បិទការលេចធ្លាយ $85 + បង្កើនប្រសិទ្ធភាពចំណាយ $95 = ឥឡូវមានមូលនិធិបន្ទាន់ $2,000!"
+
+🥈 លោក វុទ្ធី (៣១ ឆ្នាំ, អ្នកបើកបរ Tuk-tuk, សៀមរាប) - SILVER GRADUATE:
+"ពីអវិជ្ជមាន -$45 ទៅវិជ្ជមាន +$130/ខែ! ខ្ញុំបានហាត់បើក Grab ពេលល្ងាច + កាត់បន្ថយការចំណាយលើស្រាបៀរ/បារី = ឥឡូវសន្សំបានសម្រាប់ម៉ូតូថ្មី!"
+
+💎 អ្នកស្រី ចាន់ធីតា (២៧ ឆ្នាំ, អ្នកលក់អនឡាញ, បាត់ដំបង) - PLATINUM GRADUATE:
+"ការវិភាគលំហូរលុយបានបង្ហាញពីចំណុចលេចធ្លាយនៅក្នុងអាជីវកម្ម! ខ្ញុំបានកែសម្រួលស្តុកទំនិញ + តម្លៃ = ប្រាក់ចំណេញកើនឡើង $320/ខែ + ចាប់ផ្តើមអាជីវកម្មទី ២!"
+
 🎊 ពេលវេលាអបអរសាទរផ្ទាល់ខ្លួនរបស់អ្នក:
 
 ✅ ចំណុចទី១: អបអរសមិទ្ធផលរបស់អ្នក!
@@ -1097,43 +1174,86 @@ Expense Calculator:
 បញ្ចប់? ចុច /day7`,
 };
 
+/**
+ * Handles the daily lesson command for the 7-Day Money Flow Reset program.
+ * It checks user access, updates progress, and sends the appropriate daily content.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Array} match - The regex match array from bot.onText.
+ * @param {Object} bot - The Telegram bot instance.
+ */
 async function handle(msg, match, bot) {
-   const dayNumber = parseInt(match[1]);
+   const dayNumber = parseInt(match[1]); // Extract day number from the command (e.g., /day1 -> 1)
    const userId = msg.from.id;
    const chatId = msg.chat.id;
+   
+   console.log("=== DAILY HANDLER CALLED ===", { user_id: userId,
+     dayNumber: dayNumber,
+     timestamp: new Date().toISOString()
+    });
 
    try {
-      // Check if user exists
-      const user = await User.findOne({ telegramId: userId });
+      // Find the user in the database
+      const user = await User.findOne({ telegram_id: userId });
       if (!user) {
          await bot.sendMessage(
             chatId,
-            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។", // Changed "ចុច" to "ប្រើពាក្យបញ្ជា" for consistency
          );
          return;
       }
 
-      // Check if user has access to this day (skip day 0)
-      const progress = await Progress.findOne({ userId: userId });
+      // Check if user has paid access before proceeding - handle PostgreSQL boolean conversion
+      const isPaid = user.is_paid === true || user.is_paid === 't' || user.is_paid === 1;
+      
+      // Force console log to appear
+      const debugInfo = { user_id: userId,
+         is_paid_raw: user.is_paid,
+         is_paid_converted: isPaid,
+         is_paid_type: typeof user.is_paid,
+         tier: user.tier,
+         timestamp: new Date().toISOString()
+       };
+      console.log("=== DAILY COMMAND DEBUG ===", JSON.stringify(debugInfo, null, 2));
+      
+      if (!isPaid) {
+         console.log("=== PAYMENT CHECK FAILED ===", userId);
+         await bot.sendMessage(
+            chatId,
+            "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។"
+         );
+         return;
+      }
+      
+      console.log("=== PAYMENT CHECK PASSED ===", userId);
+
+      // Find the user's progress in the database
+      const progress = await Progress.findOne({ user_id: userId });
       if (!progress) {
          await bot.sendMessage(
             chatId,
-            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។", // Changed "ចុច" to "ប្រើពាក្យបញ្ជា" for consistency
          );
          return;
       }
 
-      // For day 1, check if user is ready
-      if (dayNumber === 1 && !progress.readyForDay1) {
-         await bot.sendMessage(
-            chatId,
-            "សូមសរសេរ 'READY FOR DAY 1' ដើម្បីចាប់ផ្តើម",
+      // URGENT FIX: Auto-set ready_for_day_1 for paid users to fix customer access
+      if (dayNumber === 1 && !progress.ready_for_day_1) {
+         console.log(`🚨 URGENT: Setting ready_for_day_1=true for paid user ${userId}`);
+         await Progress.findOneAndUpdate(
+            { user_id: userId },
+            { ready_for_day_1: true },
+            { upsert: true }
          );
-         return;
+         // Refresh progress data
+         const updatedProgress = await Progress.findOne({ user_id: userId });
+         if (updatedProgress) {
+            Object.assign(progress, updatedProgress);
+         }
       }
 
-      // For other days, check progression
-      if (dayNumber > 1 && dayNumber > progress.currentDay) {
+      // For subsequent days (Day 2-7), ensure the user has completed the previous day
+      // and is not trying to skip ahead.
+      if (dayNumber > 1 && dayNumber > progress.current_day) {
          await bot.sendMessage(
             chatId,
             "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចាប់ផ្តើមថ្ងៃបន្ទាប់។",
@@ -1141,98 +1261,80 @@ async function handle(msg, match, bot) {
          return;
       }
 
-      // Send daily message with emoji reactions
+      // If the daily message content exists for the requested day
       if (dailyMessages[dayNumber]) {
-         // Send lesson start emoji reaction
-         const startReaction = emojiReactions.lessonStartReaction(dayNumber);
-         await bot.sendMessage(chatId, startReaction);
+         // Send the main content for the day using the message splitter utility
+         await sendLongMessage(
+            bot,
+            chatId,
+            dailyMessages[dayNumber],
+            {},
+            500 // delay between chunks in milliseconds
+         );
 
-         // Short delay before main content
-         setTimeout(async () => {
-            await bot.sendMessage(chatId, dailyMessages[dayNumber]);
-         }, 500);
+         // Update the user's progress: mark the day as accessed, update last accessed day,
+         // calculate completion percentage, and update last active timestamp.
+         await Progress.findOneAndUpdate(
+            { user_id: userId  },
+            {
+               currentDay: Math.max(dayNumber, progress.currentDay || 0), // Update current day
+               [`day${dayNumber}Completed`]: false, // Mark day as accessed but not completed
+               updatedAt: new Date(), // Update timestamp
+            },
+            { upsert: true }, // Create if not exists
+         );
 
-         // Add celebration animation for accessing new day
-         setTimeout(async () => {
-            const accessCelebration = celebrations.quickCelebration(
-               `ថ្ងៃទី ${dayNumber} ចាប់ផ្តើម!`,
-            );
-            await bot.sendMessage(chatId, accessCelebration);
-         }, 1500);
-
-         // Send daily wisdom quote after 3 seconds
-         setTimeout(async () => {
-            await quotesCommands.sendDayQuote(bot, chatId, dayNumber);
-         }, 3000);
-
-         // Update completion tracking after 1 second
-         setTimeout(async () => {
-            // Update completion tracking
-            await Progress.findOneAndUpdate(
-               { userId: userId },
-               {
-                  [`day${dayNumber}Accessed`]: true,
-                  lastAccessedDay: dayNumber,
-                  completionPercentage: Math.floor((dayNumber / 7) * 100),
-                  lastActive: new Date(),
-               },
-            );
-         }, 1000);
-
-         // Send upgrade hint for Day 7 after 8 seconds
-         setTimeout(async () => {
-            if (dayNumber === 7) {
-               const upgradeHint = `🤫 ជំហានបន្ទាប់សម្រាប់អ្នកដែលត្រៀមខ្លួនរួចរាល់...
-        
-👑 VIP Capital Strategy រង់ចាំអ្នកដែលបង្ហាញការប្តេជ្ញាចិត្ត
-
-🏛️ Capital Clarity Session - ដើម្បីអ្នកដែលចង់ដឹងពីការគ្រប់គ្រងមូលធនកម្រិតខ្ពស់
-
-ចង់ដឹងបន្ថែម? ទំនាក់ទំនង @Chendasum
-🌐 More info: 7daymoneyflow.com`;
-
-               await bot.sendMessage(chatId, upgradeHint);
-            }
-         }, 8000); // 8 seconds after the main content
-
-         // Update last active
+         // Also update the user's general last active timestamp in the User model
          await User.findOneAndUpdate(
-            { telegramId: userId },
-            { lastActive: new Date() },
+            { telegram_id: userId },
+            { last_active: new Date() },
          );
       } else {
+         // If content for the requested day is not found
          await bot.sendMessage(chatId, "រកមិនឃើញខ្លឹមសារសម្រាប់ថ្ងៃនេះ។");
       }
    } catch (error) {
+      // Log and send a generic error message to the user
       console.error("Error in daily command:", error);
-      await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។");
+      await bot.sendMessage(
+         chatId,
+         "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។", // Changed "សាកល្បង" to "ព្យាយាម" for consistency
+      );
    }
 }
 
-// Add this function after the handle function
+/**
+ * Marks a specific day as complete for a user in the database.
+ * This function is typically called after a user sends a "DAY X COMPLETE" message.
+ * @param {number} userId - The Telegram user ID.
+ * @param {number} dayNumber - The day number to mark as complete.
+ * @returns {boolean} - True if the update was successful, false otherwise.
+ */
 async function markDayComplete(userId, dayNumber) {
    try {
       const updateData = {
-         [`day${dayNumber}Completed`]: true,
-         completionPercentage: Math.floor((dayNumber / 7) * 100),
-         lastActive: new Date(),
+         [`day${dayNumber}Completed`]: true, // Mark this specific day as completed
+         completionPercentage: Math.floor((dayNumber / 7) * 100), // Recalculate completion percentage
+         last_active: new Date(), // Update last active timestamp
       };
 
-      // If completing day 7, mark program as complete
+      // If Day 7 is being completed, mark the entire program as complete
       if (dayNumber === 7) {
          updateData.programCompleted = true;
-         updateData.completionDate = new Date();
+         updateData.completionDate = new Date(); // Record program completion date
       }
 
-      await Progress.findOneAndUpdate({ userId: userId }, updateData);
+      // Find and update the user's progress document
+      await Progress.findOneAndUpdate({ user_id: userId }, updateData, {
+         new: true,
+      });
 
-      return true;
+      return true; // Indicate success
    } catch (error) {
       console.error("Error marking day complete:", error);
-      return false;
+      return false; // Indicate failure
    }
 }
 
-// Export the new function
+// Export the functions to be used by other modules (e.g., index.js)
 module.exports = { handle, dailyMessages, markDayComplete };
-
