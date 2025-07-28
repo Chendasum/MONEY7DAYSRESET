@@ -686,10 +686,9 @@ bot.onText(/\/start/i, async (msg) => {
             first_name: msg.from.first_name,
             last_name: msg.from.last_name,
             username: msg.from.username,
-            joined_at: new Date(),
-            last_active: new Date()
+            joined_at: new Date()
           },
-          { upsert: true, new: true }
+          { upsert: true }
         );
       } catch (dbError) {
         console.log("Database registration skipped (using fallback)");
@@ -2057,9 +2056,7 @@ async function handleDayComplete(msg) {
     await Progress.findOneAndUpdate(
       { user_id: msg.from.id },
       {
-        current_day: nextDay <= 7 ? nextDay : 7,
-
-        updated_at: new Date()
+        current_day: nextDay <= 7 ? nextDay : 7
       },
       { upsert: true }
     );
@@ -2591,8 +2588,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
         await Progress.findOneAndUpdate(
           { user_id: msg.from.id },
           {
-            current_day: Math.max(dayNum, progressData?.current_day || 0),
-            updated_at: new Date()
+            current_day: Math.max(dayNum, progressData?.current_day || 0)
           },
           { upsert: true }
         );
