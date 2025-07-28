@@ -234,9 +234,14 @@ ContentScheduler = safeRequire("./services/content-scheduler", "ContentScheduler
 ConversionOptimizer = safeRequire("./services/conversion-optimizer", "ConversionOptimizer");
 
 // ENHANCED LONG MESSAGE UTILITY FOR RAILWAY
-async function sendLongMessage(bot, chatId, text, options = {}, delay = 800) {
+async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 3500) {
   try {
-    const maxLength = 3500; // Safe for Khmer characters
+    if (!text || text.length === 0) {
+      console.log("Empty message, skipping send");
+      return;
+    }
+
+    const maxLength = Math.min(chunkSize, 3500); // Use safer limit
     
     if (text.length <= maxLength) {
       return await bot.sendMessage(chatId, text, options);
@@ -251,36 +256,60 @@ async function sendLongMessage(bot, chatId, text, options = {}, delay = 800) {
     const lines = text.split('\n');
     
     for (const line of lines) {
-      if ((currentChunk + '\n' + line).length > maxLength) {
-        if (currentChunk) {
+      const testLength = currentChunk + (currentChunk ? '\n' : '') + line;
+      if (testLength.length > maxLength) {
+        if (currentChunk.trim()) {
           chunks.push(currentChunk.trim());
-          currentChunk = line;
+        }
+        // Handle extremely long single lines
+        if (line.length > maxLength) {
+          chunks.push(line.substring(0, maxLength - 10) + "...");
+          currentChunk = '';
         } else {
-          chunks.push(line);
+          currentChunk = line;
         }
       } else {
         currentChunk += (currentChunk ? '\n' : '') + line;
       }
     }
     
-    if (currentChunk) {
+    if (currentChunk.trim()) {
       chunks.push(currentChunk.trim());
     }
     
-    // Send chunks with delay to prevent rate limiting
+    // Send chunks with error handling for each chunk
     for (let i = 0; i < chunks.length; i++) {
-      await bot.sendMessage(chatId, chunks[i], options);
-      console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
-      
-      if (i < chunks.length - 1 && delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
+      try {
+        if (chunks[i].length > 0 && chunks[i].length <= 4096) {
+          await bot.sendMessage(chatId, chunks[i], i === 0 ? options : {});
+          console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);
+          
+          if (i < chunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 600));
+          }
+        } else {
+          console.log(`⚠️ Skipping invalid chunk ${i + 1}: length=${chunks[i].length}`);
+        }
+      } catch (chunkError) {
+        console.error(`❌ Error sending chunk ${i + 1}:`, chunkError.message);
+        // Try sending a fallback message instead
+        try {
+          await bot.sendMessage(chatId, `📚 មាតិកាមួយផ្នែក... ជំនួយ: @Chendasum`);
+        } catch (fallbackError) {
+          console.error("Fallback message failed:", fallbackError.message);
+        }
       }
     }
     
-    console.log(`🎉 Successfully sent all ${chunks.length} chunks`);
+    console.log(`🎉 Successfully processed all ${chunks.length} chunks`);
   } catch (error) {
     console.error("❌ Error in sendLongMessage:", error);
-    await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមទាក់ទង @Chendasum");
+    // Final fallback - send short error message
+    try {
+      await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមទាក់ទង @Chendasum");
+    } catch (finalError) {
+      console.error("Final fallback failed:", finalError.message);
+    }
   }
 }
 
@@ -781,7 +810,7 @@ bot.onText(/^\/day$/i, async (msg) => {
         const progressMessage = `📊 វឌ្ឍនភាពរបស់អ្នក:
 
 🔥 ថ្ងៃបានបញ្ចប់: ${progress.current_day - 1}/7
-📈 ភាគរយបញ្ចប់: ${progress.completion_percentage || 0}%
+📈 ថ្ងៃបច្ចុប្បន្ន: ${progress.current_day || 0}
 
 🎯 ថ្ងៃបន្ទាប់: /day${progress.current_day}`;
         await bot.sendMessage(chatId, progressMessage);
@@ -1960,9 +1989,8 @@ async function handleDayComplete(msg) {
       { user_id: msg.from.id },
       {
         current_day: nextDay <= 7 ? nextDay : 7,
-        program_progress: Math.round((dayNumber / 7) * 100),
-        last_completed_day: dayNumber,
-        completion_date: new Date()
+
+        updated_at: new Date()
       },
       { upsert: true }
     );
@@ -2494,9 +2522,8 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
         await Progress.findOneAndUpdate(
           { user_id: msg.from.id },
           {
-            current_day: dayNum,
-            last_accessed: new Date(),
-            program_progress: Math.round((dayNum / 7) * 100)
+            current_day: Math.max(dayNum, progressData?.current_day || 0),
+            updated_at: new Date()
           },
           { upsert: true }
         );
@@ -2584,8 +2611,7 @@ async function handleDayComplete(msg) {
     await Progress.findOneAndUpdate(
       { user_id: msg.from.id },
       {
-        current_day: nextDay <= 7 ? nextDay : 7,
-        program_progress: Math.round((dayNumber / 7) * 100)
+        current_day: nextDay <= 7 ? nextDay : 7
       },
       { upsert: true }
     );
@@ -2717,8 +2743,7 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
       { user_id: msg.from.id },
       {
         program_completed: true,
-        program_completed_at: new Date(),
-        completion_percentage: 100
+        program_completed_at: new Date()
       },
       { upsert: true }
     );
@@ -2760,7 +2785,7 @@ bot.on("message", async (msg) => {
 
       await Progress.findOneAndUpdate(
         { user_id: msg.from.id },
-        { ready_for_day_1: true, readiness_date: new Date() },
+        { ready_for_day_1: true },
         { upsert: true }
       );
 
