@@ -1,7 +1,7 @@
 {
   "name": "7day-money-flow-bot",
   "version": "1.0.0",
-  "description": "7-Day Money Flow Reset Telegram Bot",
+  "description": "7-Day Money Flow Reset Telegram Bot with AI Integration",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -27,7 +27,9 @@
     "bot",
     "money",
     "financial",
-    "education"
+    "education",
+    "ai",
+    "smart-allocation"
   ],
   "author": "Your Name",
   "license": "MIT"
