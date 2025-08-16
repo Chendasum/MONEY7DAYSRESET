@@ -75,6 +75,276 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
+// 🤖 AI INTEGRATION FOR 7-DAY MONEY FLOW BOT
+// Add this section after your database setup (around line 76)
+
+console.log("🤖 Initializing AI Integration for Smart Money Flow...");
+
+// Import AI services
+let aiService = null;
+let aiHelper = null;
+let aiAvailable = false;
+
+try {
+    // Try to import AI services
+    aiService = require('./services/aiIntegration');
+    aiHelper = require('./utils/aiHelper');
+    
+    console.log("✅ AI Integration loaded successfully");
+    aiAvailable = true;
+} catch (error) {
+    console.log("⚠️ AI Integration not available:", error.message);
+    console.log("📝 Bot will run in standard mode without AI features");
+    aiAvailable = false;
+    
+    // Create fallback AI service
+    aiService = {
+        getSmartAllocation: async (amount, risk) => ({
+            stocks_percent: 50, bonds_percent: 40, cash_percent: 8, crypto_percent: 2,
+            stocks_amount: amount * 0.5, bonds_amount: amount * 0.4, 
+            cash_amount: amount * 0.08, crypto_amount: amount * 0.02,
+            reasoning: "Fallback allocation - AI not available",
+            confidence: 70, ai_used: false
+        }),
+        shouldExecuteReset: async () => ({ 
+            decision: 'YES', confidence: 75, reasoning: 'Standard 7-day cycle', ai_used: false 
+        }),
+        getMarketAnalysis: async () => ({ 
+            market_sentiment: 'NEUTRAL', volatility_level: 'MODERATE',
+            recommendation: 'Standard balanced approach', ai_used: false 
+        }),
+        getStatus: () => ({ ai_available: false, fallback_mode: true })
+    };
+    
+    aiHelper = {
+        formatDisplay: (allocation) => ({
+            summary: {
+                stocks: `${allocation.stocks_percent}% ($${allocation.stocks_amount?.toLocaleString() || '0'})`,
+                bonds: `${allocation.bonds_percent}% ($${allocation.bonds_amount?.toLocaleString() || '0'})`,
+                cash: `${allocation.cash_percent}% ($${allocation.cash_amount?.toLocaleString() || '0'})`,
+                crypto: `${allocation.crypto_percent}% ($${allocation.crypto_amount?.toLocaleString() || '0'})`
+            },
+            ai_confidence: allocation.confidence || 'N/A'
+        }),
+        validateAllocation: (allocation, total) => ({ valid: true, allocation })
+    };
+}
+
+// Enhanced Money Flow Functions with AI Integration
+class SmartMoneyFlow {
+    constructor(db, aiService, aiHelper) {
+        this.db = db;
+        this.ai = aiService;
+        this.helper = aiHelper;
+        this.aiEnabled = aiAvailable;
+    }
+    
+    // 🧠 AI-Enhanced Day Progression
+    async getSmartDayRecommendation(userId, currentDay, userProgress) {
+        if (!this.aiEnabled) {
+            return { proceed: true, reasoning: "Standard day progression" };
+        }
+        
+        try {
+            const analysis = await this.ai.shouldExecuteReset({
+                currentDay: currentDay,
+                userProgress: userProgress,
+                dayType: 'progression'
+            });
+            
+            return {
+                proceed: analysis.decision === 'YES',
+                reasoning: analysis.reasoning,
+                confidence: analysis.confidence,
+                ai_used: true
+            };
+        } catch (error) {
+            return { proceed: true, reasoning: "AI unavailable, proceeding normally" };
+        }
+    }
+    
+    // 💰 AI-Enhanced Money Allocation
+    async getSmartAllocation(amount, userRisk = 'moderate', day = 0) {
+        try {
+            const allocation = await this.ai.getSmartAllocation(amount, userRisk, {
+                currentDay: day,
+                flowType: '7day_reset',
+                userContext: 'money_flow_program'
+            });
+            
+            const validation = this.helper.validateAllocation(allocation, amount);
+            return validation.allocation;
+            
+        } catch (error) {
+            console.error('Smart allocation failed:', error);
+            return this.getFallbackAllocation(amount, userRisk);
+        }
+    }
+    
+    // 📊 AI Market Context for Users
+    async getMarketContextForDay(day) {
+        if (!this.aiEnabled) {
+            return { message: "Focus on your financial goals today!", simple: true };
+        }
+        
+        try {
+            const analysis = await this.ai.getMarketAnalysis({ 
+                context: 'daily_education',
+                day: day 
+            });
+            
+            return {
+                sentiment: analysis.market_sentiment,
+                advice: analysis.recommendation,
+                simplified: this.simplifyForUsers(analysis),
+                ai_powered: true
+            };
+        } catch (error) {
+            return { message: "Focus on building good financial habits!", simple: true };
+        }
+    }
+    
+    // 🎯 Smart Day 7 Reset Logic
+    async executeSmartReset(userId, resetAmount) {
+        try {
+            console.log(`🤖 Executing smart reset for user ${userId}, amount: $${resetAmount}`);
+            
+            // Get AI recommendation for reset
+            const shouldReset = await this.ai.shouldExecuteReset({
+                userId: userId,
+                amount: resetAmount,
+                dayType: 'reset_day'
+            });
+            
+            if (shouldReset.decision === 'NO') {
+                return {
+                    success: false,
+                    message: `AI recommends waiting: ${shouldReset.reasoning}`,
+                    wait_days: shouldReset.wait_days || 1,
+                    ai_decision: true
+                };
+            }
+            
+            // Get smart allocation
+            const allocation = await this.getSmartAllocation(resetAmount, 'moderate', 7);
+            
+            // Format for user display
+            const display = this.helper.formatDisplay(allocation);
+            
+            return {
+                success: true,
+                allocation: allocation,
+                display: display,
+                ai_powered: allocation.ai_used,
+                message: this.formatResetMessage(allocation, display)
+            };
+            
+        } catch (error) {
+            console.error('Smart reset failed:', error);
+            return this.getFallbackReset(resetAmount);
+        }
+    }
+    
+    // 📱 Format Reset Message for Telegram
+    formatResetMessage(allocation, display) {
+        const aiEmoji = allocation.ai_used ? "🤖 AI-Powered" : "📊 Standard";
+        
+        return `${aiEmoji} Day 7 Reset Complete! 🎉
+
+💰 **Your Smart Allocation:**
+
+📈 **Stocks**: ${display.summary.stocks}
+🏦 **Bonds**: ${display.summary.bonds}  
+💵 **Cash**: ${display.summary.cash}
+₿ **Crypto**: ${display.summary.crypto}
+
+🧠 **AI Analysis**: ${allocation.reasoning || 'Balanced approach for steady growth'}
+
+📊 **Confidence**: ${allocation.confidence || 75}%
+
+🎯 **Next Steps**: Continue building your wealth with disciplined investing!`;
+    }
+    
+    // 🔧 Fallback Functions
+    getFallbackAllocation(amount, risk) {
+        const allocations = {
+            conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
+            moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
+            aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
+        };
+        
+        const chosen = allocations[risk] || allocations.moderate;
+        
+        return {
+            stocks_percent: chosen.stocks,
+            bonds_percent: chosen.bonds,
+            cash_percent: chosen.cash,
+            crypto_percent: chosen.crypto,
+            stocks_amount: amount * (chosen.stocks / 100),
+            bonds_amount: amount * (chosen.bonds / 100),
+            cash_amount: amount * (chosen.cash / 100),
+            crypto_amount: amount * (chosen.crypto / 100),
+            reasoning: `Fallback ${risk} allocation`,
+            confidence: 70,
+            ai_used: false
+        };
+    }
+    
+    getFallbackReset(amount) {
+        const allocation = this.getFallbackAllocation(amount, 'moderate');
+        const display = this.helper.formatDisplay(allocation);
+        
+        return {
+            success: true,
+            allocation: allocation,
+            display: display,
+            ai_powered: false,
+            message: this.formatResetMessage(allocation, display)
+        };
+    }
+    
+    simplifyForUsers(analysis) {
+        // Simplify complex AI analysis for regular users
+        const sentiment = analysis.market_sentiment || 'NEUTRAL';
+        const volatility = analysis.volatility_level || 'MODERATE';
+        
+        if (sentiment === 'BULLISH' && volatility === 'LOW') {
+            return "Great time to stick to your investment plan! 📈";
+        } else if (sentiment === 'BEARISH' || volatility === 'HIGH') {
+            return "Stay calm and keep building your emergency fund 🛡️";
+        } else {
+            return "Perfect time to focus on consistent habits 🎯";
+        }
+    }
+    
+    // 📊 Get AI Status for Admin
+    getAIStatus() {
+        return {
+            enabled: this.aiEnabled,
+            service_status: this.ai.getStatus(),
+            last_check: new Date().toISOString()
+        };
+    }
+}
+
+// Initialize Smart Money Flow
+const smartFlow = new SmartMoneyFlow(db, aiService, aiHelper);
+
+console.log(`🎯 Smart Money Flow initialized - AI ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
+
+// Test AI connection on startup
+if (aiAvailable) {
+    aiService.testConnection()
+        .then(result => {
+            if (result.success) {
+                console.log("✅ AI connection test successful");
+            } else {
+                console.log("⚠️ AI connection test failed:", result.message);
+            }
+        })
+        .catch(err => console.log("⚠️ AI test error:", err.message));
+}
+
 // Database Models (embedded for Railway deployment)
 class User {
   static async findOne(condition) {
