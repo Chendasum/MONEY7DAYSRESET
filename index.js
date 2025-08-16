@@ -472,6 +472,7 @@ Provide JSON format:
             confidence: 70,
             ai_used: false
         };
+        };
     }
     
     getFallbackReset(amount) {
