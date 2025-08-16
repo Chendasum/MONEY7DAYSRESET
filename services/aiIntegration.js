@@ -1,431 +1,510 @@
-// 🤖 AI Integration Service for MONEY7DAYSRESET
+// 🤖 Enhanced AI Integration Service for MONEY7DAYSRESET
 // Connects your money flow bot to the IMPERIUM-VAULT-SYSTEM dual AI
 
 const path = require('path');
 
-// 🔧 SAFE AI SYSTEM CONNECTION
-let aiSystem = null;
+// 🔧 ENHANCED AI SYSTEM CONNECTION
+let dualAISystem = null;
+let claudeClient = null;
+let openaiClient = null;
+let cashFlowOptimizer = null;
+let portfolioOptimizer = null;
+let riskManager = null;
+let wealthTracker = null;
 let aiAvailable = false;
 
 try {
-    // Try to connect to your dual AI system
-    // Adjust this path to match your setup
-    aiSystem = require('../../IMPERIUM-VAULT-SYSTEM/utils/dualAISystem');
+    // Connect to your IMPERIUM-VAULT-SYSTEM modules
+    const basePath = '../../IMPERIUM-VAULT-SYSTEM/utils';
+    
+    dualAISystem = require(path.join(basePath, 'dualAISystem'));
+    claudeClient = require(path.join(basePath, 'claudeClient'));
+    openaiClient = require(path.join(basePath, 'openaiClient'));
+    cashFlowOptimizer = require(path.join(basePath, 'cashFlowOptimizer'));
+    portfolioOptimizer = require(path.join(basePath, 'portfolioOptimizer'));
+    riskManager = require(path.join(basePath, 'riskManager'));
+    wealthTracker = require(path.join(basePath, 'wealthTracker'));
+    
     aiAvailable = true;
-    console.log('✅ AI System connected to MONEY7DAYSRESET');
+    console.log('✅ IMPERIUM-VAULT-SYSTEM connected to MONEY7DAYSRESET');
+    console.log('🔗 Available modules:', {
+        dualAI: !!dualAISystem,
+        claude: !!claudeClient,
+        openai: !!openaiClient,
+        cashFlow: !!cashFlowOptimizer,
+        portfolio: !!portfolioOptimizer,
+        risk: !!riskManager,
+        wealth: !!wealthTracker
+    });
 } catch (error) {
-    console.log('⚠️ AI System not available, using fallback logic');
+    console.log('⚠️ IMPERIUM-VAULT-SYSTEM not available, using fallback logic');
     console.log('Error:', error.message);
     aiAvailable = false;
 }
 
-class AIIntegrationService {
+class EnhancedAIIntegrationService {
     constructor() {
         this.isAIAvailable = aiAvailable;
         this.fallbackMode = !aiAvailable;
+        this.modules = {
+            dualAI: dualAISystem,
+            claude: claudeClient,
+            openai: openaiClient,
+            cashFlow: cashFlowOptimizer,
+            portfolio: portfolioOptimizer,
+            risk: riskManager,
+            wealth: wealthTracker
+        };
     }
 
-    // 🧠 GET SMART ALLOCATION RECOMMENDATIONS
-    async getSmartAllocation(amount, riskLevel = 'moderate', userPreferences = {}) {
+    // 🧠 SMART MONEY FLOW ANALYSIS FOR 7-DAY PROGRAM
+    async analyzeDayProgress(userId, dayNumber, userInput) {
         if (!this.isAIAvailable) {
-            return this.getFallbackAllocation(amount, riskLevel);
+            return this.getFallbackDayAnalysis(dayNumber, userInput);
         }
 
         try {
             const prompt = `
-MONEY FLOW ALLOCATION ANALYSIS:
+7-DAY MONEY FLOW RESET™ - DAY ${dayNumber} ANALYSIS:
 
-Amount to allocate: $${amount.toLocaleString()}
-Risk tolerance: ${riskLevel}
-Current market analysis needed for 7-day money flow reset.
+User Input: "${userInput}"
+Current Day: ${dayNumber}
+Program Context: Cambodia financial coaching in Khmer language
+
+Analyze this user's progress and provide:
+1. Personalized feedback on their day ${dayNumber} work
+2. Specific actionable advice for improvement
+3. Encouragement in Khmer language style
+4. Next steps preparation
 
 REQUIRED OUTPUT FORMAT:
 {
-    "stocks_percent": [number],
-    "bonds_percent": [number], 
-    "cash_percent": [number],
-    "crypto_percent": [number],
-    "stocks_amount": [dollar amount],
-    "bonds_amount": [dollar amount],
-    "cash_amount": [dollar amount],
-    "crypto_amount": [dollar amount],
-    "reasoning": "[explanation]",
-    "risk_level": "[LOW/MODERATE/HIGH]",
-    "confidence": [0-100]
+    "feedback": "[personalized feedback in English]",
+    "khmer_encouragement": "[motivational message in Khmer]",
+    "actionable_advice": ["tip1", "tip2", "tip3"],
+    "money_insights": "[specific money flow insights]",
+    "next_day_prep": "[preparation advice]",
+    "confidence_score": [0-100]
 }
 
-Consider:
-- Current market volatility
-- Economic indicators
-- Optimal risk-adjusted returns
-- 7-day time horizon
-- Market regime analysis
-
-Provide specific dollar amounts and percentages for each asset class.
+Focus on practical Cambodia context and money management.
             `;
 
-            const response = await aiSystem.getUniversalAnalysis(prompt, {
+            const response = await this.modules.dualAI.getUniversalAnalysis(prompt, {
                 maxTokens: 800,
                 temperature: 0.3
             });
 
-            return this.parseAIAllocation(response, amount);
+            return this.parseDayAnalysis(response, dayNumber);
+
+        } catch (error) {
+            console.error('AI day analysis failed:', error.message);
+            return this.getFallbackDayAnalysis(dayNumber, userInput);
+        }
+    }
+
+    // 💰 SMART MONEY ALLOCATION FOR CAMBODIAN CONTEXT
+    async getSmartAllocation(amount, userProfile = {}) {
+        if (!this.isAIAvailable) {
+            return this.getFallbackAllocation(amount, 'moderate');
+        }
+
+        try {
+            const prompt = `
+CAMBODIAN MONEY FLOW ALLOCATION:
+
+Amount: $${amount}
+User Profile: ${JSON.stringify(userProfile)}
+Context: Cambodia financial management, local market conditions
+
+Provide allocation considering:
+- Cambodia banking system (ABA, ACLEDA)
+- Local investment opportunities
+- Risk tolerance for Cambodia context
+- Currency stability factors
+
+REQUIRED OUTPUT FORMAT:
+{
+    "local_savings_percent": [number],
+    "usd_savings_percent": [number], 
+    "emergency_fund_percent": [number],
+    "investment_percent": [number],
+    "local_savings_amount": [dollar amount],
+    "usd_savings_amount": [dollar amount],
+    "emergency_fund_amount": [dollar amount],
+    "investment_amount": [dollar amount],
+    "reasoning": "[Cambodia-specific explanation]",
+    "risk_level": "[LOW/MODERATE/HIGH]",
+    "cambodia_tips": ["tip1", "tip2", "tip3"],
+    "confidence": [0-100]
+}
+
+Consider Cambodia inflation, USD vs KHR, local opportunities.
+            `;
+
+            const response = await this.modules.cashFlow ? 
+                await this.modules.cashFlow.optimizeCashFlow(prompt) :
+                await this.modules.dualAI.getUniversalAnalysis(prompt, {
+                    maxTokens: 800,
+                    temperature: 0.3
+                });
+
+            return this.parseAllocation(response, amount);
 
         } catch (error) {
             console.error('AI allocation failed:', error.message);
-            return this.getFallbackAllocation(amount, riskLevel);
+            return this.getFallbackAllocation(amount, 'moderate');
         }
     }
 
-    // 🎯 SHOULD WE EXECUTE RESET TODAY?
-    async shouldExecuteReset(marketConditions, portfolioState) {
+    // 🎯 PERSONALIZED MONEY COACHING
+    async getPersonalizedCoaching(userId, currentProgress, userGoals) {
         if (!this.isAIAvailable) {
-            return this.getFallbackResetDecision();
+            return this.getFallbackCoaching(currentProgress);
         }
 
         try {
             const prompt = `
-MONEY FLOW RESET DECISION ANALYSIS:
+PERSONALIZED MONEY COACHING - 7-DAY PROGRAM:
 
-Market Conditions: ${JSON.stringify(marketConditions)}
-Portfolio State: ${JSON.stringify(portfolioState)}
+User Progress: ${JSON.stringify(currentProgress)}
+User Goals: ${JSON.stringify(userGoals)}
+Context: Cambodia money management coaching
 
-Should we execute the 7-day money flow reset today?
-
-REQUIRED OUTPUT FORMAT:
-{
-    "decision": "[YES/NO]",
-    "confidence": [0-100],
-    "reasoning": "[detailed explanation]",
-    "wait_days": [number if NO],
-    "risk_factors": ["factor1", "factor2"],
-    "opportunities": ["opportunity1", "opportunity2"]
-}
-
-Consider:
-- Market volatility and timing
-- Economic events this week
-- Portfolio performance
-- Risk management
-- Optimal entry points
-
-Provide clear YES/NO decision with reasoning.
-            `;
-
-            const response = await aiSystem.getUniversalAnalysis(prompt, {
-                maxTokens: 600,
-                temperature: 0.2
-            });
-
-            return this.parseResetDecision(response);
-
-        } catch (error) {
-            console.error('AI reset decision failed:', error.message);
-            return this.getFallbackResetDecision();
-        }
-    }
-
-    // 📊 GET MARKET ANALYSIS FOR CONTEXT
-    async getMarketAnalysis(context = {}) {
-        if (!this.isAIAvailable) {
-            return this.getFallbackMarketAnalysis();
-        }
-
-        try {
-            const prompt = `
-COMPREHENSIVE MARKET ANALYSIS FOR MONEY FLOW:
-
-Context: ${JSON.stringify(context)}
-
-Provide market analysis for money flow optimization:
+Provide personalized coaching that includes:
+1. Assessment of current progress
+2. Specific advice for their situation
+3. Cambodia-relevant examples
+4. Motivation in appropriate tone
 
 REQUIRED OUTPUT FORMAT:
 {
-    "market_sentiment": "[BULLISH/BEARISH/NEUTRAL]",
-    "volatility_level": "[LOW/MODERATE/HIGH]",
-    "economic_regime": "[GROWTH/RECESSION/TRANSITION]",
-    "key_risks": ["risk1", "risk2", "risk3"],
-    "opportunities": ["opp1", "opp2", "opp3"],
-    "asset_outlook": {
-        "stocks": "[POSITIVE/NEGATIVE/NEUTRAL]",
-        "bonds": "[POSITIVE/NEGATIVE/NEUTRAL]",
-        "crypto": "[POSITIVE/NEGATIVE/NEUTRAL]",
-        "cash": "[POSITIVE/NEGATIVE/NEUTRAL]"
-    },
-    "recommendation": "[detailed strategy]",
-    "timeframe": "[SHORT/MEDIUM/LONG]"
+    "progress_assessment": "[honest assessment]",
+    "specific_advice": ["advice1", "advice2", "advice3"],
+    "cambodia_examples": ["example1", "example2"],
+    "motivation_message": "[encouraging message]",
+    "next_focus_areas": ["area1", "area2"],
+    "success_probability": [0-100]
 }
 
-Focus on 7-day money flow implications and optimal positioning.
+Keep advice practical and Cambodia-relevant.
             `;
 
-            const response = await aiSystem.getDualAnalysis(prompt, {
+            const response = await this.modules.dualAI.getUniversalAnalysis(prompt, {
                 maxTokens: 1000,
                 temperature: 0.4
             });
 
-            return this.parseMarketAnalysis(response);
+            return this.parseCoaching(response);
 
         } catch (error) {
-            console.error('AI market analysis failed:', error.message);
-            return this.getFallbackMarketAnalysis();
+            console.error('AI coaching failed:', error.message);
+            return this.getFallbackCoaching(currentProgress);
         }
     }
 
-    // 💰 OPTIMIZE EXISTING ALLOCATION
-    async optimizeAllocation(currentAllocation, performance, market) {
-        if (!this.isAIAvailable) {
-            return this.getFallbackOptimization(currentAllocation);
+    // 📊 PORTFOLIO ANALYSIS FOR VIP USERS
+    async analyzePortfolio(userId, portfolioData, goals) {
+        if (!this.isAIAvailable || !this.modules.portfolio) {
+            return this.getFallbackPortfolioAnalysis();
         }
 
         try {
-            const prompt = `
-ALLOCATION OPTIMIZATION ANALYSIS:
-
-Current Allocation: ${JSON.stringify(currentAllocation)}
-Performance: ${JSON.stringify(performance)}
-Market Conditions: ${JSON.stringify(market)}
-
-Optimize this allocation for better risk-adjusted returns:
-
-REQUIRED OUTPUT FORMAT:
-{
-    "optimized_allocation": {
-        "stocks_percent": [number],
-        "bonds_percent": [number],
-        "cash_percent": [number],
-        "crypto_percent": [number]
-    },
-    "changes_needed": [
-        {"from": "asset", "to": "asset", "amount": [number], "reason": "explanation"}
-    ],
-    "expected_improvement": "[percentage]",
-    "risk_reduction": "[percentage]",
-    "reasoning": "[detailed explanation]",
-    "implementation_priority": "[HIGH/MEDIUM/LOW]"
-}
-
-Focus on practical improvements for 7-day money flow cycles.
-            `;
-
-            const response = await aiSystem.getUniversalAnalysis(prompt, {
-                maxTokens: 800,
-                temperature: 0.3
+            const analysis = await this.modules.portfolio.analyzePortfolio({
+                ...portfolioData,
+                userId,
+                goals,
+                context: 'Cambodia VIP Capital Strategy'
             });
 
-            return this.parseOptimization(response);
+            return {
+                analysis: analysis,
+                recommendations: await this.getPortfolioRecommendations(analysis),
+                cambodia_context: this.getCambodiaPortfolioTips(),
+                ai_used: true
+            };
 
         } catch (error) {
-            console.error('AI optimization failed:', error.message);
-            return this.getFallbackOptimization(currentAllocation);
+            console.error('Portfolio analysis failed:', error.message);
+            return this.getFallbackPortfolioAnalysis();
         }
     }
 
-    // 🔧 FALLBACK FUNCTIONS (when AI unavailable)
-    getFallbackAllocation(amount, riskLevel) {
-        console.log('🔄 Using fallback allocation logic');
-        
-        let allocation;
-        switch (riskLevel.toLowerCase()) {
-            case 'conservative':
-                allocation = { stocks: 0.3, bonds: 0.6, cash: 0.1, crypto: 0.0 };
-                break;
-            case 'aggressive':
-                allocation = { stocks: 0.7, bonds: 0.2, cash: 0.05, crypto: 0.05 };
-                break;
-            default: // moderate
-                allocation = { stocks: 0.5, bonds: 0.4, cash: 0.08, crypto: 0.02 };
+    // 🚨 RISK ASSESSMENT FOR MONEY DECISIONS
+    async assessRisk(decision, amount, userProfile) {
+        if (!this.isAIAvailable || !this.modules.risk) {
+            return this.getFallbackRiskAssessment();
         }
 
+        try {
+            const riskAnalysis = await this.modules.risk.assessRisk({
+                decision,
+                amount,
+                userProfile,
+                context: 'Cambodia financial decision'
+            });
+
+            return {
+                risk_level: riskAnalysis.riskLevel,
+                risk_factors: riskAnalysis.factors,
+                mitigation_strategies: riskAnalysis.mitigation,
+                cambodia_considerations: this.getCambodiaRiskFactors(),
+                recommendation: riskAnalysis.recommendation,
+                ai_used: true
+            };
+
+        } catch (error) {
+            console.error('Risk assessment failed:', error.message);
+            return this.getFallbackRiskAssessment();
+        }
+    }
+
+    // 💎 WEALTH TRACKING FOR PREMIUM/VIP
+    async trackWealth(userId, wealthData) {
+        if (!this.isAIAvailable || !this.modules.wealth) {
+            return this.getFallbackWealthTracking();
+        }
+
+        try {
+            const tracking = await this.modules.wealth.trackWealth({
+                userId,
+                ...wealthData,
+                context: 'Cambodia wealth building'
+            });
+
+            return {
+                current_status: tracking.status,
+                growth_analysis: tracking.growth,
+                projections: tracking.projections,
+                cambodia_opportunities: this.getCambodiaWealthTips(),
+                ai_insights: tracking.insights,
+                ai_used: true
+            };
+
+        } catch (error) {
+            console.error('Wealth tracking failed:', error.message);
+            return this.getFallbackWealthTracking();
+        }
+    }
+
+    // 🔧 PARSING METHODS
+    parseDayAnalysis(response, dayNumber) {
+        try {
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return { ...parsed, ai_used: true, day: dayNumber };
+            }
+
+            return this.parseTextDayAnalysis(response, dayNumber);
+
+        } catch (error) {
+            console.warn('Day analysis parsing failed:', error.message);
+            return this.getFallbackDayAnalysis(dayNumber, '');
+        }
+    }
+
+    parseAllocation(response, totalAmount) {
+        try {
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return { ...parsed, ai_used: true, total_amount: totalAmount };
+            }
+
+            return this.parseTextAllocation(response, totalAmount);
+
+        } catch (error) {
+            console.warn('Allocation parsing failed:', error.message);
+            return this.getFallbackAllocation(totalAmount, 'moderate');
+        }
+    }
+
+    parseCoaching(response) {
+        try {
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return { ...JSON.parse(jsonMatch[0]), ai_used: true };
+            }
+
+            return { 
+                progress_assessment: response.substring(0, 200),
+                specific_advice: ['Follow program daily', 'Track expenses', 'Ask questions'],
+                motivation_message: 'Continue your great progress!',
+                ai_used: true 
+            };
+
+        } catch (error) {
+            return this.getFallbackCoaching({});
+        }
+    }
+
+    // 🔧 FALLBACK METHODS (when AI unavailable)
+    getFallbackDayAnalysis(dayNumber, userInput) {
+        const dayMessages = {
+            1: 'Great start! Focus on understanding your money flow patterns.',
+            2: 'Good progress! Look for those money leaks we discussed.',
+            3: 'Excellent work! Your system evaluation will reveal key insights.',
+            4: 'Fantastic! Income mapping is crucial for success.',
+            5: 'Amazing progress! Balance is the key to financial growth.',
+            6: 'Outstanding! Your action plan will drive real results.',
+            7: 'Congratulations! You\'ve mastered the money flow system!'
+        };
+
         return {
-            stocks_percent: allocation.stocks * 100,
-            bonds_percent: allocation.bonds * 100,
-            cash_percent: allocation.cash * 100,
-            crypto_percent: allocation.crypto * 100,
-            stocks_amount: amount * allocation.stocks,
-            bonds_amount: amount * allocation.bonds,
-            cash_amount: amount * allocation.cash,
-            crypto_amount: amount * allocation.crypto,
-            reasoning: `Fallback allocation for ${riskLevel} risk profile`,
+            feedback: dayMessages[dayNumber] || 'Keep up the excellent work!',
+            khmer_encouragement: 'អ្នកកំពុងធ្វើបានល្អ! បន្តទៅ! 💪',
+            actionable_advice: [
+                'Review today\'s lesson carefully',
+                'Complete all exercises',
+                'Apply what you learned immediately'
+            ],
+            money_insights: 'Focus on practical application of today\'s concepts',
+            next_day_prep: 'Prepare for tomorrow\'s lesson by reviewing notes',
+            confidence_score: 75,
+            ai_used: false
+        };
+    }
+
+    getFallbackAllocation(amount, riskLevel) {
+        const allocations = {
+            conservative: { local: 40, usd: 30, emergency: 25, investment: 5 },
+            moderate: { local: 30, usd: 35, emergency: 20, investment: 15 },
+            aggressive: { local: 20, usd: 30, emergency: 15, investment: 35 }
+        };
+
+        const allocation = allocations[riskLevel] || allocations.moderate;
+
+        return {
+            local_savings_percent: allocation.local,
+            usd_savings_percent: allocation.usd,
+            emergency_fund_percent: allocation.emergency,
+            investment_percent: allocation.investment,
+            local_savings_amount: amount * (allocation.local / 100),
+            usd_savings_amount: amount * (allocation.usd / 100),
+            emergency_fund_amount: amount * (allocation.emergency / 100),
+            investment_amount: amount * (allocation.investment / 100),
+            reasoning: `Fallback ${riskLevel} allocation for Cambodia context`,
             risk_level: riskLevel.toUpperCase(),
+            cambodia_tips: [
+                'Use ABA/ACLEDA for local savings',
+                'Keep some USD for stability',
+                'Build emergency fund first'
+            ],
             confidence: 70,
             ai_used: false
         };
     }
 
-    getFallbackResetDecision() {
+    getFallbackCoaching(progress) {
         return {
-            decision: 'YES',
-            confidence: 75,
-            reasoning: 'Fallback logic: proceeding with standard 7-day reset',
-            wait_days: 0,
-            risk_factors: ['AI system unavailable'],
-            opportunities: ['Maintaining regular flow schedule'],
+            progress_assessment: 'You are making steady progress through the program',
+            specific_advice: [
+                'Continue following the daily lessons',
+                'Apply the concepts to your real situation',
+                'Ask questions when you need help'
+            ],
+            cambodia_examples: [
+                'Like saving for Pchum Ben expenses',
+                'Planning for seasonal business income'
+            ],
+            motivation_message: 'Your dedication to improving your finances will pay off!',
+            next_focus_areas: ['Daily tracking', 'Expense reduction'],
+            success_probability: 80,
             ai_used: false
         };
     }
 
-    getFallbackMarketAnalysis() {
+    getFallbackPortfolioAnalysis() {
         return {
-            market_sentiment: 'NEUTRAL',
-            volatility_level: 'MODERATE',
-            economic_regime: 'TRANSITION',
-            key_risks: ['AI system unavailable', 'Limited market insight'],
-            opportunities: ['Consistent allocation strategy'],
-            asset_outlook: {
-                stocks: 'NEUTRAL',
-                bonds: 'NEUTRAL', 
-                crypto: 'NEUTRAL',
-                cash: 'POSITIVE'
-            },
-            recommendation: 'Proceed with conservative balanced allocation',
-            timeframe: 'SHORT',
+            analysis: 'Basic portfolio review completed',
+            recommendations: ['Diversify investments', 'Review risk tolerance'],
+            cambodia_context: ['Consider local market conditions', 'Currency diversification'],
             ai_used: false
         };
     }
 
-    getFallbackOptimization(currentAllocation) {
+    getFallbackRiskAssessment() {
         return {
-            optimized_allocation: currentAllocation,
-            changes_needed: [],
-            expected_improvement: '0%',
-            risk_reduction: '0%',
-            reasoning: 'AI optimization unavailable, maintaining current allocation',
-            implementation_priority: 'LOW',
-            ai_used: false
-        };
-    }
-
-    // 🔧 AI RESPONSE PARSING METHODS
-    parseAIAllocation(response, totalAmount) {
-        try {
-            // Try to extract JSON from AI response
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                return { ...parsed, ai_used: true };
-            }
-
-            // Fallback parsing for non-JSON responses
-            return this.parseTextAllocation(response, totalAmount);
-
-        } catch (error) {
-            console.warn('AI response parsing failed:', error.message);
-            return this.getFallbackAllocation(totalAmount, 'moderate');
-        }
-    }
-
-    parseTextAllocation(text, totalAmount) {
-        // Extract percentages from text
-        const stocksMatch = text.match(/stocks?[:\s]*(\d+)%/i);
-        const bondsMatch = text.match(/bonds?[:\s]*(\d+)%/i);
-        const cashMatch = text.match(/cash[:\s]*(\d+)%/i);
-        const cryptoMatch = text.match(/crypto[:\s]*(\d+)%/i);
-
-        const stocks = stocksMatch ? parseInt(stocksMatch[1]) : 50;
-        const bonds = bondsMatch ? parseInt(bondsMatch[1]) : 40;
-        const cash = cashMatch ? parseInt(cashMatch[1]) : 8;
-        const crypto = cryptoMatch ? parseInt(cryptoMatch[1]) : 2;
-
-        return {
-            stocks_percent: stocks,
-            bonds_percent: bonds,
-            cash_percent: cash,
-            crypto_percent: crypto,
-            stocks_amount: totalAmount * (stocks / 100),
-            bonds_amount: totalAmount * (bonds / 100),
-            cash_amount: totalAmount * (cash / 100),
-            crypto_amount: totalAmount * (crypto / 100),
-            reasoning: 'Parsed from AI text response',
             risk_level: 'MODERATE',
-            confidence: 80,
-            ai_used: true
+            risk_factors: ['Market volatility', 'Currency fluctuation'],
+            mitigation_strategies: ['Diversification', 'Emergency fund'],
+            cambodia_considerations: ['USD/KHR exchange rates', 'Local economic factors'],
+            recommendation: 'Proceed with caution and proper planning',
+            ai_used: false
         };
     }
 
-    parseResetDecision(response) {
-        try {
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                return { ...JSON.parse(jsonMatch[0]), ai_used: true };
-            }
-
-            // Simple text parsing
-            const decision = response.toLowerCase().includes('yes') ? 'YES' : 'NO';
-            return {
-                decision: decision,
-                confidence: 80,
-                reasoning: response.substring(0, 200),
-                wait_days: decision === 'NO' ? 1 : 0,
-                risk_factors: [],
-                opportunities: [],
-                ai_used: true
-            };
-
-        } catch (error) {
-            return this.getFallbackResetDecision();
-        }
+    getFallbackWealthTracking() {
+        return {
+            current_status: 'Building wealth steadily',
+            growth_analysis: 'Positive trajectory with room for improvement',
+            projections: 'Continue current strategy for steady growth',
+            cambodia_opportunities: ['Real estate', 'Local business investment'],
+            ai_insights: ['Stay consistent', 'Monitor progress monthly'],
+            ai_used: false
+        };
     }
 
-    parseMarketAnalysis(response) {
-        try {
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                return { ...JSON.parse(jsonMatch[0]), ai_used: true };
-            }
-
-            return { ...this.getFallbackMarketAnalysis(), reasoning: response, ai_used: true };
-
-        } catch (error) {
-            return this.getFallbackMarketAnalysis();
-        }
+    // 🇰🇭 CAMBODIA-SPECIFIC HELPERS
+    getCambodiaPortfolioTips() {
+        return [
+            'Consider Cambodia real estate opportunities',
+            'Diversify between USD and KHR assets',
+            'Look into ASEAN market opportunities',
+            'Keep emergency fund in stable currency'
+        ];
     }
 
-    parseOptimization(response) {
-        try {
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                return { ...JSON.parse(jsonMatch[0]), ai_used: true };
-            }
-
-            return { ...this.getFallbackOptimization({}), reasoning: response, ai_used: true };
-
-        } catch (error) {
-            return this.getFallbackOptimization({});
-        }
+    getCambodiaRiskFactors() {
+        return [
+            'Currency exchange rate volatility',
+            'Seasonal business income variations',
+            'Political stability considerations',
+            'Regional economic developments'
+        ];
     }
 
-    // 🔍 SYSTEM STATUS
+    getCambodiaWealthTips() {
+        return [
+            'Property investment in growing areas',
+            'Small business opportunities',
+            'Education and skill development',
+            'Network building for opportunities'
+        ];
+    }
+
+    // 🔍 SYSTEM STATUS AND TESTING
     getStatus() {
         return {
             ai_available: this.isAIAvailable,
             fallback_mode: this.fallbackMode,
-            system_version: '1.0.0',
+            connected_modules: Object.keys(this.modules).filter(key => !!this.modules[key]),
+            system_version: '2.0.0',
             last_check: new Date().toISOString()
         };
     }
 
-    // 🧪 TEST AI CONNECTION
     async testConnection() {
         if (!this.isAIAvailable) {
-            return { success: false, message: 'AI system not available' };
+            return { success: false, message: 'IMPERIUM-VAULT-SYSTEM not available' };
         }
 
         try {
-            const response = await aiSystem.getUniversalAnalysis('Test connection', { maxTokens: 50 });
+            const response = await this.modules.dualAI.getUniversalAnalysis('Test connection for MONEY7DAYSRESET integration', { maxTokens: 50 });
             return { 
                 success: true, 
-                message: 'AI connection successful',
+                message: 'IMPERIUM-VAULT-SYSTEM connection successful',
                 response: response.substring(0, 100)
             };
         } catch (error) {
             return { 
                 success: false, 
-                message: 'AI connection failed: ' + error.message 
+                message: 'Connection test failed: ' + error.message 
             };
         }
     }
 }
 
 // Export singleton instance
-module.exports = new AIIntegrationService();
+module.exports = new EnhancedAIIntegrationService();
