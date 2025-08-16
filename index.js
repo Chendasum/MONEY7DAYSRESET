@@ -1094,7 +1094,7 @@ ${allocation.ai_used ? '✨ Powered by AI' : '🧠 Smart Analysis'}`;
             emergency_fund_percent: chosen.emergency,
             investment_percent: chosen.investment,
             local_savings_amount: Math.round(amount * (chosen.
-
+                                                       
 // Enhanced message sending function with better chunking for Khmer content
 async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
   try {
