@@ -1566,6 +1566,492 @@ function getExtendedDayContent(day) {
 📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
 }
 
+// 🤖 AI COMMAND HANDLERS FOR YOUR BOT
+// Add these command handlers to your bot after your existing commands
+
+// ===== AI COMMAND HANDLERS =====
+
+// 🤖 Check AI system status
+bot.onText(/\/ai_status/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    // Check if user has access (you can adjust this based on your access control)
+    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
+    if (!userResult.length || !userResult[0].is_paid) {
+      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
+    }
+
+    const status = smartFlow.getAIStatus();
+    const testResult = await smartFlow.testAIConnection();
+
+    const statusMessage = `🤖 **AI System Status**
+
+🔌 **Connection:** ${status.enabled ? '✅ Connected' : '❌ Disconnected'}
+🔄 **Mode:** ${status.fallback_mode ? 'Fallback' : 'AI Active'}
+📊 **Version:** ${status.service_status.system_version || '1.0.0'}
+⏰ **Last Check:** ${new Date(status.last_check).toLocaleString()}
+
+🧪 **Test Result:**
+${testResult.success ? '✅' : '❌'} ${testResult.message}
+
+${status.enabled ? 
+  '🎯 AI system កំពុងជួយបង្កើនប្រសិទ្ធភាពការសម្រេចចិត្តហិរញ្ញវត្ថុរបស់អ្នក!' : 
+  '⚠️ កំពុងប្រើប្រព័ន្ធបំពេញខណៈពេល AI reconnects'}
+
+💡 ប្រើ /ai_help ដើម្បីមើលពាក្យបញ្ជា AI ទាំងអស់។`;
+
+    await bot.sendMessage(chatId, statusMessage);
+  } catch (error) {
+    console.error('AI status error:', error);
+    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការពិនិត្យ AI system។');
+  }
+});
+
+// 💰 Smart AI allocation recommendation
+bot.onText(/\/smart_allocation (\d+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const amount = parseInt(match[1]);
+
+  try {
+    // Check user access
+    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
+    if (!userResult.length || !userResult[0].is_paid) {
+      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
+    }
+
+    if (amount < 100 || amount > 1000000) {
+      return await bot.sendMessage(chatId, '❌ សូមបញ្ចូលចំនួនលុយចន្លោះ $100 - $1,000,000');
+    }
+
+    await bot.sendMessage(chatId, '🤖 AI កំពុងវិភាគការបែងចែកលុយល្អបំផុតសម្រាប់អ្នក...');
+
+    // Get AI allocation recommendation
+    const allocation = await smartFlow.getSmartAllocation(amount, 'moderate');
+    const formatted = aiHelper.formatDisplay(allocation);
+
+    const allocationMessage = `💡 **AI Smart Allocation សម្រាប់ $${amount.toLocaleString()}**
+
+📊 **ការណែនាំ:**
+• 📈 Stocks: ${formatted.summary.stocks}
+• 🏛️ Bonds: ${formatted.summary.bonds}
+• 💵 Cash: ${formatted.summary.cash}
+• ₿ Crypto: ${formatted.summary.crypto}
+
+📋 **សរុប:** $${formatted.total_amount}
+
+🎯 **ការវាយតម្លៃហានិភ័យ:**
+• កម្រិត: ${formatted.risk_info.risk_level}
+• ពិន្ទុ: ${formatted.risk_info.risk_score}/100
+
+🤖 **AI ទំនុកចិត្ត:** ${formatted.ai_confidence}%
+
+💭 **ហេតុផល:** ${formatted.reasoning}
+
+${allocation.ai_used ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
+
+💡 **ចំណាំ:** នេះជាការណែនាំប៉ុណ្ណោះ។ សូមពិគ្រោះជាមួយអ្នកទីប្រឹក្សាហិរញ្ញវត្ថុមុនសម្រេចចិត្ត។
+
+🎯 ចង់ធ្វើតេស្ត reset? ប្រើ /simulate_reset ${amount}`;
+
+    await bot.sendMessage(chatId, allocationMessage);
+
+    // Track AI usage
+    console.log(`AI allocation generated for user ${userId}: $${amount}`);
+
+  } catch (error) {
+    console.error('Smart allocation error:', error);
+    await bot.sendMessage(chatId, `❌ មានបញ្ហាក្នុងការគណនា។ សូមសាកល្បងម្តងទៀត។`);
+  }
+});
+
+// 📊 AI market analysis
+bot.onText(/\/market_today/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    // Check user access
+    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
+    if (!userResult.length || !userResult[0].is_paid) {
+      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
+    }
+
+    await bot.sendMessage(chatId, '📊 AI កំពុងវិភាគទីផ្សារថ្ងៃនេះ...');
+
+    // Get AI market analysis
+    const analysis = await smartFlow.ai.getMarketAnalysis();
+
+    const marketMessage = `📊 **AI Market Analysis ថ្ងៃនេះ**
+
+🌡️ **អារម្មណ៍ទីផ្សារ:** ${analysis.market_sentiment}
+📈 **កម្រិត Volatility:** ${analysis.volatility_level}
+🏛️ **Economic Regime:** ${analysis.economic_regime}
+
+⚠️ **ហានិភ័យសំខាន់ៗ:**
+${analysis.key_risks.map(risk => `• ${risk}`).join('\n')}
+
+🎯 **ឱកាស:**
+${analysis.opportunities.map(opp => `• ${opp}`).join('\n')}
+
+📋 **Asset Outlook:**
+• 📈 Stocks: ${analysis.asset_outlook.stocks}
+• 🏛️ Bonds: ${analysis.asset_outlook.bonds}
+• ₿ Crypto: ${analysis.asset_outlook.crypto}
+• 💵 Cash: ${analysis.asset_outlook.cash}
+
+💡 **ការណែនាំ:** ${analysis.recommendation}
+
+⏰ **Time Frame:** ${analysis.timeframe}
+
+${analysis.ai_used ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
+
+💡 **ចំណាំ:** ទីផ្សារមានការប្រែប្រួលរហ័ស។ សូមធ្វើការសិក្សាបន្ថែមមុនវិនិយោគ។`;
+
+    await bot.sendMessage(chatId, marketMessage);
+
+  } catch (error) {
+    console.error('Market analysis error:', error);
+    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការវិភាគទីផ្សារ។');
+  }
+});
+
+// 🧪 Simulate AI reset decision (VIP feature)
+bot.onText(/\/simulate_reset (\d+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const portfolioValue = parseInt(match[1]);
+
+  try {
+    // Check user access (VIP feature)
+    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
+    if (!userResult.length || !userResult[0].is_paid) {
+      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
+    }
+
+    const user = userResult[0];
+    if (user.tier !== 'vip' && !user.is_vip) {
+      return await bot.sendMessage(chatId, '👑 មុខងារ Reset Simulation ត្រូវការកម្រិត VIP។ ប្រើ /pricing ដើម្បីដំឡើងកម្រិត។');
+    }
+
+    if (portfolioValue < 1000 || portfolioValue > 10000000) {
+      return await bot.sendMessage(chatId, '❌ សូមបញ្ចូលតម្លៃ portfolio ចន្លោះ $1,000 - $10,000,000');
+    }
+
+    await bot.sendMessage(chatId, '🧪 AI កំពុងធ្វើការ simulate reset decision...');
+
+    // Execute smart reset simulation
+    const resetResult = await smartFlow.executeSmartReset(userId, portfolioValue);
+
+    if (!resetResult.success) {
+      const simulationMessage = `🧪 **AI Reset Simulation លទ្ធផល**
+
+📊 **Portfolio Value:** $${portfolioValue.toLocaleString()}
+
+🤖 **AI Decision:** ❌ មិនណែនាំ Reset ឥឡូវនេះ
+
+💭 **ហេតុផល:** ${resetResult.message}
+
+⏰ **រង់ចាំ:** ${resetResult.wait_days} ថ្ងៃ
+
+💡 **នេះជា simulation ប៉ុណ្ណោះ** - មិនធ្វើការផ្លាស់ប្តូរពិតប្រាកដទេ។`;
+
+      return await bot.sendMessage(chatId, simulationMessage);
+    }
+
+    const simulationMessage = `🧪 **AI Reset Simulation លទ្ធផល**
+
+📊 **Portfolio Value:** $${portfolioValue.toLocaleString()}
+
+🤖 **AI Decision:** ✅ Execute Reset
+
+💰 **ការណែនាំ Allocation:**
+• 📈 Stocks: ${resetResult.display.summary.stocks}
+• 🏛️ Bonds: ${resetResult.display.summary.bonds}
+• 💵 Cash: ${resetResult.display.summary.cash}
+• ₿ Crypto: ${resetResult.display.summary.crypto}
+
+🎯 **ទំនុកចិត្ត:** ${resetResult.allocation.confidence}%
+
+💭 **AI ហេតុផល:** ${resetResult.allocation.reasoning}
+
+${resetResult.ai_powered ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
+
+💡 **នេះជា simulation ប៉ុណ្ណោះ** - មិនធ្វើការផ្លាស់ប្តូរពិតប្រាកដទេ។
+
+🎯 ចង់ធ្វើការ allocation ពិត? ប្រើ /smart_allocation ${portfolioValue}`;
+
+    await bot.sendMessage(chatId, simulationMessage);
+
+  } catch (error) {
+    console.error('Simulation error:', error);
+    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការ simulate។');
+  }
+});
+
+// 📚 AI help system
+bot.onText(/\/ai_help/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  const helpMessage = `🤖 **AI Money Flow Commands**
+
+🔍 **ពិនិត្យ AI System:**
+• \`/ai_status\` - មើលស្ថានភាព AI
+
+💰 **AI Recommendations:**
+• \`/smart_allocation [amount]\` - ការណែនាំបែងចែកលុយ
+• \`/market_today\` - វិភាគទីផ្សារថ្ងៃនេះ
+
+🧪 **VIP Features:**
+• \`/simulate_reset [amount]\` - ធ្វើតេស្ត reset decision
+
+📊 **ឧទាហរណ៍:**
+• \`/smart_allocation 5000\` - AI allocation សម្រាប់ $5,000
+• \`/market_today\` - វិភាគទីផ្សារបច្ចុប្បន្ន
+• \`/simulate_reset 10000\` - ធ្វើតេស្ត reset logic
+
+🎯 **AI Features:**
+• Smart portfolio allocation
+• Market condition analysis  
+• Risk assessment
+• Automated reset decisions
+• Fallback protection
+
+💡 **ចំណាំ:** AI system ជួយបន្ថែមលើការសម្រេចចិត្តរបស់អ្នក ប៉ុន្តែមិនជំនួសការពិគ្រោះជាមួយអ្នកទីប្រឹក្សាទេ។
+
+🔒 **Access:** Essential+ សម្រាប់មុខងារមូលដ្ឋាន, VIP សម្រាប់ advanced features`;
+
+  await bot.sendMessage(chatId, helpMessage);
+});
+
+// ===== ENHANCED DAY 7 WITH AI INTEGRATION =====
+
+// Enhanced Day 7 with AI analysis (modify your existing /day7 command)
+bot.onText(/\/day7/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  try {
+    // Check user access
+    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
+    if (!userResult.length || !userResult[0].is_paid) {
+      return await bot.sendMessage(chatId, '🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។');
+    }
+
+    // Check if user completed day 6
+    const progressResult = await db.select().from(progress).where(eq(progress.user_id, userId));
+    if (!progressResult.length || !progressResult[0].day_6_completed) {
+      return await bot.sendMessage(chatId, '⚠️ សូមបញ្ចប់ថ្ងៃទី 6 មុន។ ប្រើ /day6');
+    }
+
+    // Send regular Day 7 content first (your existing content)
+    const day7Content = `🏆 **ថ្ងៃទី ៧: Money Flow Integration & Future Success**
+
+🎉 អបអរសាទរ! អ្នកបានដល់ថ្ងៃចុងក្រោយនៃកម្មវិធី 7-Day Money Flow Reset™!
+
+📊 **សេចក្តីសង្ខេបអ្វីដែលអ្នកបានរៀន:**
+• ថ្ងៃទី ១: ការស្គាល់ Money Flow របស់អ្នក
+• ថ្ងៃទី ២: ការរកឃើញ Money Leaks
+• ថ្ងៃទី ៣: ការវាយតម្លៃប្រព័ន្ធហិរញ្ញវត្ថុ
+• ថ្ងៃទី ៤: ការបង្កើតផែនទី Income & Cost
+• ថ្ងៃទី ៥: ការយល់ពី Survival vs Growth
+• ថ្ងៃទី ៦: ការបង្កើតផែនការសកម្មភាព
+
+🎯 **ថ្ងៃទី ៧: ការដាក់បញ្ចូលគ្នា និងភាពជោគជ័យអនាគត**
+
+💡 **សកម្មភាពសម្រាប់ថ្ងៃនេះ:**
+
+1️⃣ **ពិនិត្យមើលការរីកចម្រើន:**
+   • មើលវិញនូវ worksheet ទាំង ៦ ថ្ងៃកន្លងមក
+   • កត់ត្រាការផ្លាស់ប្តូរដែលអ្នកបានធ្វើ
+   • វាស់វែងលទ្ធផលដែលបានទទួល
+
+2️⃣ **បង្កើត Money Flow System ចុងក្រោយ:**
+   • រួមបញ្ចូលរាល់ឧបករណ៍ដែលបានរៀន
+   • កំណត់ schedule ពិនិត្យ monthly
+   • បង្កើតផែនការ maintenance
+
+3️⃣ **កំណត់គោលដៅអនាគត:**
+   • គោលដៅ 30 ថ្ងៃ
+   • គោលដៅ 90 ថ្ងៃ  
+   • គោលដៅ 1 ឆ្នាំ
+
+🔄 **ការធ្វើ Reset ចុងក្រោយ:**
+
+បើអ្នកមានចំនួនលុយដែលចង់ធ្វើ final reset, សូមបញ្ចូលចំនួន:
+
+ឧទាហរណ៍: $5,000 សម្រាប់ smart allocation ចុងក្រោយ
+
+💬 **សូមចុះឈ្មោះប្រាប់យើងអំពី:**
+• ការផ្លាស់ប្តូរធំបំផុតដែលអ្នកបានធ្វើ?
+• អ្វីដែលអ្នកនឹងបន្តធ្វើបន្ទាប់ពីនេះ?
+• តើអ្នកនឹងណែនាំកម្មវិធីនេះដល់មិត្តភក្តិទេ?
+
+🏆 អ្នកបានបញ្ចប់ដោយជោគជ័យ!`;
+
+    await bot.sendMessage(chatId, day7Content);
+
+    // Mark day 7 as completed
+    await db.update(progress)
+      .set({ 
+        day_7_completed: true,
+        program_completed: true,
+        program_completed_at: new Date(),
+        current_day: 7,
+        updated_at: new Date()
+      })
+      .where(eq(progress.user_id, userId));
+
+    // Add AI-enhanced completion analysis after a delay
+    setTimeout(async () => {
+      await bot.sendMessage(chatId, '🤖 AI កំពុងវិភាគការបញ្ចប់កម្មវិធីរបស់អ្នក...');
+
+      try {
+        // Get AI analysis of completion
+        const completionAnalysis = await smartFlow.getMarketContextForDay(7);
+
+        const aiCompletionMessage = `🎉 **AI Analysis - ការបញ្ចប់ជោគជ័យ!**
+
+🤖 **AI ការវាយតម្លៃ:** អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™ ដោយជោគជ័យ!
+
+📊 **ជំហានបន្ទាប់ដែល AI ណែនាំ:**
+• 📈 បន្តប្រើប្រាស់ system ដែលអ្នកបានរៀន
+• 💰 ចាប់ផ្តើម implement smart allocation
+• 📅 កំណត់ schedule ពិនិត្យ monthly  
+• 🎯 ពិចារណាការ upgrade skills
+
+🔮 **AI ការព្យាករ:** ជាមួយនឹងការអនុវត្តប្រកបដោយប្រសិទ្ធភាព អ្នកអាចឃើញការកែលម្អ financial stability ក្នុងរយៈពេល 30-90 ថ្ងៃ។
+
+💡 **Market Context:** ${completionAnalysis.simplified || completionAnalysis.advice}
+
+${completionAnalysis.ai_powered ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
+
+🏆 អបអរសាទរ! អ្នកឥឡូវមានឧបករណ៍ AI-powered សម្រាប់គ្រប់គ្រងលុយ!
+
+🤖 ចង់បានការណែនាំ smart allocation? ប្រើ /smart_allocation [amount]
+📊 ចង់ដឹងស្ថានភាពទីផ្សារ? ប្រើ /market_today`;
+
+        await bot.sendMessage(chatId, aiCompletionMessage);
+
+      } catch (error) {
+        console.error('AI completion analysis error:', error);
+        // Fallback message without AI
+        const fallbackMessage = `🏆 **ការបញ្ចប់ជោគជ័យ!**
+
+អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™ ដោយជោគជ័យ!
+
+🎯 **ជំហានបន្ទាប់:**
+• បន្តអនុវត្តអ្វីដែលបានរៀន
+• ធ្វើការពិនិត្យ monthly
+• កំណត់គោលដៅថ្មីៗ
+
+💪 អ្នកឥឡូវមានចំណេះដឹងគ្រប់គ្រាន់ដើម្បីគ្រប់គ្រងលុយបានល្អ!`;
+
+        await bot.sendMessage(chatId, fallbackMessage);
+      }
+    }, 5000);
+
+    console.log(`User ${userId} completed the 7-Day Money Flow Reset program!`);
+
+  } catch (error) {
+    console.error('Day 7 error:', error);
+    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការបញ្ចប់កម្មវិធី។ សូមសាកល្បងម្តងទៀត។');
+  }
+});
+
+// ===== AUTO-SUGGESTION SYSTEM =====
+
+// Auto-suggest AI features when users mention money amounts
+bot.on('message', async (msg) => {
+  if (!msg.text || msg.text.startsWith('/')) return;
+  
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const text = msg.text;
+
+  try {
+    // Check for money amounts in conversation
+    const moneyRegex = /\$(\d{1,3}(?:,\d{3})*|\d+)/g;
+    const matches = text.match(moneyRegex);
+
+    if (matches && matches.length > 0) {
+      // Check if user has access to AI features
+      const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
+      if (!userResult.length || !userResult[0].is_paid) return;
+
+      // Extract amount
+      const amount = parseInt(matches[0].replace(/[$,]/g, ''));
+      
+      // Only suggest for significant amounts
+      if (amount >= 1000) {
+        setTimeout(async () => {
+          const suggestionMessage = `💡 **AI Suggestion**
+
+ខ្ញុំកត់សម្គាល់ឃើញអ្នកនិយាយអំពី ${amount.toLocaleString()}។ 
+
+🤖 តើអ្នកចង់បាន AI smart allocation recommendation សម្រាប់ចំនួននេះទេ?
+
+ប្រើ: \`/smart_allocation ${amount}\`
+
+💭 ឬប្រសិនបើអ្នកចង់ដឹងពីស្ថានភាពទីផ្សារថ្ងៃនេះ: \`/market_today\``;
+
+          await bot.sendMessage(chatId, suggestionMessage);
+        }, 3000);
+      }
+    }
+  } catch (error) {
+    // Silently fail for auto-suggestions
+    console.error('Auto-suggestion error:', error);
+  }
+});
+
+// ===== ADMIN AI COMMANDS =====
+
+// Admin command to check AI status
+bot.onText(/\/admin_ai_status/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  // Check if user is admin (adjust this check based on your admin system)
+  if (userId.toString() !== process.env.ADMIN_USER_ID) {
+    return await bot.sendMessage(chatId, '🔒 Admin access required.');
+  }
+
+  try {
+    const status = smartFlow.getAIStatus();
+    const testResult = await smartFlow.testAIConnection();
+
+    const adminMessage = `🤖 **Admin AI Status Report**
+
+**System Status:**
+• AI Enabled: ${status.enabled ? '✅ Yes' : '❌ No'}
+• Fallback Mode: ${status.fallback_mode ? '✅ Active' : '❌ Inactive'}
+• Version: ${status.service_status.system_version}
+• Last Check: ${status.last_check}
+
+**Connection Test:**
+• Success: ${testResult.success ? '✅' : '❌'}
+• Message: ${testResult.message}
+
+**Service Details:**
+• AI Available: ${status.service_status.ai_available ? '✅' : '❌'}
+• Fallback Mode: ${status.service_status.fallback_mode ? '✅' : '❌'}
+
+**Performance:**
+• All features working: ${status.enabled ? 'AI-powered' : 'Fallback mode'}
+• User experience: Uninterrupted`;
+
+    await bot.sendMessage(chatId, adminMessage);
+
+  } catch (error) {
+    await bot.sendMessage(chatId, `❌ Error getting AI status: ${error.message}`);
+  }
+});
+
+console.log('✅ AI Command Handlers loaded successfully!');
+
 // ========================================
 // ADMIN COMMANDS - PART 3
 // ========================================
