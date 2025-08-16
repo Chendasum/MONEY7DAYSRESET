@@ -75,403 +75,218 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// 🤖 ENHANCED AI INTEGRATION FOR 7-DAY MONEY FLOW BOT
-console.log("🤖 Initializing Enhanced AI Integration...");
+// 🤖 AI INTEGRATION FOR 7-DAY MONEY FLOW BOT
+// Add this section after your database setup (around line 76)
 
-// AI Configuration
-const AI_CONFIG = {
-  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-  FALLBACK_MODE: true,
-  MAX_RETRIES: 3,
-  TIMEOUT: 30000
-};
+console.log("🤖 Initializing AI Integration for Smart Money Flow...");
 
-// Advanced AI Service Class
-class EnhancedAIService {
-    constructor() {
-        this.anthropic = null;
-        this.openai = null;
-        this.isClaudeAvailable = false;
-        this.isOpenAIAvailable = false;
-        this.fallbackMode = true;
-        
-        this.initializeAIClients();
+// Import AI services
+let aiService = null;
+let aiHelper = null;
+let aiAvailable = false;
+
+try {
+    // Try to import AI services
+    aiService = require('./services/aiIntegration');
+    aiHelper = require('./utils/aiHelper');
+    
+    console.log("✅ AI Integration loaded successfully");
+    aiAvailable = true;
+} catch (error) {
+    console.log("⚠️ AI Integration not available:", error.message);
+    console.log("📝 Bot will run in standard mode without AI features");
+    aiAvailable = false;
+    
+    // Create fallback AI service
+    aiService = {
+        getSmartAllocation: async (amount, risk) => ({
+            stocks_percent: 50, bonds_percent: 40, cash_percent: 8, crypto_percent: 2,
+            stocks_amount: amount * 0.5, bonds_amount: amount * 0.4, 
+            cash_amount: amount * 0.08, crypto_amount: amount * 0.02,
+            reasoning: "Fallback allocation - AI not available",
+            confidence: 70, ai_used: false
+        }),
+        shouldExecuteReset: async () => ({ 
+            decision: 'YES', confidence: 75, reasoning: 'Standard 7-day cycle', ai_used: false 
+        }),
+        getMarketAnalysis: async () => ({ 
+            market_sentiment: 'NEUTRAL', volatility_level: 'MODERATE',
+            recommendation: 'Standard balanced approach', ai_used: false 
+        }),
+        getStatus: () => ({ ai_available: false, fallback_mode: true })
+    };
+    
+    aiHelper = {
+        formatDisplay: (allocation) => ({
+            summary: {
+                stocks: `${allocation.stocks_percent}% ($${allocation.stocks_amount?.toLocaleString() || '0'})`,
+                bonds: `${allocation.bonds_percent}% ($${allocation.bonds_amount?.toLocaleString() || '0'})`,
+                cash: `${allocation.cash_percent}% ($${allocation.cash_amount?.toLocaleString() || '0'})`,
+                crypto: `${allocation.crypto_percent}% ($${allocation.crypto_amount?.toLocaleString() || '0'})`
+            },
+            ai_confidence: allocation.confidence || 'N/A'
+        }),
+        validateAllocation: (allocation, total) => ({ valid: true, allocation })
+    };
+}
+
+// Enhanced Money Flow Functions with AI Integration
+class SmartMoneyFlow {
+    constructor(db, aiService, aiHelper) {
+        this.db = db;
+        this.ai = aiService;
+        this.helper = aiHelper;
+        this.aiEnabled = aiAvailable;
     }
-
-    async initializeAIClients() {
-        console.log("🔧 Initializing AI clients...");
-        
-        // Try to initialize Claude/Anthropic
-        if (AI_CONFIG.ANTHROPIC_API_KEY) {
-            try {
-                const { Anthropic } = require('@anthropic-ai/sdk');
-                this.anthropic = new Anthropic({
-                    apiKey: AI_CONFIG.ANTHROPIC_API_KEY,
-                });
-                this.isClaudeAvailable = true;
-                this.fallbackMode = false;
-                console.log("✅ Claude API initialized successfully");
-            } catch (error) {
-                console.log("⚠️ Claude SDK not available:", error.message);
-            }
+    
+    // 🧠 AI-Enhanced Day Progression
+    async getSmartDayRecommendation(userId, currentDay, userProgress) {
+        if (!this.aiEnabled) {
+            return { proceed: true, reasoning: "Standard day progression" };
         }
-        
-        // Try to initialize OpenAI
-        if (AI_CONFIG.OPENAI_API_KEY) {
-            try {
-                const { OpenAI } = require('openai');
-                this.openai = new OpenAI({
-                    apiKey: AI_CONFIG.OPENAI_API_KEY,
-                });
-                this.isOpenAIAvailable = true;
-                this.fallbackMode = false;
-                console.log("✅ OpenAI API initialized successfully");
-            } catch (error) {
-                console.log("⚠️ OpenAI SDK not available:", error.message);
-            }
-        }
-        
-        if (!this.isClaudeAvailable && !this.isOpenAIAvailable) {
-            console.log("📝 No AI APIs available - using smart fallback mode");
-        }
-    }
-
-    // 📊 MARKET ANALYSIS (Working Version)
-    async getMarketAnalysis() {
-        const operation = "market_analysis";
-        console.log(`🤖 Starting ${operation}...`);
         
         try {
-            // Try Claude first
-            if (this.isClaudeAvailable) {
-                return await this.getClaudeMarketAnalysis();
-            }
-            
-            // Try OpenAI
-            if (this.isOpenAIAvailable) {
-                return await this.getOpenAIMarketAnalysis();
-            }
-            
-            // Use smart fallback
-            return await this.getSmartFallbackMarketAnalysis();
-            
-        } catch (error) {
-            console.error(`❌ ${operation} failed:`, error.message);
-            return this.getEmergencyMarketAnalysis();
-        }
-    }
-
-    async getClaudeMarketAnalysis() {
-        const prompt = `Provide today's Cambodia-focused market analysis. Include:
-
-1. Global market overview affecting Cambodia
-2. USD/KHR exchange rate trends and implications
-3. Key economic indicators for Cambodia
-4. Investment recommendations for Cambodians
-5. Risk factors to monitor
-6. Practical advice for the 7-Day Money Flow Reset program participants
-
-Format for Telegram mobile reading. Include key points in Khmer where relevant.
-Keep practical and actionable for everyday Cambodians managing their finances.`;
-
-        const message = await this.anthropic.messages.create({
-            model: "claude-3-sonnet-20240229",
-            max_tokens: 1500,
-            messages: [{ role: "user", content: prompt }]
-        });
-
-        return {
-            success: true,
-            source: 'claude',
-            analysis: message.content[0].text,
-            timestamp: new Date().toISOString()
-        };
-    }
-
-    async getOpenAIMarketAnalysis() {
-        const prompt = `Provide today's Cambodia-focused market analysis for 7-Day Money Flow Reset participants. Include:
-
-1. Global market overview affecting Cambodia
-2. USD/KHR exchange trends
-3. Investment tips for Cambodians
-4. Risk factors
-5. Practical money management advice
-
-Format for mobile Telegram. Include Khmer insights where helpful.`;
-
-        const completion = await this.openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 1500,
-            temperature: 0.3
-        });
-
-        return {
-            success: true,
-            source: 'openai',
-            analysis: completion.choices[0].message.content,
-            timestamp: new Date().toISOString()
-        };
-    }
-
-    async getSmartFallbackMarketAnalysis() {
-        const today = new Date();
-        const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-        const trends = this.generateMarketTrends();
-        const cambodiaInsights = this.generateCambodiaInsights();
-        
-        const analysis = `📊 **Smart Market Analysis - ${dayName}**
-
-🌍 **Global Market Overview:**
-${trends.global}
-
-🇰🇭 **Cambodia Market Focus:**
-${cambodiaInsights.local}
-
-💱 **USD/KHR Exchange:**
-• Current trend: ${trends.exchange}
-• Recommendation: ${cambodiaInsights.exchangeAdvice}
-
-💡 **7-Day Money Flow Tips:**
-${this.get7DayTips().join('\n')}
-
-📈 **Investment Guidance:**
-• Emergency fund: 3-6 months expenses (USD + KHR)
-• Local savings: ABA/ACLEDA accounts
-• Growth investments: Start small, be consistent
-• Education: Best investment for long-term
-
-⚠️ **Risk Management:**
-• Diversify currency exposure (USD/KHR)
-• Avoid FOMO investments
-• Stick to 7-day program fundamentals
-• Build before you invest
-
-🎯 **Today's Action Items:**
-• Complete today's Money Flow lesson
-• Track all expenses for 24 hours
-• Review emergency fund status
-• Practice money mindfulness
-
-💪 **Khmer Motivation:**
-"ការរៀនគ្រប់គ្រងលុយថ្ងៃនេះ នាំមកជោគជ័យថ្ងៃស្អែក!"
-
-Continue your 7-Day journey: /day1 through /day7
-
-*Analysis generated: ${today.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' })} Cambodia time*`;
-
-        return {
-            success: true,
-            source: 'smart_fallback',
-            analysis: analysis,
-            timestamp: today.toISOString()
-        };
-    }
-
-    generateMarketTrends() {
-        const globalTrends = [
-            "Markets showing mixed signals with tech sectors leading",
-            "Commodity prices stabilizing after recent volatility", 
-            "Central banks maintaining cautious monetary policies",
-            "Emerging markets attracting renewed investor interest",
-            "Digital transformation driving new investment opportunities"
-        ];
-        
-        const exchangeTrends = [
-            "Stable with minor fluctuations around 4,100 KHR/USD",
-            "Gradual strengthening trend favoring USD holders",
-            "Seasonal patterns supporting tourist-related businesses",
-            "Central bank interventions maintaining stability"
-        ];
-        
-        return {
-            global: globalTrends[Math.floor(Math.random() * globalTrends.length)],
-            exchange: exchangeTrends[Math.floor(Math.random() * exchangeTrends.length)]
-        };
-    }
-
-    generateCambodiaInsights() {
-        const localInsights = [
-            "• Real estate in Phnom Penh showing steady appreciation\n• Tourism sector gradually recovering post-pandemic\n• Agricultural exports maintaining strong demand",
-            "• Banking sector (ABA, ACLEDA) reporting solid growth\n• Small business sector adapting to digital payments\n• Infrastructure development creating new opportunities",
-            "• Retail sector showing resilience in urban areas\n• Technology adoption accelerating across age groups\n• Cross-border trade with Vietnam and Thailand expanding"
-        ];
-        
-        const exchangeAdvice = [
-            "Keep 60% savings in USD, 40% in KHR for daily expenses",
-            "Monitor rates for large transactions, time conversions wisely",
-            "Use bank rates rather than money changers for better deals",
-            "Consider USD for long-term savings, KHR for immediate needs"
-        ];
-        
-        return {
-            local: localInsights[Math.floor(Math.random() * localInsights.length)],
-            exchangeAdvice: exchangeAdvice[Math.floor(Math.random() * exchangeAdvice.length)]
-        };
-    }
-
-    get7DayTips() {
-        return [
-            "• Day 1-3: Focus on expense tracking and awareness",
-            "• Day 4-5: Identify money leaks and optimization opportunities", 
-            "• Day 6-7: Build sustainable money management systems",
-            "• Track everything: Small expenses add up to big savings",
-            "• Set daily spending limits and stick to them"
-        ];
-    }
-
-    getEmergencyMarketAnalysis() {
-        return {
-            success: false,
-            source: 'emergency',
-            analysis: `🚨 **Market Analysis Temporarily Unavailable**
-
-🔧 **System Status:** AI services are updating
-
-💡 **Meanwhile, focus on your fundamentals:**
-
-📚 **Continue Your 7-Day Program:**
-• Daily lessons: /day1 through /day7
-• Check progress: /progress
-• Get motivation: /quote
-
-💰 **Emergency Money Tips:**
-• Keep emergency fund ready (3-6 months expenses)
-• Split savings: 60% USD, 40% KHR
-• Use ABA/ACLEDA for best local banking
-• Avoid major decisions during market uncertainty
-
-🎯 **Remember:** Personal financial discipline beats market timing!
-
-Your consistent money habits matter more than daily market movements.
-
-Service recovery expected shortly. Continue building your financial foundation!
-
-Contact: @Chendasum for urgent questions`,
-            timestamp: new Date().toISOString()
-        };
-    }
-
-    // 💰 SMART ALLOCATION (Enhanced)
-    async getSmartAllocation(amount, riskLevel = 'moderate', userPreferences = {}) {
-        try {
-            console.log(`🤖 Calculating smart allocation: $${amount}, risk: ${riskLevel}`);
-            
-            if (this.isClaudeAvailable || this.isOpenAIAvailable) {
-                return await this.getAIAllocation(amount, riskLevel, userPreferences);
-            }
-            
-            return this.getSmartFallbackAllocation(amount, riskLevel, userPreferences);
-            
-        } catch (error) {
-            console.error('Smart allocation error:', error);
-            return this.getFallbackAllocation(amount, riskLevel);
-        }
-    }
-
-    async getAIAllocation(amount, riskLevel, preferences) {
-        const prompt = `Smart money allocation for Cambodia context:
-
-Amount: $${amount}
-Risk Level: ${riskLevel}
-Preferences: ${JSON.stringify(preferences)}
-
-Consider:
-- Cambodia banking (ABA, ACLEDA)
-- USD/KHR currency mix
-- Local investment opportunities
-- Emergency fund priorities
-- Risk tolerance for Cambodia market
-
-Provide JSON format:
-{
-    "local_savings_percent": [number],
-    "usd_savings_percent": [number],
-    "emergency_fund_percent": [number], 
-    "investment_percent": [number],
-    "local_savings_amount": [amount],
-    "usd_savings_amount": [amount],
-    "emergency_fund_amount": [amount],
-    "investment_amount": [amount],
-    "reasoning": "[explanation]",
-    "risk_level": "[LOW/MODERATE/HIGH]",
-    "cambodia_tips": ["tip1", "tip2", "tip3"],
-    "confidence": [0-100]
-}`;
-
-        let response;
-        if (this.isClaudeAvailable) {
-            const message = await this.anthropic.messages.create({
-                model: "claude-3-sonnet-20240229",
-                max_tokens: 800,
-                messages: [{ role: "user", content: prompt }]
+            const analysis = await this.ai.shouldExecuteReset({
+                currentDay: currentDay,
+                userProgress: userProgress,
+                dayType: 'progression'
             });
-            response = message.content[0].text;
-        } else {
-            const completion = await this.openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 800,
-                temperature: 0.3
-            });
-            response = completion.choices[0].message.content;
-        }
-
-        return this.parseAllocationResponse(response, amount);
-    }
-
-    parseAllocationResponse(response, amount) {
-        try {
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                return { ...parsed, ai_used: true, total_amount: amount };
-            }
+            
+            return {
+                proceed: analysis.decision === 'YES',
+                reasoning: analysis.reasoning,
+                confidence: analysis.confidence,
+                ai_used: true
+            };
         } catch (error) {
-            console.warn('Failed to parse AI allocation response');
+            return { proceed: true, reasoning: "AI unavailable, proceeding normally" };
+        }
+    }
+    
+    // 💰 AI-Enhanced Money Allocation
+    async getSmartAllocation(amount, userRisk = 'moderate', day = 0) {
+        try {
+            const allocation = await this.ai.getSmartAllocation(amount, userRisk, {
+                currentDay: day,
+                flowType: '7day_reset',
+                userContext: 'money_flow_program'
+            });
+            
+            const validation = this.helper.validateAllocation(allocation, amount);
+            return validation.allocation;
+            
+        } catch (error) {
+            console.error('Smart allocation failed:', error);
+            return this.getFallbackAllocation(amount, userRisk);
+        }
+    }
+    
+    // 📊 AI Market Context for Users
+    async getMarketContextForDay(day) {
+        if (!this.aiEnabled) {
+            return { message: "Focus on your financial goals today!", simple: true };
         }
         
-        return this.getSmartFallbackAllocation(amount, 'moderate');
+        try {
+            const analysis = await this.ai.getMarketAnalysis({ 
+                context: 'daily_education',
+                day: day 
+            });
+            
+            return {
+                sentiment: analysis.market_sentiment,
+                advice: analysis.recommendation,
+                simplified: this.simplifyForUsers(analysis),
+                ai_powered: true
+            };
+        } catch (error) {
+            return { message: "Focus on building good financial habits!", simple: true };
+        }
     }
+    
+    // 🎯 Smart Day 7 Reset Logic
+    async executeSmartReset(userId, resetAmount) {
+        try {
+            console.log(`🤖 Executing smart reset for user ${userId}, amount: $${resetAmount}`);
+            
+            // Get AI recommendation for reset
+            const shouldReset = await this.ai.shouldExecuteReset({
+                userId: userId,
+                amount: resetAmount,
+                dayType: 'reset_day'
+            });
+            
+            if (shouldReset.decision === 'NO') {
+                return {
+                    success: false,
+                    message: `AI recommends waiting: ${shouldReset.reasoning}`,
+                    wait_days: shouldReset.wait_days || 1,
+                    ai_decision: true
+                };
+            }
+            
+            // Get smart allocation
+            const allocation = await this.getSmartAllocation(resetAmount, 'moderate', 7);
+            
+            // Format for user display
+            const display = this.helper.formatDisplay(allocation);
+            
+            return {
+                success: true,
+                allocation: allocation,
+                display: display,
+                ai_powered: allocation.ai_used,
+                message: this.formatResetMessage(allocation, display)
+            };
+            
+        } catch (error) {
+            console.error('Smart reset failed:', error);
+            return this.getFallbackReset(resetAmount);
+        }
+    }
+    
+    // 📱 Format Reset Message for Telegram
+    formatResetMessage(allocation, display) {
+        const aiEmoji = allocation.ai_used ? "🤖 AI-Powered" : "📊 Standard";
+        
+        return `${aiEmoji} Day 7 Reset Complete! 🎉
 
-    getSmartFallbackAllocation(amount, riskLevel = 'moderate', preferences = {}) {
+💰 **Your Smart Allocation:**
+
+📈 **Stocks**: ${display.summary.stocks}
+🏦 **Bonds**: ${display.summary.bonds}  
+💵 **Cash**: ${display.summary.cash}
+₿ **Crypto**: ${display.summary.crypto}
+
+🧠 **AI Analysis**: ${allocation.reasoning || 'Balanced approach for steady growth'}
+
+📊 **Confidence**: ${allocation.confidence || 75}%
+
+🎯 **Next Steps**: Continue building your wealth with disciplined investing!`;
+    }
+    
+    // 🔧 Fallback Functions
+    getFallbackAllocation(amount, risk) {
         const allocations = {
-            conservative: { 
-                local: 25, usd: 35, emergency: 30, investment: 10,
-                tips: ['Focus on stability', 'Build emergency fund first', 'Use ABA/ACLEDA savings']
-            },
-            moderate: { 
-                local: 30, usd: 35, emergency: 20, investment: 15,
-                tips: ['Balanced approach', 'Mix USD and KHR', 'Start small investments']
-            },
-            aggressive: { 
-                local: 20, usd: 30, emergency: 15, investment: 35,
-                tips: ['Higher growth potential', 'Diversify investments', 'Monitor closely']
-            }
+            conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
+            moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
+            aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
         };
-
-        const chosen = allocations[riskLevel] || allocations.moderate;
+        
+        const chosen = allocations[risk] || allocations.moderate;
         
         return {
-            local_savings_percent: chosen.local,
-            usd_savings_percent: chosen.usd,
-            emergency_fund_percent: chosen.emergency,
-            investment_percent: chosen.investment,
-            local_savings_amount: Math.round(amount * (chosen.local / 100)),
-            usd_savings_amount: Math.round(amount * (chosen.usd / 100)),
-            emergency_fund_amount: Math.round(amount * (chosen.emergency / 100)),
-            investment_amount: Math.round(amount * (chosen.investment / 100)),
-            reasoning: `ការបែងចែក ${risk} ស្តង់ដារសម្រាប់កម្ពុជា`,
-            risk_level: risk.toUpperCase(),
-            cambodia_tips: [
-                'ប្រើ ABA/ACLEDA សម្រាប់ការសន្សំក្នុងស្រុក',
-                'រក្សាមូលនិធិបន្ទាន់ 3-6 ខែ',
-                'ចាប់ផ្តើមវិនិយោគតូចៗ'
-            ],
+            stocks_percent: chosen.stocks,
+            bonds_percent: chosen.bonds,
+            cash_percent: chosen.cash,
+            crypto_percent: chosen.crypto,
+            stocks_amount: amount * (chosen.stocks / 100),
+            bonds_amount: amount * (chosen.bonds / 100),
+            cash_amount: amount * (chosen.cash / 100),
+            crypto_amount: amount * (chosen.crypto / 100),
+            reasoning: `Fallback ${risk} allocation`,
             confidence: 70,
             ai_used: false
-        };
         };
     }
     
@@ -494,11 +309,11 @@ Provide JSON format:
         const volatility = analysis.volatility_level || 'MODERATE';
         
         if (sentiment === 'BULLISH' && volatility === 'LOW') {
-            return "ពេលវេលាល្អសម្រាប់បន្តផែនការវិនិយោគ! 📈";
+            return "Great time to stick to your investment plan! 📈";
         } else if (sentiment === 'BEARISH' || volatility === 'HIGH') {
-            return "រក្សាភាពស្ងប់ស្ងាត់ និងបន្តកសាងមូលនិធិបន្ទាន់ 🛡️";
+            return "Stay calm and keep building your emergency fund 🛡️";
         } else {
-            return "ពេលវេលាឥតខ្ចោះសម្រាប់ផ្តោតលើទម្លាប់ជាប់លាប់ 🎯";
+            return "Perfect time to focus on consistent habits 🎯";
         }
     }
     
@@ -507,47 +322,30 @@ Provide JSON format:
         return {
             enabled: this.aiEnabled,
             service_status: this.ai.getStatus(),
-            last_check: new Date().toISOString(),
-            fallback_mode: !this.aiEnabled
+            last_check: new Date().toISOString()
         };
-    }
-    
-    // 🧪 Test AI functionality
-    async testAIConnection() {
-        try {
-            const result = await this.ai.testConnection();
-            console.log(`🧪 AI Test Result: ${result.success ? 'SUCCESS' : 'FAILED'} - ${result.message}`);
-            return result;
-        } catch (error) {
-            console.error('AI test failed:', error);
-            return { success: false, message: error.message };
-        }
     }
 }
 
 // Initialize Smart Money Flow
-const smartFlow = new SmartMoneyFlow(db, aiIntegration, aiHelper);
+const smartFlow = new SmartMoneyFlow(db, aiService, aiHelper);
 
-console.log(`🎯 Smart Money Flow initialized - AI ${!aiIntegration.fallbackMode ? 'ENABLED' : 'DISABLED (using smart fallbacks)'}`);
+console.log(`🎯 Smart Money Flow initialized - AI ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
 
 // Test AI connection on startup
-(async () => {
-    try {
-        const result = await smartFlow.testAIConnection();
-        if (result.success) {
-            console.log("✅ AI connection test successful:", result.mode);
-        } else {
-            console.log("⚠️ AI connection test failed, using fallbacks:", result.message);
-        }
-    } catch (err) {
-        console.log("⚠️ AI test error, using fallbacks:", err.message);
-    }
-})();
+if (aiAvailable) {
+    aiService.testConnection()
+        .then(result => {
+            if (result.success) {
+                console.log("✅ AI connection test successful");
+            } else {
+                console.log("⚠️ AI connection test failed:", result.message);
+            }
+        })
+        .catch(err => console.log("⚠️ AI test error:", err.message));
+}
 
-// Export for use by other parts of your bot
-module.exports = { smartFlow, aiIntegration, aiHelper, aiAvailable: !aiIntegration.fallbackMode };
-
-// Enhanced Database Models for Railway deployment
+// Database Models (embedded for Railway deployment)
 class User {
   static async findOne(condition) {
     try {
@@ -584,7 +382,7 @@ class User {
           
           const safeUpdates = {};
           Object.entries(updates).forEach(([key, value]) => {
-            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc' && key !== '$push' && key !== '$set') {
+            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc') {
               safeUpdates[key] = value;
             }
           });
@@ -614,7 +412,7 @@ class User {
           ];
           
           Object.entries(updates).forEach(([key, value]) => {
-            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc' && key !== '$push' && key !== '$set') {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
               insertData[key] = value;
             }
           });
@@ -628,33 +426,11 @@ class User {
       }
     } catch (error) {
       console.error('Database error in User.findOneAndUpdate:', error.message);
-      console.error('Updates attempted:', JSON.stringify(updates, null, 2));
+      console.error('Updates attempted:', updates);
       return null;
     }
     
     return null;
-  }
-
-  static async findAll() {
-    try {
-      return await db.select().from(users);
-    } catch (error) {
-      console.error('Database error in User.findAll:', error.message);
-      return [];
-    }
-  }
-
-  static async countDocuments(condition = {}) {
-    try {
-      const result = await db.select().from(users);
-      if (condition.is_paid !== undefined) {
-        return result.filter(user => user.is_paid === condition.is_paid).length;
-      }
-      return result.length;
-    } catch (error) {
-      console.error('Database error in User.countDocuments:', error.message);
-      return 0;
-    }
   }
 }
 
@@ -692,7 +468,7 @@ class Progress {
           
           const safeUpdates = {};
           Object.entries(updates).forEach(([key, value]) => {
-            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc' && key !== '$push' && key !== '$set') {
+            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc') {
               safeUpdates[key] = value;
             }
           });
@@ -723,7 +499,7 @@ class Progress {
           ];
           
           Object.entries(updates).forEach(([key, value]) => {
-            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc' && key !== '$push' && key !== '$set') {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
               insertData[key] = value;
             }
           });
@@ -737,364 +513,16 @@ class Progress {
       }
     } catch (error) {
       console.error('Database error in Progress.findOneAndUpdate:', error.message);
-      console.error('Updates attempted:', JSON.stringify(updates, null, 2));
+      console.error('Updates attempted:', updates);
       return null;
     }
     
     return null;
   }
-
-  static async findAll() {
-    try {
-      return await db.select().from(progress);
-    } catch (error) {
-      console.error('Database error in Progress.findAll:', error.message);
-      return [];
-    }
-  }
 }
 
-console.log("✅ Enhanced database models embedded and ready for Railway deployment");
-console.log("🎯 AI Integration status:", aiIntegration.getStatus());
+console.log("✅ Database models embedded and ready for Railway deployment");
 
-// Initialize Telegram Bot (continuing from where your code left off...)local / 100)),
-            usd_savings_amount: Math.round(amount * (chosen.usd / 100)),
-            emergency_fund_amount: Math.round(amount * (chosen.emergency / 100)),
-            investment_amount: Math.round(amount * (chosen.investment / 100)),
-            reasoning: `Smart ${riskLevel} allocation tailored for Cambodia financial context`,
-            risk_level: riskLevel.toUpperCase(),
-            cambodia_tips: chosen.tips,
-            confidence: 85,
-            ai_used: false
-        };
-    }
-
-    getFallbackAllocation(amount, riskLevel) {
-        return this.getSmartFallbackAllocation(amount, riskLevel);
-    }
-
-    // 🧠 RESET DECISION LOGIC
-    async shouldExecuteReset(marketConditions, portfolioState) {
-        try {
-            if (this.isClaudeAvailable || this.isOpenAIAvailable) {
-                return await this.getAIResetDecision(marketConditions, portfolioState);
-            }
-            
-            return this.getSmartResetDecision(marketConditions, portfolioState);
-            
-        } catch (error) {
-            console.error('Reset decision error:', error);
-            return this.getFallbackResetDecision();
-        }
-    }
-
-    getSmartResetDecision(conditions, state) {
-        // Smart logic based on day of week, user progress, etc.
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        
-        // Weekend? Maybe wait for Monday
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            return {
-                decision: 'WAIT',
-                confidence: 70,
-                reasoning: 'Weekend - consider starting fresh on Monday for better tracking',
-                wait_days: dayOfWeek === 0 ? 1 : 2,
-                risk_factors: ['Weekend spending patterns'],
-                opportunities: ['Fresh start Monday'],
-                ai_used: false
-            };
-        }
-        
-        return {
-            decision: 'YES',
-            confidence: 85,
-            reasoning: 'Good time to execute 7-day reset - weekday allows for proper tracking',
-            wait_days: 0,
-            risk_factors: [],
-            opportunities: ['Full week ahead for implementation'],
-            ai_used: false
-        };
-    }
-
-    getFallbackResetDecision() {
-        return {
-            decision: 'YES',
-            confidence: 75,
-            reasoning: 'Standard 7-day reset cycle - proceed with program',
-            wait_days: 0,
-            risk_factors: ['AI unavailable'],
-            opportunities: ['Continue structured program'],
-            ai_used: false
-        };
-    }
-
-    // 📊 SYSTEM STATUS
-    getStatus() {
-        return {
-            ai_available: !this.fallbackMode,
-            claude_available: this.isClaudeAvailable,
-            openai_available: this.isOpenAIAvailable,
-            fallback_mode: this.fallbackMode,
-            system_version: '2.1.0',
-            last_check: new Date().toISOString()
-        };
-    }
-
-    async testConnection() {
-        try {
-            if (this.isClaudeAvailable) {
-                const test = await this.anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 50,
-                    messages: [{ role: "user", content: "Test connection" }]
-                });
-                return { 
-                    success: true, 
-                    message: 'Claude API connected successfully',
-                    mode: 'claude'
-                };
-            }
-            
-            if (this.isOpenAIAvailable) {
-                const test = await this.openai.chat.completions.create({
-                    model: "gpt-3.5-turbo",
-                    messages: [{ role: "user", content: "Test" }],
-                    max_tokens: 10
-                });
-                return { 
-                    success: true, 
-                    message: 'OpenAI API connected successfully',
-                    mode: 'openai'
-                };
-            }
-            
-            return { 
-                success: true, 
-                message: 'Smart fallback mode operational',
-                mode: 'fallback'
-            };
-            
-        } catch (error) {
-            return { 
-                success: false, 
-                message: 'Connection test failed: ' + error.message,
-                mode: 'error'
-            };
-        }
-    }
-}
-
-// Initialize Enhanced AI Service
-const aiIntegration = new EnhancedAIService();
-console.log("✅ Enhanced AI Service initialized");
-
-// AI Helper Utilities
-const aiHelper = {
-    formatDisplay(allocation) {
-        const safeGet = (value, fallback = 0) => value || fallback;
-        
-        return {
-            summary: {
-                local: `${safeGet(allocation.local_savings_percent)}% ($${safeGet(allocation.local_savings_amount).toLocaleString()})`,
-                usd: `${safeGet(allocation.usd_savings_percent)}% ($${safeGet(allocation.usd_savings_amount).toLocaleString()})`,
-                emergency: `${safeGet(allocation.emergency_fund_percent)}% ($${safeGet(allocation.emergency_fund_amount).toLocaleString()})`,
-                investment: `${safeGet(allocation.investment_percent)}% ($${safeGet(allocation.investment_amount).toLocaleString()})`
-            },
-            total_amount: (
-                safeGet(allocation.local_savings_amount) + 
-                safeGet(allocation.usd_savings_amount) + 
-                safeGet(allocation.emergency_fund_amount) + 
-                safeGet(allocation.investment_amount)
-            ).toLocaleString(),
-            risk_info: {
-                risk_level: allocation.risk_level || 'MODERATE',
-                risk_score: 50
-            },
-            ai_confidence: allocation.confidence || 75,
-            reasoning: allocation.reasoning || 'Smart allocation for Cambodia context'
-        };
-    },
-    
-    validateAllocation(allocation, total) {
-        const totalPercent = (allocation.local_savings_percent || 0) + 
-                           (allocation.usd_savings_percent || 0) + 
-                           (allocation.emergency_fund_percent || 0) + 
-                           (allocation.investment_percent || 0);
-        
-        return { 
-            valid: Math.abs(totalPercent - 100) <= 5, 
-            allocation: allocation 
-        };
-    }
-};
-
-// Enhanced Money Flow Functions with AI Integration
-class SmartMoneyFlow {
-    constructor(db, aiService, aiHelper) {
-        this.db = db;
-        this.ai = aiService;
-        this.helper = aiHelper;
-        this.aiEnabled = !aiService.fallbackMode;
-    }
-    
-    // 🧠 AI-Enhanced Day Progression
-    async getSmartDayRecommendation(userId, currentDay, userProgress) {
-        try {
-            const analysis = await this.ai.shouldExecuteReset({
-                currentDay: currentDay,
-                userProgress: userProgress,
-                dayType: 'progression'
-            });
-            
-            return {
-                proceed: analysis.decision === 'YES',
-                reasoning: analysis.reasoning,
-                confidence: analysis.confidence,
-                ai_used: analysis.ai_used || false
-            };
-        } catch (error) {
-            console.error('Smart day recommendation error:', error);
-            return { 
-                proceed: true, 
-                reasoning: "បន្តតាមផែនការធម្មតា",
-                ai_used: false 
-            };
-        }
-    }
-    
-    // 💰 AI-Enhanced Money Allocation
-    async getSmartAllocation(amount, userRisk = 'moderate', day = 0) {
-        try {
-            console.log(`🤖 Getting smart allocation: $${amount}, risk: ${userRisk}, day: ${day}`);
-            
-            const allocation = await this.ai.getSmartAllocation(amount, userRisk, {
-                currentDay: day,
-                flowType: '7day_reset',
-                userContext: 'money_flow_program'
-            });
-            
-            const validation = this.helper.validateAllocation(allocation, amount);
-            
-            if (!validation.valid) {
-                console.warn('Allocation validation failed, using corrected version');
-                return this.getFallbackAllocation(amount, userRisk);
-            }
-            
-            return validation.allocation;
-            
-        } catch (error) {
-            console.error('Smart allocation failed:', error);
-            return this.getFallbackAllocation(amount, userRisk);
-        }
-    }
-    
-    // 📊 AI Market Context for Users
-    async getMarketContextForDay(day) {
-        try {
-            const analysis = await this.ai.getMarketAnalysis({ 
-                context: 'daily_education',
-                day: day 
-            });
-            
-            return {
-                sentiment: analysis.market_sentiment,
-                advice: analysis.recommendation,
-                simplified: this.simplifyForUsers(analysis),
-                ai_powered: analysis.ai_used || false
-            };
-        } catch (error) {
-            return { 
-                message: "ផ្តោតលើការកសាងទម្លាប់ហិរញ្ញវត្ថុល្អ!", 
-                simple: true,
-                ai_powered: false
-            };
-        }
-    }
-    
-    // 🎯 Smart Day 7 Reset Logic  
-    async executeSmartReset(userId, resetAmount) {
-        try {
-            console.log(`🤖 Executing smart reset for user ${userId}, amount: $${resetAmount}`);
-            
-            // Get AI recommendation for reset
-            const shouldReset = await this.ai.shouldExecuteReset({
-                userId: userId,
-                amount: resetAmount,
-                dayType: 'reset_day'
-            });
-            
-            if (shouldReset.decision === 'NO' || shouldReset.decision === 'WAIT') {
-                return {
-                    success: false,
-                    message: `AI ណែនាំឱ្យរង់ចាំ: ${shouldReset.reasoning}`,
-                    wait_days: shouldReset.wait_days || 1,
-                    ai_decision: true
-                };
-            }
-            
-            // Get smart allocation
-            const allocation = await this.getSmartAllocation(resetAmount, 'moderate', 7);
-            
-            // Format for user display
-            const display = this.helper.formatDisplay(allocation);
-            
-            return {
-                success: true,
-                allocation: allocation,
-                display: display,
-                ai_powered: allocation.ai_used || false,
-                message: this.formatResetMessage(allocation, display)
-            };
-            
-        } catch (error) {
-            console.error('Smart reset failed:', error);
-            return this.getFallbackReset(resetAmount);
-        }
-    }
-    
-    // 📱 Format Reset Message for Telegram
-    formatResetMessage(allocation, display) {
-        const aiEmoji = (allocation.ai_used) ? "🤖 AI-Powered" : "📊 Smart Analysis";
-        
-        return `${aiEmoji} Day 7 Reset Complete! 🎉
-
-💰 **Your Smart Cambodia Allocation:**
-
-🏦 **Local Savings**: ${display.summary.local}
-💵 **USD Savings**: ${display.summary.usd}  
-🚨 **Emergency Fund**: ${display.summary.emergency}
-📈 **Investment**: ${display.summary.investment}
-
-🧠 **Analysis**: ${allocation.reasoning || 'Balanced approach for steady growth'}
-
-📊 **Confidence**: ${allocation.confidence || 75}%
-
-🇰🇭 **Cambodia Tips:**
-${allocation.cambodia_tips ? allocation.cambodia_tips.map(tip => `• ${tip}`).join('\n') : '• Use ABA/ACLEDA for savings\n• Keep emergency fund ready\n• Start investments small'}
-
-🎯 **Next Steps**: Continue building your wealth with disciplined money management!
-
-${allocation.ai_used ? '✨ Powered by AI' : '🧠 Smart Analysis'}`;
-    }
-    
-    // 🔧 Fallback Functions
-    getFallbackAllocation(amount, risk) {
-        const allocations = {
-            conservative: { local: 25, usd: 35, emergency: 30, investment: 10 },
-            moderate: { local: 30, usd: 35, emergency: 20, investment: 15 },
-            aggressive: { local: 20, usd: 30, emergency: 15, investment: 35 }
-        };
-        
-        const chosen = allocations[risk] || allocations.moderate;
-        
-        return {
-            local_savings_percent: chosen.local,
-            usd_savings_percent: chosen.usd,
-            emergency_fund_percent: chosen.emergency,
-            investment_percent: chosen.investment,
-            local_savings_amount: Math.round(amount * (chosen.
-                                                       
 // Enhanced message sending function with better chunking for Khmer content
 async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
   try {
@@ -2012,492 +1440,6 @@ function getExtendedDayContent(day) {
 
 📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
 }
-
-// 🤖 AI COMMAND HANDLERS FOR YOUR BOT
-// Add these command handlers to your bot after your existing commands
-
-// ===== AI COMMAND HANDLERS =====
-
-// 🤖 Check AI system status
-bot.onText(/\/ai_status/, async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-
-  try {
-    // Check if user has access (you can adjust this based on your access control)
-    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
-    if (!userResult.length || !userResult[0].is_paid) {
-      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
-    }
-
-    const status = smartFlow.getAIStatus();
-    const testResult = await smartFlow.testAIConnection();
-
-    const statusMessage = `🤖 **AI System Status**
-
-🔌 **Connection:** ${status.enabled ? '✅ Connected' : '❌ Disconnected'}
-🔄 **Mode:** ${status.fallback_mode ? 'Fallback' : 'AI Active'}
-📊 **Version:** ${status.service_status.system_version || '1.0.0'}
-⏰ **Last Check:** ${new Date(status.last_check).toLocaleString()}
-
-🧪 **Test Result:**
-${testResult.success ? '✅' : '❌'} ${testResult.message}
-
-${status.enabled ? 
-  '🎯 AI system កំពុងជួយបង្កើនប្រសិទ្ធភាពការសម្រេចចិត្តហិរញ្ញវត្ថុរបស់អ្នក!' : 
-  '⚠️ កំពុងប្រើប្រព័ន្ធបំពេញខណៈពេល AI reconnects'}
-
-💡 ប្រើ /ai_help ដើម្បីមើលពាក្យបញ្ជា AI ទាំងអស់។`;
-
-    await bot.sendMessage(chatId, statusMessage);
-  } catch (error) {
-    console.error('AI status error:', error);
-    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការពិនិត្យ AI system។');
-  }
-});
-
-// 💰 Smart AI allocation recommendation
-bot.onText(/\/smart_allocation (\d+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const amount = parseInt(match[1]);
-
-  try {
-    // Check user access
-    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
-    if (!userResult.length || !userResult[0].is_paid) {
-      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
-    }
-
-    if (amount < 100 || amount > 1000000) {
-      return await bot.sendMessage(chatId, '❌ សូមបញ្ចូលចំនួនលុយចន្លោះ $100 - $1,000,000');
-    }
-
-    await bot.sendMessage(chatId, '🤖 AI កំពុងវិភាគការបែងចែកលុយល្អបំផុតសម្រាប់អ្នក...');
-
-    // Get AI allocation recommendation
-    const allocation = await smartFlow.getSmartAllocation(amount, 'moderate');
-    const formatted = aiHelper.formatDisplay(allocation);
-
-    const allocationMessage = `💡 **AI Smart Allocation សម្រាប់ $${amount.toLocaleString()}**
-
-📊 **ការណែនាំ:**
-• 📈 Stocks: ${formatted.summary.stocks}
-• 🏛️ Bonds: ${formatted.summary.bonds}
-• 💵 Cash: ${formatted.summary.cash}
-• ₿ Crypto: ${formatted.summary.crypto}
-
-📋 **សរុប:** $${formatted.total_amount}
-
-🎯 **ការវាយតម្លៃហានិភ័យ:**
-• កម្រិត: ${formatted.risk_info.risk_level}
-• ពិន្ទុ: ${formatted.risk_info.risk_score}/100
-
-🤖 **AI ទំនុកចិត្ត:** ${formatted.ai_confidence}%
-
-💭 **ហេតុផល:** ${formatted.reasoning}
-
-${allocation.ai_used ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
-
-💡 **ចំណាំ:** នេះជាការណែនាំប៉ុណ្ណោះ។ សូមពិគ្រោះជាមួយអ្នកទីប្រឹក្សាហិរញ្ញវត្ថុមុនសម្រេចចិត្ត។
-
-🎯 ចង់ធ្វើតេស្ត reset? ប្រើ /simulate_reset ${amount}`;
-
-    await bot.sendMessage(chatId, allocationMessage);
-
-    // Track AI usage
-    console.log(`AI allocation generated for user ${userId}: $${amount}`);
-
-  } catch (error) {
-    console.error('Smart allocation error:', error);
-    await bot.sendMessage(chatId, `❌ មានបញ្ហាក្នុងការគណនា។ សូមសាកល្បងម្តងទៀត។`);
-  }
-});
-
-// 📊 AI market analysis
-bot.onText(/\/market_today/, async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-
-  try {
-    // Check user access
-    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
-    if (!userResult.length || !userResult[0].is_paid) {
-      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
-    }
-
-    await bot.sendMessage(chatId, '📊 AI កំពុងវិភាគទីផ្សារថ្ងៃនេះ...');
-
-    // Get AI market analysis
-    const analysis = await smartFlow.ai.getMarketAnalysis();
-
-    const marketMessage = `📊 **AI Market Analysis ថ្ងៃនេះ**
-
-🌡️ **អារម្មណ៍ទីផ្សារ:** ${analysis.market_sentiment}
-📈 **កម្រិត Volatility:** ${analysis.volatility_level}
-🏛️ **Economic Regime:** ${analysis.economic_regime}
-
-⚠️ **ហានិភ័យសំខាន់ៗ:**
-${analysis.key_risks.map(risk => `• ${risk}`).join('\n')}
-
-🎯 **ឱកាស:**
-${analysis.opportunities.map(opp => `• ${opp}`).join('\n')}
-
-📋 **Asset Outlook:**
-• 📈 Stocks: ${analysis.asset_outlook.stocks}
-• 🏛️ Bonds: ${analysis.asset_outlook.bonds}
-• ₿ Crypto: ${analysis.asset_outlook.crypto}
-• 💵 Cash: ${analysis.asset_outlook.cash}
-
-💡 **ការណែនាំ:** ${analysis.recommendation}
-
-⏰ **Time Frame:** ${analysis.timeframe}
-
-${analysis.ai_used ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
-
-💡 **ចំណាំ:** ទីផ្សារមានការប្រែប្រួលរហ័ស។ សូមធ្វើការសិក្សាបន្ថែមមុនវិនិយោគ។`;
-
-    await bot.sendMessage(chatId, marketMessage);
-
-  } catch (error) {
-    console.error('Market analysis error:', error);
-    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការវិភាគទីផ្សារ។');
-  }
-});
-
-// 🧪 Simulate AI reset decision (VIP feature)
-bot.onText(/\/simulate_reset (\d+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const portfolioValue = parseInt(match[1]);
-
-  try {
-    // Check user access (VIP feature)
-    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
-    if (!userResult.length || !userResult[0].is_paid) {
-      return await bot.sendMessage(chatId, '🔒 ការប្រើប្រាស់ AI ត្រូវការកម្រិត Essential ឬខ្ពស់ជាង។ ប្រើ /pricing ដើម្បីមើលតម្លៃ។');
-    }
-
-    const user = userResult[0];
-    if (user.tier !== 'vip' && !user.is_vip) {
-      return await bot.sendMessage(chatId, '👑 មុខងារ Reset Simulation ត្រូវការកម្រិត VIP។ ប្រើ /pricing ដើម្បីដំឡើងកម្រិត។');
-    }
-
-    if (portfolioValue < 1000 || portfolioValue > 10000000) {
-      return await bot.sendMessage(chatId, '❌ សូមបញ្ចូលតម្លៃ portfolio ចន្លោះ $1,000 - $10,000,000');
-    }
-
-    await bot.sendMessage(chatId, '🧪 AI កំពុងធ្វើការ simulate reset decision...');
-
-    // Execute smart reset simulation
-    const resetResult = await smartFlow.executeSmartReset(userId, portfolioValue);
-
-    if (!resetResult.success) {
-      const simulationMessage = `🧪 **AI Reset Simulation លទ្ធផល**
-
-📊 **Portfolio Value:** $${portfolioValue.toLocaleString()}
-
-🤖 **AI Decision:** ❌ មិនណែនាំ Reset ឥឡូវនេះ
-
-💭 **ហេតុផល:** ${resetResult.message}
-
-⏰ **រង់ចាំ:** ${resetResult.wait_days} ថ្ងៃ
-
-💡 **នេះជា simulation ប៉ុណ្ណោះ** - មិនធ្វើការផ្លាស់ប្តូរពិតប្រាកដទេ។`;
-
-      return await bot.sendMessage(chatId, simulationMessage);
-    }
-
-    const simulationMessage = `🧪 **AI Reset Simulation លទ្ធផល**
-
-📊 **Portfolio Value:** $${portfolioValue.toLocaleString()}
-
-🤖 **AI Decision:** ✅ Execute Reset
-
-💰 **ការណែនាំ Allocation:**
-• 📈 Stocks: ${resetResult.display.summary.stocks}
-• 🏛️ Bonds: ${resetResult.display.summary.bonds}
-• 💵 Cash: ${resetResult.display.summary.cash}
-• ₿ Crypto: ${resetResult.display.summary.crypto}
-
-🎯 **ទំនុកចិត្ត:** ${resetResult.allocation.confidence}%
-
-💭 **AI ហេតុផល:** ${resetResult.allocation.reasoning}
-
-${resetResult.ai_powered ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
-
-💡 **នេះជា simulation ប៉ុណ្ណោះ** - មិនធ្វើការផ្លាស់ប្តូរពិតប្រាកដទេ។
-
-🎯 ចង់ធ្វើការ allocation ពិត? ប្រើ /smart_allocation ${portfolioValue}`;
-
-    await bot.sendMessage(chatId, simulationMessage);
-
-  } catch (error) {
-    console.error('Simulation error:', error);
-    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការ simulate។');
-  }
-});
-
-// 📚 AI help system
-bot.onText(/\/ai_help/, async (msg) => {
-  const chatId = msg.chat.id;
-
-  const helpMessage = `🤖 **AI Money Flow Commands**
-
-🔍 **ពិនិត្យ AI System:**
-• \`/ai_status\` - មើលស្ថានភាព AI
-
-💰 **AI Recommendations:**
-• \`/smart_allocation [amount]\` - ការណែនាំបែងចែកលុយ
-• \`/market_today\` - វិភាគទីផ្សារថ្ងៃនេះ
-
-🧪 **VIP Features:**
-• \`/simulate_reset [amount]\` - ធ្វើតេស្ត reset decision
-
-📊 **ឧទាហរណ៍:**
-• \`/smart_allocation 5000\` - AI allocation សម្រាប់ $5,000
-• \`/market_today\` - វិភាគទីផ្សារបច្ចុប្បន្ន
-• \`/simulate_reset 10000\` - ធ្វើតេស្ត reset logic
-
-🎯 **AI Features:**
-• Smart portfolio allocation
-• Market condition analysis  
-• Risk assessment
-• Automated reset decisions
-• Fallback protection
-
-💡 **ចំណាំ:** AI system ជួយបន្ថែមលើការសម្រេចចិត្តរបស់អ្នក ប៉ុន្តែមិនជំនួសការពិគ្រោះជាមួយអ្នកទីប្រឹក្សាទេ។
-
-🔒 **Access:** Essential+ សម្រាប់មុខងារមូលដ្ឋាន, VIP សម្រាប់ advanced features`;
-
-  await bot.sendMessage(chatId, helpMessage);
-});
-
-// ===== ENHANCED DAY 7 WITH AI INTEGRATION =====
-
-// Enhanced Day 7 with AI analysis (modify your existing /day7 command)
-bot.onText(/\/day7/, async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-
-  try {
-    // Check user access
-    const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
-    if (!userResult.length || !userResult[0].is_paid) {
-      return await bot.sendMessage(chatId, '🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។');
-    }
-
-    // Check if user completed day 6
-    const progressResult = await db.select().from(progress).where(eq(progress.user_id, userId));
-    if (!progressResult.length || !progressResult[0].day_6_completed) {
-      return await bot.sendMessage(chatId, '⚠️ សូមបញ្ចប់ថ្ងៃទី 6 មុន។ ប្រើ /day6');
-    }
-
-    // Send regular Day 7 content first (your existing content)
-    const day7Content = `🏆 **ថ្ងៃទី ៧: Money Flow Integration & Future Success**
-
-🎉 អបអរសាទរ! អ្នកបានដល់ថ្ងៃចុងក្រោយនៃកម្មវិធី 7-Day Money Flow Reset™!
-
-📊 **សេចក្តីសង្ខេបអ្វីដែលអ្នកបានរៀន:**
-• ថ្ងៃទី ១: ការស្គាល់ Money Flow របស់អ្នក
-• ថ្ងៃទី ២: ការរកឃើញ Money Leaks
-• ថ្ងៃទី ៣: ការវាយតម្លៃប្រព័ន្ធហិរញ្ញវត្ថុ
-• ថ្ងៃទី ៤: ការបង្កើតផែនទី Income & Cost
-• ថ្ងៃទី ៥: ការយល់ពី Survival vs Growth
-• ថ្ងៃទី ៦: ការបង្កើតផែនការសកម្មភាព
-
-🎯 **ថ្ងៃទី ៧: ការដាក់បញ្ចូលគ្នា និងភាពជោគជ័យអនាគត**
-
-💡 **សកម្មភាពសម្រាប់ថ្ងៃនេះ:**
-
-1️⃣ **ពិនិត្យមើលការរីកចម្រើន:**
-   • មើលវិញនូវ worksheet ទាំង ៦ ថ្ងៃកន្លងមក
-   • កត់ត្រាការផ្លាស់ប្តូរដែលអ្នកបានធ្វើ
-   • វាស់វែងលទ្ធផលដែលបានទទួល
-
-2️⃣ **បង្កើត Money Flow System ចុងក្រោយ:**
-   • រួមបញ្ចូលរាល់ឧបករណ៍ដែលបានរៀន
-   • កំណត់ schedule ពិនិត្យ monthly
-   • បង្កើតផែនការ maintenance
-
-3️⃣ **កំណត់គោលដៅអនាគត:**
-   • គោលដៅ 30 ថ្ងៃ
-   • គោលដៅ 90 ថ្ងៃ  
-   • គោលដៅ 1 ឆ្នាំ
-
-🔄 **ការធ្វើ Reset ចុងក្រោយ:**
-
-បើអ្នកមានចំនួនលុយដែលចង់ធ្វើ final reset, សូមបញ្ចូលចំនួន:
-
-ឧទាហរណ៍: $5,000 សម្រាប់ smart allocation ចុងក្រោយ
-
-💬 **សូមចុះឈ្មោះប្រាប់យើងអំពី:**
-• ការផ្លាស់ប្តូរធំបំផុតដែលអ្នកបានធ្វើ?
-• អ្វីដែលអ្នកនឹងបន្តធ្វើបន្ទាប់ពីនេះ?
-• តើអ្នកនឹងណែនាំកម្មវិធីនេះដល់មិត្តភក្តិទេ?
-
-🏆 អ្នកបានបញ្ចប់ដោយជោគជ័យ!`;
-
-    await bot.sendMessage(chatId, day7Content);
-
-    // Mark day 7 as completed
-    await db.update(progress)
-      .set({ 
-        day_7_completed: true,
-        program_completed: true,
-        program_completed_at: new Date(),
-        current_day: 7,
-        updated_at: new Date()
-      })
-      .where(eq(progress.user_id, userId));
-
-    // Add AI-enhanced completion analysis after a delay
-    setTimeout(async () => {
-      await bot.sendMessage(chatId, '🤖 AI កំពុងវិភាគការបញ្ចប់កម្មវិធីរបស់អ្នក...');
-
-      try {
-        // Get AI analysis of completion
-        const completionAnalysis = await smartFlow.getMarketContextForDay(7);
-
-        const aiCompletionMessage = `🎉 **AI Analysis - ការបញ្ចប់ជោគជ័យ!**
-
-🤖 **AI ការវាយតម្លៃ:** អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™ ដោយជោគជ័យ!
-
-📊 **ជំហានបន្ទាប់ដែល AI ណែនាំ:**
-• 📈 បន្តប្រើប្រាស់ system ដែលអ្នកបានរៀន
-• 💰 ចាប់ផ្តើម implement smart allocation
-• 📅 កំណត់ schedule ពិនិត្យ monthly  
-• 🎯 ពិចារណាការ upgrade skills
-
-🔮 **AI ការព្យាករ:** ជាមួយនឹងការអនុវត្តប្រកបដោយប្រសិទ្ធភាព អ្នកអាចឃើញការកែលម្អ financial stability ក្នុងរយៈពេល 30-90 ថ្ងៃ។
-
-💡 **Market Context:** ${completionAnalysis.simplified || completionAnalysis.advice}
-
-${completionAnalysis.ai_powered ? '✨ បានប្រើ AI វិភាគ' : '🔄 ប្រើប្រព័ន្ធបំពេញ'}
-
-🏆 អបអរសាទរ! អ្នកឥឡូវមានឧបករណ៍ AI-powered សម្រាប់គ្រប់គ្រងលុយ!
-
-🤖 ចង់បានការណែនាំ smart allocation? ប្រើ /smart_allocation [amount]
-📊 ចង់ដឹងស្ថានភាពទីផ្សារ? ប្រើ /market_today`;
-
-        await bot.sendMessage(chatId, aiCompletionMessage);
-
-      } catch (error) {
-        console.error('AI completion analysis error:', error);
-        // Fallback message without AI
-        const fallbackMessage = `🏆 **ការបញ្ចប់ជោគជ័យ!**
-
-អ្នកបានបញ្ចប់កម្មវិធី 7-Day Money Flow Reset™ ដោយជោគជ័យ!
-
-🎯 **ជំហានបន្ទាប់:**
-• បន្តអនុវត្តអ្វីដែលបានរៀន
-• ធ្វើការពិនិត្យ monthly
-• កំណត់គោលដៅថ្មីៗ
-
-💪 អ្នកឥឡូវមានចំណេះដឹងគ្រប់គ្រាន់ដើម្បីគ្រប់គ្រងលុយបានល្អ!`;
-
-        await bot.sendMessage(chatId, fallbackMessage);
-      }
-    }, 5000);
-
-    console.log(`User ${userId} completed the 7-Day Money Flow Reset program!`);
-
-  } catch (error) {
-    console.error('Day 7 error:', error);
-    await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការបញ្ចប់កម្មវិធី។ សូមសាកល្បងម្តងទៀត។');
-  }
-});
-
-// ===== AUTO-SUGGESTION SYSTEM =====
-
-// Auto-suggest AI features when users mention money amounts
-bot.on('message', async (msg) => {
-  if (!msg.text || msg.text.startsWith('/')) return;
-  
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const text = msg.text;
-
-  try {
-    // Check for money amounts in conversation
-    const moneyRegex = /\$(\d{1,3}(?:,\d{3})*|\d+)/g;
-    const matches = text.match(moneyRegex);
-
-    if (matches && matches.length > 0) {
-      // Check if user has access to AI features
-      const userResult = await db.select().from(users).where(eq(users.telegram_id, userId));
-      if (!userResult.length || !userResult[0].is_paid) return;
-
-      // Extract amount
-      const amount = parseInt(matches[0].replace(/[$,]/g, ''));
-      
-      // Only suggest for significant amounts
-      if (amount >= 1000) {
-        setTimeout(async () => {
-          const suggestionMessage = `💡 **AI Suggestion**
-
-ខ្ញុំកត់សម្គាល់ឃើញអ្នកនិយាយអំពី ${amount.toLocaleString()}។ 
-
-🤖 តើអ្នកចង់បាន AI smart allocation recommendation សម្រាប់ចំនួននេះទេ?
-
-ប្រើ: \`/smart_allocation ${amount}\`
-
-💭 ឬប្រសិនបើអ្នកចង់ដឹងពីស្ថានភាពទីផ្សារថ្ងៃនេះ: \`/market_today\``;
-
-          await bot.sendMessage(chatId, suggestionMessage);
-        }, 3000);
-      }
-    }
-  } catch (error) {
-    // Silently fail for auto-suggestions
-    console.error('Auto-suggestion error:', error);
-  }
-});
-
-// ===== ADMIN AI COMMANDS =====
-
-// Admin command to check AI status
-bot.onText(/\/admin_ai_status/, async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-
-  // Check if user is admin (adjust this check based on your admin system)
-  if (userId.toString() !== process.env.ADMIN_USER_ID) {
-    return await bot.sendMessage(chatId, '🔒 Admin access required.');
-  }
-
-  try {
-    const status = smartFlow.getAIStatus();
-    const testResult = await smartFlow.testAIConnection();
-
-    const adminMessage = `🤖 **Admin AI Status Report**
-
-**System Status:**
-• AI Enabled: ${status.enabled ? '✅ Yes' : '❌ No'}
-• Fallback Mode: ${status.fallback_mode ? '✅ Active' : '❌ Inactive'}
-• Version: ${status.service_status.system_version}
-• Last Check: ${status.last_check}
-
-**Connection Test:**
-• Success: ${testResult.success ? '✅' : '❌'}
-• Message: ${testResult.message}
-
-**Service Details:**
-• AI Available: ${status.service_status.ai_available ? '✅' : '❌'}
-• Fallback Mode: ${status.service_status.fallback_mode ? '✅' : '❌'}
-
-**Performance:**
-• All features working: ${status.enabled ? 'AI-powered' : 'Fallback mode'}
-• User experience: Uninterrupted`;
-
-    await bot.sendMessage(chatId, adminMessage);
-
-  } catch (error) {
-    await bot.sendMessage(chatId, `❌ Error getting AI status: ${error.message}`);
-  }
-});
-
-console.log('✅ AI Command Handlers loaded successfully!');
 
 // ========================================
 // ADMIN COMMANDS - PART 3
