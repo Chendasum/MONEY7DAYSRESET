@@ -75,45 +75,474 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// 🤖 AI INTEGRATION FOR 7-DAY MONEY FLOW BOT
-// Add this section after your database setup (around line 76)
+console.log("🤖 Initializing Claude AI Integration for Smart Money Flow...");
 
-console.log("🤖 Initializing AI Integration for Smart Money Flow...");
-
-// Import AI services
+// Import Claude AI services
 let aiService = null;
 let aiHelper = null;
 let aiAvailable = false;
 
 try {
-    // Try to import AI services
-    aiService = require('./services/aiIntegration');
-    aiHelper = require('./utils/aiHelper');
+    // Initialize Claude AI
+    const { default: Anthropic } = require('@anthropic-ai/sdk');
     
-    console.log("✅ AI Integration loaded successfully");
+    const anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
+    });
+    
+    console.log("✅ Claude AI initialized successfully");
     aiAvailable = true;
+    
+    // Claude-powered AI Service
+    aiService = {
+        // 💰 Smart Money Allocation with Claude
+        async getSmartAllocation(amount, risk = 'moderate', context = {}) {
+            try {
+                const prompt = `You are a financial advisor for the 7-Day Money Flow Reset program in Cambodia.
+
+User wants to allocate $${amount} with ${risk} risk tolerance on Day ${context.currentDay || 0}.
+
+Provide a JSON response with allocation percentages and amounts:
+{
+  "stocks_percent": 50,
+  "bonds_percent": 40,
+  "cash_percent": 8,
+  "crypto_percent": 2,
+  "stocks_amount": ${amount * 0.5},
+  "bonds_amount": ${amount * 0.4},
+  "cash_amount": ${amount * 0.08},
+  "crypto_amount": ${amount * 0.02},
+  "reasoning": "Balanced approach suitable for moderate risk...",
+  "confidence": 85
+}
+
+Consider Cambodia's financial context (USD/KHR, local banks, conservative culture).
+Keep crypto allocation low (0-5%) for Cambodian users.
+Respond ONLY with valid JSON.`;
+
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 1000,
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                });
+
+                const response = message.content[0].text;
+                const allocation = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
+                
+                return {
+                    ...allocation,
+                    ai_used: true,
+                    source: 'claude'
+                };
+                
+            } catch (error) {
+                console.error('Claude allocation error:', error);
+                return this.getFallbackAllocation(amount, risk);
+            }
+        },
+
+        // 🎯 Smart Reset Decision with Claude
+        async shouldExecuteReset(params = {}) {
+            try {
+                const prompt = `You are advising a user in the 7-Day Money Flow Reset program.
+
+Context:
+- Current Day: ${params.currentDay || 7}
+- User ID: ${params.userId || 'unknown'}
+- Reset Amount: $${params.amount || 1000}
+- Day Type: ${params.dayType || 'reset_day'}
+
+Should this user execute their money reset today? Consider:
+1. Market conditions
+2. Day 7 completion readiness
+3. User progress
+4. Cambodia economic context
+
+Respond with JSON only:
+{
+  "decision": "YES" or "NO",
+  "confidence": 85,
+  "reasoning": "User has completed 7 days and is ready for reset",
+  "wait_days": 0
+}`;
+
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 500,
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                });
+
+                const response = message.content[0].text;
+                const decision = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
+                
+                return {
+                    ...decision,
+                    ai_used: true,
+                    source: 'claude'
+                };
+                
+            } catch (error) {
+                console.error('Claude reset decision error:', error);
+                return { 
+                    decision: 'YES', 
+                    confidence: 75, 
+                    reasoning: 'Standard 7-day cycle completed', 
+                    ai_used: false,
+                    wait_days: 0
+                };
+            }
+        },
+
+        // 📊 Market Analysis with Claude
+        async getMarketAnalysis(context = {}) {
+            try {
+                const prompt = `Provide brief market analysis for Cambodian investors in the 7-Day Money Flow Reset program.
+
+Context: Day ${context.day || 1} of financial education program.
+
+Provide JSON response:
+{
+  "market_sentiment": "BULLISH|BEARISH|NEUTRAL",
+  "volatility_level": "LOW|MODERATE|HIGH", 
+  "recommendation": "Brief advice for Cambodian context",
+  "simplified_message": "Simple encouraging message for users"
+}
+
+Focus on:
+- USD/KHR considerations
+- Regional stability
+- Conservative investment approach
+- Building emergency funds first
+
+Respond ONLY with valid JSON.`;
+
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 600,
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                });
+
+                const response = message.content[0].text;
+                const analysis = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
+                
+                return {
+                    ...analysis,
+                    ai_used: true,
+                    source: 'claude'
+                };
+                
+            } catch (error) {
+                console.error('Claude market analysis error:', error);
+                return { 
+                    market_sentiment: 'NEUTRAL', 
+                    volatility_level: 'MODERATE',
+                    recommendation: 'Focus on building consistent financial habits',
+                    simplified_message: 'Great time to focus on your financial goals! 🎯',
+                    ai_used: false 
+                };
+            }
+        },
+
+        // 💬 Handle User Questions with Claude
+        async handleUserQuestion(question, userContext = {}) {
+            try {
+                const prompt = `You are a financial coach for the 7-Day Money Flow Reset program in Cambodia.
+
+User: ${userContext.name || 'User'} (Tier: ${userContext.tier || 'essential'}, Day: ${userContext.currentDay || 1})
+Question: "${question}"
+
+Provide helpful financial advice in Khmer language. Be:
+- Encouraging and supportive
+- Practical and actionable  
+- Specific to Cambodia (USD/KHR, ABA/ACLEDA banks)
+- Related to the 7-Day Money Flow program when relevant
+
+Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
+
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 800,
+                    messages: [{
+                        role: "user", 
+                        content: prompt
+                    }]
+                });
+
+                return {
+                    success: true,
+                    response: message.content[0].text,
+                    source: 'claude',
+                    timestamp: new Date().toISOString()
+                };
+                
+            } catch (error) {
+                console.error('Claude question error:', error);
+                return {
+                    success: false,
+                    response: "🤖 AI មានបញ្ហា។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
+                    source: 'fallback',
+                    timestamp: new Date().toISOString()
+                };
+            }
+        },
+
+        // 🎯 Personalized Coaching with Claude  
+        async getPersonalizedCoaching(userProgress, dayNumber) {
+            try {
+                const prompt = `Provide personalized coaching for Day ${dayNumber} of 7-Day Money Flow Reset.
+
+User Progress:
+- Completed Days: ${userProgress.completedDays || 0}
+- Current Day: ${dayNumber}
+- Goals: ${userProgress.goals?.join(', ') || 'Financial improvement'}
+
+Create encouraging coaching message in Khmer with:
+1. Acknowledgment of progress
+2. Day ${dayNumber} specific guidance
+3. Motivation to continue
+4. Practical next steps
+
+Maximum 250 words in Khmer.`;
+
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229", 
+                    max_tokens: 700,
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                });
+
+                return {
+                    success: true,
+                    response: message.content[0].text,
+                    source: 'claude',
+                    timestamp: new Date().toISOString()
+                };
+                
+            } catch (error) {
+                console.error('Claude coaching error:', error);
+                return {
+                    success: true,
+                    response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI នឹងអាចប្រើបានក្នុងពេលឆាប់ៗនេះ!`,
+                    source: 'fallback',
+                    timestamp: new Date().toISOString()
+                };
+            }
+        },
+
+        // 🔍 Money Leak Detection with Claude
+        async detectMoneyLeaks(expenses, income) {
+            try {
+                const prompt = `Analyze expenses for money leaks in Cambodia context.
+
+Monthly Income: $${income}
+Expenses: ${JSON.stringify(expenses)}
+
+Identify potential money leaks and provide advice in Khmer:
+1. Unnecessary subscriptions
+2. Small daily expenses that add up
+3. Cambodia-specific savings opportunities
+4. Behavioral patterns to change
+
+Provide practical recommendations in Khmer. Maximum 300 words.`;
+
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 800,
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                });
+
+                return {
+                    success: true,
+                    response: message.content[0].text,
+                    source: 'claude',
+                    timestamp: new Date().toISOString()
+                };
+                
+            } catch (error) {
+                console.error('Claude money leak error:', error);
+                return {
+                    success: true,
+                    response: `🔍 ការវិភាគ Money Leak មូលដ្ឋាន:\n\n🎯 ពិនិត្យមើលតំបន់ទាំងនេះ:\n• Subscriptions (Netflix, Spotify)\n• ការទិញម្ហូបញឹកញាប់\n• កាហ្វេប្រចាំថ្ងៃ\n• Impulse buying\n\n💡 ការកាត់បន្ថយតូចៗ = សន្សំធំ!\n\n🤖 Claude AI នឹងផ្តល់ការវិភាគលម្អិតក្នុងពេលឆាប់ៗនេះ!`,
+                    source: 'fallback',
+                    timestamp: new Date().toISOString()
+                };
+            }
+        },
+
+        // 🧪 Connection Test
+        async testConnection() {
+            try {
+                const message = await anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 100,
+                    messages: [{
+                        role: "user",
+                        content: "Test connection. Respond with: CONNECTION_OK"
+                    }]
+                });
+
+                const response = message.content[0].text;
+                return {
+                    success: response.includes('CONNECTION_OK') || response.length > 0,
+                    message: 'Claude AI connection successful',
+                    response: response
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    message: 'Claude AI connection failed: ' + error.message
+                };
+            }
+        },
+
+        // 📊 Get AI Status
+        getStatus() {
+            return {
+                ai_available: aiAvailable,
+                service: 'Claude AI',
+                model: 'claude-3-sonnet-20240229',
+                fallback_mode: false,
+                last_check: new Date().toISOString()
+            };
+        },
+
+        // 🔧 Fallback Allocation
+        getFallbackAllocation(amount, risk) {
+            const allocations = {
+                conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
+                moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
+                aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
+            };
+            
+            const chosen = allocations[risk] || allocations.moderate;
+            
+            return {
+                stocks_percent: chosen.stocks,
+                bonds_percent: chosen.bonds,
+                cash_percent: chosen.cash,
+                crypto_percent: chosen.crypto,
+                stocks_amount: amount * (chosen.stocks / 100),
+                bonds_amount: amount * (chosen.bonds / 100),
+                cash_amount: amount * (chosen.cash / 100),
+                crypto_amount: amount * (chosen.crypto / 100),
+                reasoning: `Fallback ${risk} allocation - Claude AI unavailable`,
+                confidence: 70,
+                ai_used: false,
+                source: 'fallback'
+            };
+        }
+    };
+    
+    // Enhanced AI Helper for Claude
+    aiHelper = {
+        formatDisplay: (allocation) => ({
+            summary: {
+                stocks: `${allocation.stocks_percent || 0}% ($${(allocation.stocks_amount || 0).toLocaleString()})`,
+                bonds: `${allocation.bonds_percent || 0}% ($${(allocation.bonds_amount || 0).toLocaleString()})`,
+                cash: `${allocation.cash_percent || 0}% ($${(allocation.cash_amount || 0).toLocaleString()})`,
+                crypto: `${allocation.crypto_percent || 0}% ($${(allocation.crypto_amount || 0).toLocaleString()})`
+            },
+            total_amount: ((allocation.stocks_amount || 0) + (allocation.bonds_amount || 0) + 
+                          (allocation.cash_amount || 0) + (allocation.crypto_amount || 0)).toLocaleString(),
+            ai_confidence: allocation.confidence || 'Unknown',
+            reasoning: allocation.reasoning || 'No reasoning provided',
+            source: allocation.source || 'unknown'
+        }),
+        
+        validateAllocation: (allocation, total) => {
+            try {
+                const requiredFields = ['stocks_percent', 'bonds_percent', 'cash_percent', 'crypto_percent'];
+                for (const field of requiredFields) {
+                    if (typeof allocation[field] !== 'number') {
+                        console.warn(`Missing or invalid ${field}`);
+                        return { valid: false, allocation: aiService.getFallbackAllocation(total, 'moderate') };
+                    }
+                }
+
+                const totalPercent = allocation.stocks_percent + allocation.bonds_percent + 
+                                   allocation.cash_percent + allocation.crypto_percent;
+                
+                if (Math.abs(totalPercent - 100) > 5) {
+                    console.warn(`Allocation percentages don't add to 100%: ${totalPercent}%`);
+                    // Normalize percentages
+                    const factor = 100 / totalPercent;
+                    allocation.stocks_percent = Math.round(allocation.stocks_percent * factor);
+                    allocation.bonds_percent = Math.round(allocation.bonds_percent * factor);
+                    allocation.cash_percent = Math.round(allocation.cash_percent * factor);
+                    allocation.crypto_percent = Math.round(allocation.crypto_percent * factor);
+                }
+
+                // Recalculate amounts
+                allocation.stocks_amount = total * (allocation.stocks_percent / 100);
+                allocation.bonds_amount = total * (allocation.bonds_percent / 100);
+                allocation.cash_amount = total * (allocation.cash_percent / 100);
+                allocation.crypto_amount = total * (allocation.crypto_percent / 100);
+
+                return { valid: true, allocation };
+                
+            } catch (error) {
+                console.error('Allocation validation failed:', error);
+                return { 
+                    valid: false, 
+                    allocation: aiService.getFallbackAllocation(total, 'moderate')
+                };
+            }
+        }
+    };
+    
 } catch (error) {
-    console.log("⚠️ AI Integration not available:", error.message);
-    console.log("📝 Bot will run in standard mode without AI features");
+    console.log("⚠️ Claude AI Integration not available:", error.message);
+    console.log("📝 Bot will run in fallback mode without Claude AI features");
     aiAvailable = false;
     
-    // Create fallback AI service
+    // Create fallback AI service (same as your original)
     aiService = {
         getSmartAllocation: async (amount, risk) => ({
             stocks_percent: 50, bonds_percent: 40, cash_percent: 8, crypto_percent: 2,
             stocks_amount: amount * 0.5, bonds_amount: amount * 0.4, 
             cash_amount: amount * 0.08, crypto_amount: amount * 0.02,
-            reasoning: "Fallback allocation - AI not available",
-            confidence: 70, ai_used: false
+            reasoning: "Fallback allocation - Claude AI not available",
+            confidence: 70, ai_used: false, source: 'fallback'
         }),
         shouldExecuteReset: async () => ({ 
-            decision: 'YES', confidence: 75, reasoning: 'Standard 7-day cycle', ai_used: false 
+            decision: 'YES', confidence: 75, reasoning: 'Standard 7-day cycle', ai_used: false, wait_days: 0
         }),
         getMarketAnalysis: async () => ({ 
             market_sentiment: 'NEUTRAL', volatility_level: 'MODERATE',
-            recommendation: 'Standard balanced approach', ai_used: false 
+            recommendation: 'Standard balanced approach', ai_used: false,
+            simplified_message: 'Focus on your financial goals! 🎯'
         }),
-        getStatus: () => ({ ai_available: false, fallback_mode: true })
+        handleUserQuestion: async (question) => ({
+            success: false,
+            response: "🤖 AI មានបញ្ហា។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
+            source: 'fallback'
+        }),
+        getPersonalizedCoaching: async (progress, day) => ({
+            success: true,
+            response: `💪 ថ្ងៃទី ${day}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។`,
+            source: 'fallback'
+        }),
+        detectMoneyLeaks: async () => ({
+            success: true,
+            response: "🔍 សូមពិនិត្យ subscriptions និងចំណាយតូចៗប្រចាំថ្ងៃ។",
+            source: 'fallback'
+        }),
+        testConnection: async () => ({ success: false, message: 'Claude AI not available' }),
+        getStatus: () => ({ ai_available: false, fallback_mode: true, service: 'Fallback' })
     };
     
     aiHelper = {
@@ -124,225 +553,26 @@ try {
                 cash: `${allocation.cash_percent}% ($${allocation.cash_amount?.toLocaleString() || '0'})`,
                 crypto: `${allocation.crypto_percent}% ($${allocation.crypto_amount?.toLocaleString() || '0'})`
             },
-            ai_confidence: allocation.confidence || 'N/A'
+            ai_confidence: allocation.confidence || 'N/A',
+            source: 'fallback'
         }),
         validateAllocation: (allocation, total) => ({ valid: true, allocation })
     };
 }
 
-// Enhanced Money Flow Functions with AI Integration
-class SmartMoneyFlow {
-    constructor(db, aiService, aiHelper) {
-        this.db = db;
-        this.ai = aiService;
-        this.helper = aiHelper;
-        this.aiEnabled = aiAvailable;
-    }
-    
-    // 🧠 AI-Enhanced Day Progression
-    async getSmartDayRecommendation(userId, currentDay, userProgress) {
-        if (!this.aiEnabled) {
-            return { proceed: true, reasoning: "Standard day progression" };
-        }
-        
-        try {
-            const analysis = await this.ai.shouldExecuteReset({
-                currentDay: currentDay,
-                userProgress: userProgress,
-                dayType: 'progression'
-            });
-            
-            return {
-                proceed: analysis.decision === 'YES',
-                reasoning: analysis.reasoning,
-                confidence: analysis.confidence,
-                ai_used: true
-            };
-        } catch (error) {
-            return { proceed: true, reasoning: "AI unavailable, proceeding normally" };
-        }
-    }
-    
-    // 💰 AI-Enhanced Money Allocation
-    async getSmartAllocation(amount, userRisk = 'moderate', day = 0) {
-        try {
-            const allocation = await this.ai.getSmartAllocation(amount, userRisk, {
-                currentDay: day,
-                flowType: '7day_reset',
-                userContext: 'money_flow_program'
-            });
-            
-            const validation = this.helper.validateAllocation(allocation, amount);
-            return validation.allocation;
-            
-        } catch (error) {
-            console.error('Smart allocation failed:', error);
-            return this.getFallbackAllocation(amount, userRisk);
-        }
-    }
-    
-    // 📊 AI Market Context for Users
-    async getMarketContextForDay(day) {
-        if (!this.aiEnabled) {
-            return { message: "Focus on your financial goals today!", simple: true };
-        }
-        
-        try {
-            const analysis = await this.ai.getMarketAnalysis({ 
-                context: 'daily_education',
-                day: day 
-            });
-            
-            return {
-                sentiment: analysis.market_sentiment,
-                advice: analysis.recommendation,
-                simplified: this.simplifyForUsers(analysis),
-                ai_powered: true
-            };
-        } catch (error) {
-            return { message: "Focus on building good financial habits!", simple: true };
-        }
-    }
-    
-    // 🎯 Smart Day 7 Reset Logic
-    async executeSmartReset(userId, resetAmount) {
-        try {
-            console.log(`🤖 Executing smart reset for user ${userId}, amount: $${resetAmount}`);
-            
-            // Get AI recommendation for reset
-            const shouldReset = await this.ai.shouldExecuteReset({
-                userId: userId,
-                amount: resetAmount,
-                dayType: 'reset_day'
-            });
-            
-            if (shouldReset.decision === 'NO') {
-                return {
-                    success: false,
-                    message: `AI recommends waiting: ${shouldReset.reasoning}`,
-                    wait_days: shouldReset.wait_days || 1,
-                    ai_decision: true
-                };
-            }
-            
-            // Get smart allocation
-            const allocation = await this.getSmartAllocation(resetAmount, 'moderate', 7);
-            
-            // Format for user display
-            const display = this.helper.formatDisplay(allocation);
-            
-            return {
-                success: true,
-                allocation: allocation,
-                display: display,
-                ai_powered: allocation.ai_used,
-                message: this.formatResetMessage(allocation, display)
-            };
-            
-        } catch (error) {
-            console.error('Smart reset failed:', error);
-            return this.getFallbackReset(resetAmount);
-        }
-    }
-    
-    // 📱 Format Reset Message for Telegram
-    formatResetMessage(allocation, display) {
-        const aiEmoji = allocation.ai_used ? "🤖 AI-Powered" : "📊 Standard";
-        
-        return `${aiEmoji} Day 7 Reset Complete! 🎉
+console.log(`🎯 Claude AI Integration initialized - Status: ${aiAvailable ? 'ENABLED' : 'FALLBACK MODE'}`);
 
-💰 **Your Smart Allocation:**
-
-📈 **Stocks**: ${display.summary.stocks}
-🏦 **Bonds**: ${display.summary.bonds}  
-💵 **Cash**: ${display.summary.cash}
-₿ **Crypto**: ${display.summary.crypto}
-
-🧠 **AI Analysis**: ${allocation.reasoning || 'Balanced approach for steady growth'}
-
-📊 **Confidence**: ${allocation.confidence || 75}%
-
-🎯 **Next Steps**: Continue building your wealth with disciplined investing!`;
-    }
-    
-    // 🔧 Fallback Functions
-    getFallbackAllocation(amount, risk) {
-        const allocations = {
-            conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
-            moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
-            aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
-        };
-        
-        const chosen = allocations[risk] || allocations.moderate;
-        
-        return {
-            stocks_percent: chosen.stocks,
-            bonds_percent: chosen.bonds,
-            cash_percent: chosen.cash,
-            crypto_percent: chosen.crypto,
-            stocks_amount: amount * (chosen.stocks / 100),
-            bonds_amount: amount * (chosen.bonds / 100),
-            cash_amount: amount * (chosen.cash / 100),
-            crypto_amount: amount * (chosen.crypto / 100),
-            reasoning: `Fallback ${risk} allocation`,
-            confidence: 70,
-            ai_used: false
-        };
-    }
-    
-    getFallbackReset(amount) {
-        const allocation = this.getFallbackAllocation(amount, 'moderate');
-        const display = this.helper.formatDisplay(allocation);
-        
-        return {
-            success: true,
-            allocation: allocation,
-            display: display,
-            ai_powered: false,
-            message: this.formatResetMessage(allocation, display)
-        };
-    }
-    
-    simplifyForUsers(analysis) {
-        // Simplify complex AI analysis for regular users
-        const sentiment = analysis.market_sentiment || 'NEUTRAL';
-        const volatility = analysis.volatility_level || 'MODERATE';
-        
-        if (sentiment === 'BULLISH' && volatility === 'LOW') {
-            return "Great time to stick to your investment plan! 📈";
-        } else if (sentiment === 'BEARISH' || volatility === 'HIGH') {
-            return "Stay calm and keep building your emergency fund 🛡️";
-        } else {
-            return "Perfect time to focus on consistent habits 🎯";
-        }
-    }
-    
-    // 📊 Get AI Status for Admin
-    getAIStatus() {
-        return {
-            enabled: this.aiEnabled,
-            service_status: this.ai.getStatus(),
-            last_check: new Date().toISOString()
-        };
-    }
-}
-
-// Initialize Smart Money Flow
-const smartFlow = new SmartMoneyFlow(db, aiService, aiHelper);
-
-console.log(`🎯 Smart Money Flow initialized - AI ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
-
-// Test AI connection on startup
+// Test Claude connection on startup
 if (aiAvailable) {
     aiService.testConnection()
         .then(result => {
             if (result.success) {
-                console.log("✅ AI connection test successful");
+                console.log("✅ Claude AI connection test successful");
             } else {
-                console.log("⚠️ AI connection test failed:", result.message);
+                console.log("⚠️ Claude AI connection test failed:", result.message);
             }
         })
-        .catch(err => console.log("⚠️ AI test error:", err.message));
+        .catch(err => console.log("⚠️ Claude AI test error:", err.message));
 }
 
 // Database Models (embedded for Railway deployment)
