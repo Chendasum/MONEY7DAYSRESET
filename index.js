@@ -75,477 +75,45 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// 🤖 CLAUDE AI INTEGRATION FOR 7-DAY MONEY FLOW BOT
-// Replace the AI section (around line 76) with this Claude-powered version
+// 🤖 AI INTEGRATION FOR 7-DAY MONEY FLOW BOT
+// Add this section after your database setup (around line 76)
 
-console.log("🤖 Initializing Claude AI Integration for Smart Money Flow...");
+console.log("🤖 Initializing AI Integration for Smart Money Flow...");
 
-// Import Claude AI services
+// Import AI services
 let aiService = null;
 let aiHelper = null;
 let aiAvailable = false;
 
 try {
-    // Initialize Claude AI
-    const { default: Anthropic } = require('@anthropic-ai/sdk');
+    // Try to import AI services
+    aiService = require('./services/aiIntegration');
+    aiHelper = require('./utils/aiHelper');
     
-    const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
-    });
-    
-    console.log("✅ Claude AI initialized successfully");
+    console.log("✅ AI Integration loaded successfully");
     aiAvailable = true;
-    
-    // Claude-powered AI Service
-    aiService = {
-        // 💰 Smart Money Allocation with Claude
-        async getSmartAllocation(amount, risk = 'moderate', context = {}) {
-            try {
-                const prompt = `You are a financial advisor for the 7-Day Money Flow Reset program in Cambodia.
-
-User wants to allocate $${amount} with ${risk} risk tolerance on Day ${context.currentDay || 0}.
-
-Provide a JSON response with allocation percentages and amounts:
-{
-  "stocks_percent": 50,
-  "bonds_percent": 40,
-  "cash_percent": 8,
-  "crypto_percent": 2,
-  "stocks_amount": ${amount * 0.5},
-  "bonds_amount": ${amount * 0.4},
-  "cash_amount": ${amount * 0.08},
-  "crypto_amount": ${amount * 0.02},
-  "reasoning": "Balanced approach suitable for moderate risk...",
-  "confidence": 85
-}
-
-Consider Cambodia's financial context (USD/KHR, local banks, conservative culture).
-Keep crypto allocation low (0-5%) for Cambodian users.
-Respond ONLY with valid JSON.`;
-
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 1000,
-                    messages: [{
-                        role: "user",
-                        content: prompt
-                    }]
-                });
-
-                const response = message.content[0].text;
-                const allocation = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
-                
-                return {
-                    ...allocation,
-                    ai_used: true,
-                    source: 'claude'
-                };
-                
-            } catch (error) {
-                console.error('Claude allocation error:', error);
-                return this.getFallbackAllocation(amount, risk);
-            }
-        },
-
-        // 🎯 Smart Reset Decision with Claude
-        async shouldExecuteReset(params = {}) {
-            try {
-                const prompt = `You are advising a user in the 7-Day Money Flow Reset program.
-
-Context:
-- Current Day: ${params.currentDay || 7}
-- User ID: ${params.userId || 'unknown'}
-- Reset Amount: $${params.amount || 1000}
-- Day Type: ${params.dayType || 'reset_day'}
-
-Should this user execute their money reset today? Consider:
-1. Market conditions
-2. Day 7 completion readiness
-3. User progress
-4. Cambodia economic context
-
-Respond with JSON only:
-{
-  "decision": "YES" or "NO",
-  "confidence": 85,
-  "reasoning": "User has completed 7 days and is ready for reset",
-  "wait_days": 0
-}`;
-
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 500,
-                    messages: [{
-                        role: "user",
-                        content: prompt
-                    }]
-                });
-
-                const response = message.content[0].text;
-                const decision = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
-                
-                return {
-                    ...decision,
-                    ai_used: true,
-                    source: 'claude'
-                };
-                
-            } catch (error) {
-                console.error('Claude reset decision error:', error);
-                return { 
-                    decision: 'YES', 
-                    confidence: 75, 
-                    reasoning: 'Standard 7-day cycle completed', 
-                    ai_used: false,
-                    wait_days: 0
-                };
-            }
-        },
-
-        // 📊 Market Analysis with Claude
-        async getMarketAnalysis(context = {}) {
-            try {
-                const prompt = `Provide brief market analysis for Cambodian investors in the 7-Day Money Flow Reset program.
-
-Context: Day ${context.day || 1} of financial education program.
-
-Provide JSON response:
-{
-  "market_sentiment": "BULLISH|BEARISH|NEUTRAL",
-  "volatility_level": "LOW|MODERATE|HIGH", 
-  "recommendation": "Brief advice for Cambodian context",
-  "simplified_message": "Simple encouraging message for users"
-}
-
-Focus on:
-- USD/KHR considerations
-- Regional stability
-- Conservative investment approach
-- Building emergency funds first
-
-Respond ONLY with valid JSON.`;
-
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 600,
-                    messages: [{
-                        role: "user",
-                        content: prompt
-                    }]
-                });
-
-                const response = message.content[0].text;
-                const analysis = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
-                
-                return {
-                    ...analysis,
-                    ai_used: true,
-                    source: 'claude'
-                };
-                
-            } catch (error) {
-                console.error('Claude market analysis error:', error);
-                return { 
-                    market_sentiment: 'NEUTRAL', 
-                    volatility_level: 'MODERATE',
-                    recommendation: 'Focus on building consistent financial habits',
-                    simplified_message: 'Great time to focus on your financial goals! 🎯',
-                    ai_used: false 
-                };
-            }
-        },
-
-        // 💬 Handle User Questions with Claude
-        async handleUserQuestion(question, userContext = {}) {
-            try {
-                const prompt = `You are a financial coach for the 7-Day Money Flow Reset program in Cambodia.
-
-User: ${userContext.name || 'User'} (Tier: ${userContext.tier || 'essential'}, Day: ${userContext.currentDay || 1})
-Question: "${question}"
-
-Provide helpful financial advice in Khmer language. Be:
-- Encouraging and supportive
-- Practical and actionable  
-- Specific to Cambodia (USD/KHR, ABA/ACLEDA banks)
-- Related to the 7-Day Money Flow program when relevant
-
-Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
-
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 800,
-                    messages: [{
-                        role: "user", 
-                        content: prompt
-                    }]
-                });
-
-                return {
-                    success: true,
-                    response: message.content[0].text,
-                    source: 'claude',
-                    timestamp: new Date().toISOString()
-                };
-                
-            } catch (error) {
-                console.error('Claude question error:', error);
-                return {
-                    success: false,
-                    response: "🤖 AI មានបញ្ហា។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
-                    source: 'fallback',
-                    timestamp: new Date().toISOString()
-                };
-            }
-        },
-
-        // 🎯 Personalized Coaching with Claude  
-        async getPersonalizedCoaching(userProgress, dayNumber) {
-            try {
-                const prompt = `Provide personalized coaching for Day ${dayNumber} of 7-Day Money Flow Reset.
-
-User Progress:
-- Completed Days: ${userProgress.completedDays || 0}
-- Current Day: ${dayNumber}
-- Goals: ${userProgress.goals?.join(', ') || 'Financial improvement'}
-
-Create encouraging coaching message in Khmer with:
-1. Acknowledgment of progress
-2. Day ${dayNumber} specific guidance
-3. Motivation to continue
-4. Practical next steps
-
-Maximum 250 words in Khmer.`;
-
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229", 
-                    max_tokens: 700,
-                    messages: [{
-                        role: "user",
-                        content: prompt
-                    }]
-                });
-
-                return {
-                    success: true,
-                    response: message.content[0].text,
-                    source: 'claude',
-                    timestamp: new Date().toISOString()
-                };
-                
-            } catch (error) {
-                console.error('Claude coaching error:', error);
-                return {
-                    success: true,
-                    response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI នឹងអាចប្រើបានក្នុងពេលឆាប់ៗនេះ!`,
-                    source: 'fallback',
-                    timestamp: new Date().toISOString()
-                };
-            }
-        },
-
-        // 🔍 Money Leak Detection with Claude
-        async detectMoneyLeaks(expenses, income) {
-            try {
-                const prompt = `Analyze expenses for money leaks in Cambodia context.
-
-Monthly Income: $${income}
-Expenses: ${JSON.stringify(expenses)}
-
-Identify potential money leaks and provide advice in Khmer:
-1. Unnecessary subscriptions
-2. Small daily expenses that add up
-3. Cambodia-specific savings opportunities
-4. Behavioral patterns to change
-
-Provide practical recommendations in Khmer. Maximum 300 words.`;
-
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 800,
-                    messages: [{
-                        role: "user",
-                        content: prompt
-                    }]
-                });
-
-                return {
-                    success: true,
-                    response: message.content[0].text,
-                    source: 'claude',
-                    timestamp: new Date().toISOString()
-                };
-                
-            } catch (error) {
-                console.error('Claude money leak error:', error);
-                return {
-                    success: true,
-                    response: `🔍 ការវិភាគ Money Leak មូលដ្ឋាន:\n\n🎯 ពិនិត្យមើលតំបន់ទាំងនេះ:\n• Subscriptions (Netflix, Spotify)\n• ការទិញម្ហូបញឹកញាប់\n• កាហ្វេប្រចាំថ្ងៃ\n• Impulse buying\n\n💡 ការកាត់បន្ថយតូចៗ = សន្សំធំ!\n\n🤖 Claude AI នឹងផ្តល់ការវិភាគលម្អិតក្នុងពេលឆាប់ៗនេះ!`,
-                    source: 'fallback',
-                    timestamp: new Date().toISOString()
-                };
-            }
-        },
-
-        // 🧪 Connection Test
-        async testConnection() {
-            try {
-                const message = await anthropic.messages.create({
-                    model: "claude-3-sonnet-20240229",
-                    max_tokens: 100,
-                    messages: [{
-                        role: "user",
-                        content: "Test connection. Respond with: CONNECTION_OK"
-                    }]
-                });
-
-                const response = message.content[0].text;
-                return {
-                    success: response.includes('CONNECTION_OK') || response.length > 0,
-                    message: 'Claude AI connection successful',
-                    response: response
-                };
-            } catch (error) {
-                return {
-                    success: false,
-                    message: 'Claude AI connection failed: ' + error.message
-                };
-            }
-        },
-
-        // 📊 Get AI Status
-        getStatus() {
-            return {
-                ai_available: aiAvailable,
-                service: 'Claude AI',
-                model: 'claude-3-sonnet-20240229',
-                fallback_mode: false,
-                last_check: new Date().toISOString()
-            };
-        },
-
-        // 🔧 Fallback Allocation
-        getFallbackAllocation(amount, risk) {
-            const allocations = {
-                conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
-                moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
-                aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
-            };
-            
-            const chosen = allocations[risk] || allocations.moderate;
-            
-            return {
-                stocks_percent: chosen.stocks,
-                bonds_percent: chosen.bonds,
-                cash_percent: chosen.cash,
-                crypto_percent: chosen.crypto,
-                stocks_amount: amount * (chosen.stocks / 100),
-                bonds_amount: amount * (chosen.bonds / 100),
-                cash_amount: amount * (chosen.cash / 100),
-                crypto_amount: amount * (chosen.crypto / 100),
-                reasoning: `Fallback ${risk} allocation - Claude AI unavailable`,
-                confidence: 70,
-                ai_used: false,
-                source: 'fallback'
-            };
-        }
-    };
-    
-    // Enhanced AI Helper for Claude
-    aiHelper = {
-        formatDisplay: (allocation) => ({
-            summary: {
-                stocks: `${allocation.stocks_percent || 0}% ($${(allocation.stocks_amount || 0).toLocaleString()})`,
-                bonds: `${allocation.bonds_percent || 0}% ($${(allocation.bonds_amount || 0).toLocaleString()})`,
-                cash: `${allocation.cash_percent || 0}% ($${(allocation.cash_amount || 0).toLocaleString()})`,
-                crypto: `${allocation.crypto_percent || 0}% ($${(allocation.crypto_amount || 0).toLocaleString()})`
-            },
-            total_amount: ((allocation.stocks_amount || 0) + (allocation.bonds_amount || 0) + 
-                          (allocation.cash_amount || 0) + (allocation.crypto_amount || 0)).toLocaleString(),
-            ai_confidence: allocation.confidence || 'Unknown',
-            reasoning: allocation.reasoning || 'No reasoning provided',
-            source: allocation.source || 'unknown'
-        }),
-        
-        validateAllocation: (allocation, total) => {
-            try {
-                const requiredFields = ['stocks_percent', 'bonds_percent', 'cash_percent', 'crypto_percent'];
-                for (const field of requiredFields) {
-                    if (typeof allocation[field] !== 'number') {
-                        console.warn(`Missing or invalid ${field}`);
-                        return { valid: false, allocation: aiService.getFallbackAllocation(total, 'moderate') };
-                    }
-                }
-
-                const totalPercent = allocation.stocks_percent + allocation.bonds_percent + 
-                                   allocation.cash_percent + allocation.crypto_percent;
-                
-                if (Math.abs(totalPercent - 100) > 5) {
-                    console.warn(`Allocation percentages don't add to 100%: ${totalPercent}%`);
-                    // Normalize percentages
-                    const factor = 100 / totalPercent;
-                    allocation.stocks_percent = Math.round(allocation.stocks_percent * factor);
-                    allocation.bonds_percent = Math.round(allocation.bonds_percent * factor);
-                    allocation.cash_percent = Math.round(allocation.cash_percent * factor);
-                    allocation.crypto_percent = Math.round(allocation.crypto_percent * factor);
-                }
-
-                // Recalculate amounts
-                allocation.stocks_amount = total * (allocation.stocks_percent / 100);
-                allocation.bonds_amount = total * (allocation.bonds_percent / 100);
-                allocation.cash_amount = total * (allocation.cash_percent / 100);
-                allocation.crypto_amount = total * (allocation.crypto_percent / 100);
-
-                return { valid: true, allocation };
-                
-            } catch (error) {
-                console.error('Allocation validation failed:', error);
-                return { 
-                    valid: false, 
-                    allocation: aiService.getFallbackAllocation(total, 'moderate')
-                };
-            }
-        }
-    };
-    
 } catch (error) {
-    console.log("⚠️ Claude AI Integration not available:", error.message);
-    console.log("📝 Bot will run in fallback mode without Claude AI features");
+    console.log("⚠️ AI Integration not available:", error.message);
+    console.log("📝 Bot will run in standard mode without AI features");
     aiAvailable = false;
     
-    // Create fallback AI service (same as your original)
+    // Create fallback AI service
     aiService = {
         getSmartAllocation: async (amount, risk) => ({
             stocks_percent: 50, bonds_percent: 40, cash_percent: 8, crypto_percent: 2,
             stocks_amount: amount * 0.5, bonds_amount: amount * 0.4, 
             cash_amount: amount * 0.08, crypto_amount: amount * 0.02,
-            reasoning: "Fallback allocation - Claude AI not available",
-            confidence: 70, ai_used: false, source: 'fallback'
+            reasoning: "Fallback allocation - AI not available",
+            confidence: 70, ai_used: false
         }),
         shouldExecuteReset: async () => ({ 
-            decision: 'YES', confidence: 75, reasoning: 'Standard 7-day cycle', ai_used: false, wait_days: 0
+            decision: 'YES', confidence: 75, reasoning: 'Standard 7-day cycle', ai_used: false 
         }),
         getMarketAnalysis: async () => ({ 
             market_sentiment: 'NEUTRAL', volatility_level: 'MODERATE',
-            recommendation: 'Standard balanced approach', ai_used: false,
-            simplified_message: 'Focus on your financial goals! 🎯'
+            recommendation: 'Standard balanced approach', ai_used: false 
         }),
-        handleUserQuestion: async (question) => ({
-            success: false,
-            response: "🤖 AI មានបញ្ហា។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
-            source: 'fallback'
-        }),
-        getPersonalizedCoaching: async (progress, day) => ({
-            success: true,
-            response: `💪 ថ្ងៃទី ${day}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។`,
-            source: 'fallback'
-        }),
-        detectMoneyLeaks: async () => ({
-            success: true,
-            response: "🔍 សូមពិនិត្យ subscriptions និងចំណាយតូចៗប្រចាំថ្ងៃ។",
-            source: 'fallback'
-        }),
-        testConnection: async () => ({ success: false, message: 'Claude AI not available' }),
-        getStatus: () => ({ ai_available: false, fallback_mode: true, service: 'Fallback' })
+        getStatus: () => ({ ai_available: false, fallback_mode: true })
     };
     
     aiHelper = {
@@ -556,26 +124,624 @@ Provide practical recommendations in Khmer. Maximum 300 words.`;
                 cash: `${allocation.cash_percent}% ($${allocation.cash_amount?.toLocaleString() || '0'})`,
                 crypto: `${allocation.crypto_percent}% ($${allocation.crypto_amount?.toLocaleString() || '0'})`
             },
-            ai_confidence: allocation.confidence || 'N/A',
-            source: 'fallback'
+            ai_confidence: allocation.confidence || 'N/A'
         }),
         validateAllocation: (allocation, total) => ({ valid: true, allocation })
     };
 }
 
-console.log(`🎯 Claude AI Integration initialized - Status: ${aiAvailable ? 'ENABLED' : 'FALLBACK MODE'}`);
+// Enhanced Money Flow Functions with AI Integration
+class SmartMoneyFlow {
+    constructor(db, aiService, aiHelper) {
+        this.db = db;
+        this.ai = aiService;
+        this.helper = aiHelper;
+        this.aiEnabled = aiAvailable;
+    }
+    
+    // 🧠 AI-Enhanced Day Progression
+    async getSmartDayRecommendation(userId, currentDay, userProgress) {
+        if (!this.aiEnabled) {
+            return { proceed: true, reasoning: "Standard day progression" };
+        }
+        
+        try {
+            const analysis = await this.ai.shouldExecuteReset({
+                currentDay: currentDay,
+                userProgress: userProgress,
+                dayType: 'progression'
+            });
+            
+            return {
+                proceed: analysis.decision === 'YES',
+                reasoning: analysis.reasoning,
+                confidence: analysis.confidence,
+                ai_used: true
+            };
+        } catch (error) {
+            return { proceed: true, reasoning: "AI unavailable, proceeding normally" };
+        }
+    }
+    
+    // 💰 AI-Enhanced Money Allocation
+    async getSmartAllocation(amount, userRisk = 'moderate', day = 0) {
+        try {
+            const allocation = await this.ai.getSmartAllocation(amount, userRisk, {
+                currentDay: day,
+                flowType: '7day_reset',
+                userContext: 'money_flow_program'
+            });
+            
+            const validation = this.helper.validateAllocation(allocation, amount);
+            return validation.allocation;
+            
+        } catch (error) {
+            console.error('Smart allocation failed:', error);
+            return this.getFallbackAllocation(amount, userRisk);
+        }
+    }
+    
+    // 📊 AI Market Context for Users
+    async getMarketContextForDay(day) {
+        if (!this.aiEnabled) {
+            return { message: "Focus on your financial goals today!", simple: true };
+        }
+        
+        try {
+            const analysis = await this.ai.getMarketAnalysis({ 
+                context: 'daily_education',
+                day: day 
+            });
+            
+            return {
+                sentiment: analysis.market_sentiment,
+                advice: analysis.recommendation,
+                simplified: this.simplifyForUsers(analysis),
+                ai_powered: true
+            };
+        } catch (error) {
+            return { message: "Focus on building good financial habits!", simple: true };
+        }
+    }
+    
+    // 🎯 Smart Day 7 Reset Logic
+    async executeSmartReset(userId, resetAmount) {
+        try {
+            console.log(`🤖 Executing smart reset for user ${userId}, amount: $${resetAmount}`);
+            
+            // Get AI recommendation for reset
+            const shouldReset = await this.ai.shouldExecuteReset({
+                userId: userId,
+                amount: resetAmount,
+                dayType: 'reset_day'
+            });
+            
+            if (shouldReset.decision === 'NO') {
+                return {
+                    success: false,
+                    message: `AI recommends waiting: ${shouldReset.reasoning}`,
+                    wait_days: shouldReset.wait_days || 1,
+                    ai_decision: true
+                };
+            }
+            
+            // Get smart allocation
+            const allocation = await this.getSmartAllocation(resetAmount, 'moderate', 7);
+            
+            // Format for user display
+            const display = this.helper.formatDisplay(allocation);
+            
+            return {
+                success: true,
+                allocation: allocation,
+                display: display,
+                ai_powered: allocation.ai_used,
+                message: this.formatResetMessage(allocation, display)
+            };
+            
+        } catch (error) {
+            console.error('Smart reset failed:', error);
+            return this.getFallbackReset(resetAmount);
+        }
+    }
+    
+    // 📱 Format Reset Message for Telegram
+    formatResetMessage(allocation, display) {
+        const aiEmoji = allocation.ai_used ? "🤖 AI-Powered" : "📊 Standard";
+        
+        return `${aiEmoji} Day 7 Reset Complete! 🎉
 
-// Test Claude connection on startup
+💰 **Your Smart Allocation:**
+
+📈 **Stocks**: ${display.summary.stocks}
+🏦 **Bonds**: ${display.summary.bonds}  
+💵 **Cash**: ${display.summary.cash}
+₿ **Crypto**: ${display.summary.crypto}
+
+🧠 **AI Analysis**: ${allocation.reasoning || 'Balanced approach for steady growth'}
+
+📊 **Confidence**: ${allocation.confidence || 75}%
+
+🎯 **Next Steps**: Continue building your wealth with disciplined investing!`;
+    }
+    
+    // 🔧 Fallback Functions
+    getFallbackAllocation(amount, risk) {
+        const allocations = {
+            conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
+            moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
+            aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
+        };
+        
+        const chosen = allocations[risk] || allocations.moderate;
+        
+        return {
+            stocks_percent: chosen.stocks,
+            bonds_percent: chosen.bonds,
+            cash_percent: chosen.cash,
+            crypto_percent: chosen.crypto,
+            stocks_amount: amount * (chosen.stocks / 100),
+            bonds_amount: amount * (chosen.bonds / 100),
+            cash_amount: amount * (chosen.cash / 100),
+            crypto_amount: amount * (chosen.crypto / 100),
+            reasoning: `Fallback ${risk} allocation`,
+            confidence: 70,
+            ai_used: false
+        };
+    }
+    
+    getFallbackReset(amount) {
+        const allocation = this.getFallbackAllocation(amount, 'moderate');
+        const display = this.helper.formatDisplay(allocation);
+        
+        return {
+            success: true,
+            allocation: allocation,
+            display: display,
+            ai_powered: false,
+            message: this.formatResetMessage(allocation, display)
+        };
+    }
+    
+    simplifyForUsers(analysis) {
+        // Simplify complex AI analysis for regular users
+        const sentiment = analysis.market_sentiment || 'NEUTRAL';
+        const volatility = analysis.volatility_level || 'MODERATE';
+        
+        if (sentiment === 'BULLISH' && volatility === 'LOW') {
+            return "Great time to stick to your investment plan! 📈";
+        } else if (sentiment === 'BEARISH' || volatility === 'HIGH') {
+            return "Stay calm and keep building your emergency fund 🛡️";
+        } else {
+            return "Perfect time to focus on consistent habits 🎯";
+        }
+    }
+    
+    // 📊 Get AI Status for Admin
+    getAIStatus() {
+        return {
+            enabled: this.aiEnabled,
+            service_status: this.ai.getStatus(),
+            last_check: new Date().toISOString()
+        };
+    }
+}
+
+// Initialize Smart Money Flow
+const smartFlow = new SmartMoneyFlow(db, aiService, aiHelper);
+
+console.log(`🎯 Smart Money Flow initialized - AI ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
+
+// Test AI connection on startup
 if (aiAvailable) {
     aiService.testConnection()
         .then(result => {
             if (result.success) {
-                console.log("✅ Claude AI connection test successful");
+                console.log("✅ AI connection test successful");
             } else {
-                console.log("⚠️ Claude AI connection test failed:", result.message);
+                console.log("⚠️ AI connection test failed:", result.message);
             }
         })
-        .catch(err => console.log("⚠️ Claude AI test error:", err.message));
+        .catch(err => console.log("⚠️ AI test error:", err.message));
+}
+
+// Database Models (embedded for Railway deployment)
+class User {
+  static async findOne(condition) {
+    try {
+      if (condition.telegram_id) {
+        const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegram_id));
+        return result[0] || null;
+      }
+      if (condition.telegramId) {
+        const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegramId));
+        return result[0] || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Database error in User.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    const { upsert = false } = options;
+    
+    try {
+      if (condition.telegram_id || condition.telegramId) {
+        const existing = await this.findOne(condition);
+        
+        if (existing) {
+          // Only update fields that exist in the users schema
+          const validFields = [
+            'telegram_id', 'username', 'first_name', 'last_name', 'phone_number', 
+            'email', 'joined_at', 'is_paid', 'payment_date', 'transaction_id', 
+            'is_vip', 'tier', 'tier_price', 'last_active', 'timezone', 
+            'testimonials', 'testimonial_requests', 'upsell_attempts', 'conversion_history'
+          ];
+          
+          const safeUpdates = {};
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc') {
+              safeUpdates[key] = value;
+            }
+          });
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            safeUpdates.last_active = new Date();
+            const result = await db
+              .update(users)
+              .set(safeUpdates)
+              .where(eq(users.telegram_id, condition.telegram_id || condition.telegramId))
+              .returning();
+            return result[0];
+          }
+          return existing;
+        } else if (upsert) {
+          const insertData = { 
+            telegram_id: condition.telegram_id || condition.telegramId, 
+            last_active: new Date() 
+          };
+          
+          // Only add valid fields for insert
+          const validFields = [
+            'username', 'first_name', 'last_name', 'phone_number', 
+            'email', 'joined_at', 'is_paid', 'payment_date', 'transaction_id', 
+            'is_vip', 'tier', 'tier_price', 'timezone', 
+            'testimonials', 'testimonial_requests', 'upsell_attempts', 'conversion_history'
+          ];
+          
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              insertData[key] = value;
+            }
+          });
+          
+          const result = await db
+            .insert(users)
+            .values(insertData)
+            .returning();
+          return result[0];
+        }
+      }
+    } catch (error) {
+      console.error('Database error in User.findOneAndUpdate:', error.message);
+      console.error('Updates attempted:', updates);
+      return null;
+    }
+    
+    return null;
+  }
+}
+
+class Progress {
+  static async findOne(condition) {
+    try {
+      if (condition.userId || condition.user_id) {
+        const id = condition.userId || condition.user_id;
+        const result = await db.select().from(progress).where(eq(progress.user_id, id));
+        return result[0] || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Database error in Progress.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    const { upsert = false } = options;
+    
+    try {
+      if (condition.userId || condition.user_id) {
+        const id = condition.userId || condition.user_id;
+        const existing = await this.findOne(condition);
+        
+        if (existing) {
+          // Only update fields that exist in the progress schema
+          const validFields = [
+            'user_id', 'current_day', 'ready_for_day_1', 
+            'day_0_completed', 'day_1_completed', 'day_2_completed', 'day_3_completed',
+            'day_4_completed', 'day_5_completed', 'day_6_completed', 'day_7_completed',
+            'program_completed', 'program_completed_at', 'responses', 'created_at', 'updated_at'
+          ];
+          
+          const safeUpdates = {};
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null && key !== '$inc') {
+              safeUpdates[key] = value;
+            }
+          });
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            safeUpdates.updated_at = new Date();
+            const result = await db
+              .update(progress)
+              .set(safeUpdates)
+              .where(eq(progress.user_id, id))
+              .returning();
+            return result[0];
+          }
+          return existing;
+        } else if (upsert) {
+          const insertData = { 
+            user_id: id, 
+            created_at: new Date(), 
+            updated_at: new Date() 
+          };
+          
+          // Only add valid fields for insert
+          const validFields = [
+            'current_day', 'ready_for_day_1', 
+            'day_0_completed', 'day_1_completed', 'day_2_completed', 'day_3_completed',
+            'day_4_completed', 'day_5_completed', 'day_6_completed', 'day_7_completed',
+            'program_completed', 'program_completed_at', 'responses'
+          ];
+          
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              insertData[key] = value;
+            }
+          });
+          
+          const result = await db
+            .insert(progress)
+            .values(insertData)
+            .returning();
+          return result[0];
+        }
+      }
+    } catch (error) {
+      console.error('Database error in Progress.findOneAndUpdate:', error.message);
+      console.error('Updates attempted:', updates);
+      return null;
+    }
+    
+    return null;
+  }
+}
+
+console.log("✅ Database models embedded and ready for Railway deployment");
+
+// Enhanced message sending function with better chunking for Khmer content
+async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
+  try {
+    if (message.length <= chunkSize) {
+      return await bot.sendMessage(chatId, message, options);
+    }
+
+    // Smart chunking for better user experience
+    const chunks = [];
+    let currentChunk = '';
+    
+    // Split by paragraphs first for better content flow
+    const paragraphs = message.split('\n\n');
+    
+    for (const paragraph of paragraphs) {
+      if ((currentChunk + paragraph).length <= chunkSize) {
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = paragraph;
+        } else {
+          // If single paragraph is too long, split by sentences
+          const sentences = paragraph.split('\n');
+          for (const sentence of sentences) {
+            if ((currentChunk + sentence).length <= chunkSize) {
+              currentChunk += (currentChunk ? '\n' : '') + sentence;
+            } else {
+              if (currentChunk) chunks.push(currentChunk);
+              currentChunk = sentence;
+            }
+          }
+        }
+      }
+    }
+    
+    if (currentChunk) chunks.push(currentChunk);
+
+    // Send chunks with enhanced error handling
+    const messageIds = [];
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        const sentMessage = await bot.sendMessage(chatId, chunks[i], {
+          ...options,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        });
+        messageIds.push(sentMessage.message_id);
+        console.log(`✅ Chunk ${i + 1}/${chunks.length} sent (${chunks[i].length} chars, ID: ${sentMessage.message_id})`);
+        
+        // Enhanced delay between chunks for better reading experience
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (chunkError) {
+        console.error(`❌ Error sending chunk ${i + 1}:`, chunkError.message);
+        // Fallback for failed chunks
+        try {
+          await bot.sendMessage(chatId, `📝 [មាតិកាផ្នែកទី ${i + 1}] មានបញ្ហាក្នុងការផ្ញើ។ សូមទាក់ទង @Chendasum`);
+        } catch (fallbackError) {
+          console.error('Fallback message also failed:', fallbackError.message);
+        }
+      }
+    }
+    
+    return { message_ids: messageIds, chunks_sent: chunks.length };
+  } catch (error) {
+    console.error('Error in sendLongMessage:', error.message);
+    // Final fallback
+    try {
+      await bot.sendMessage(chatId, '❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមព្យាយាមម្តងទៀត ឬទាក់ទង @Chendasum');
+    } catch (finalError) {
+      console.error('Final fallback failed:', finalError.message);
+    }
+    throw error;
+  }
+}
+
+// Command Modules with error handling for each module
+let startCommand, dailyCommands, paymentCommands, vipCommands, adminCommands;
+let badgesCommands, quotesCommands, bookingCommands, tierFeatures;
+let marketingCommands, marketingContent, extendedContent, thirtyDayAdmin;
+let previewCommands, freeTools, financialQuiz, toolsTemplates, progressTracker;
+
+function safeRequire(modulePath, fallbackName) {
+  try {
+    const module = require(modulePath);
+    console.log(`✅ ${fallbackName} loaded successfully`);
+    return module;
+  } catch (error) {
+    console.log(`⚠️ ${fallbackName} not found, using fallback`);
+    return null;
+  }
+}
+
+startCommand = safeRequire("./commands/start", "startCommand");
+dailyCommands = safeRequire("./commands/daily", "dailyCommands");
+paymentCommands = safeRequire("./commands/payment", "paymentCommands");
+vipCommands = safeRequire("./commands/vip", "vipCommands");
+adminCommands = safeRequire("./commands/admin", "adminCommands");
+badgesCommands = safeRequire("./commands/badges", "badgesCommands");
+quotesCommands = safeRequire("./commands/quotes", "quotesCommands");
+bookingCommands = safeRequire("./commands/booking", "bookingCommands");
+tierFeatures = safeRequire("./commands/tier-features", "tierFeatures");
+marketingCommands = safeRequire("./commands/marketing", "marketingCommands");
+marketingContent = safeRequire("./commands/marketing-content", "marketingContent");
+extendedContent = safeRequire("./commands/extended-content", "extendedContent");
+thirtyDayAdmin = safeRequire("./commands/30day-admin", "thirtyDayAdmin");
+previewCommands = safeRequire("./commands/preview", "previewCommands");
+freeTools = safeRequire("./commands/free-tools", "freeTools");
+financialQuiz = safeRequire("./commands/financial-quiz", "financialQuiz");
+toolsTemplates = safeRequire("./commands/tools-templates", "toolsTemplates");
+progressTracker = safeRequire("./commands/progress-tracker", "progressTracker");
+
+// Service Modules with error handling
+let scheduler, analytics, celebrations, progressBadges;
+let emojiReactions, AccessControl, ContentScheduler, ConversionOptimizer;
+
+scheduler = safeRequire("./services/scheduler", "scheduler");
+analytics = safeRequire("./services/analytics", "analytics");
+celebrations = safeRequire("./services/celebrations", "celebrations");
+progressBadges = safeRequire("./services/progress-badges", "progressBadges");
+emojiReactions = safeRequire("./services/emoji-reactions", "emojiReactions");
+AccessControl = safeRequire("./services/access-control", "AccessControl");
+ContentScheduler = safeRequire("./services/content-scheduler", "ContentScheduler");
+ConversionOptimizer = safeRequire("./services/conversion-optimizer", "ConversionOptimizer");
+
+// ENHANCED LONG MESSAGE UTILITY FOR RAILWAY - AGGRESSIVE CHUNKING FOR FEWER MESSAGES
+async function sendLongMessage(bot, chatId, text, options = {}, chunkSize = 4090) {
+  try {
+    console.log(`📞 sendLongMessage called for chat ${chatId}, message length: ${text?.length || 0}`);
+    
+    if (!text || text.length === 0) {
+      console.log("❌ Empty message, skipping send");
+      return;
+    }
+
+    // Use maximum safe Telegram limit for fewer chunks
+    const maxLength = 4090; // Close to Telegram's 4096 limit but safe
+    
+    if (text.length <= maxLength) {
+      const messageOptions = {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...options
+      };
+      return await bot.sendMessage(chatId, text, messageOptions);
+    }
+    
+    console.log(`📝 Splitting long message (${text.length} chars) into MINIMAL chunks for chat ${chatId}`);
+    console.log(`📏 Using maxLength: ${maxLength} chars`);
+    
+    const chunks = [];
+    
+    // SUPER AGGRESSIVE: Split text into minimal number of chunks
+    let startIndex = 0;
+    
+    while (startIndex < text.length) {
+      let endIndex = Math.min(startIndex + maxLength, text.length);
+      let chunk = text.substring(startIndex, endIndex);
+      
+      // If we're not at the end and we cut off mid-line, find the last newline
+      if (endIndex < text.length) {
+        const lastNewline = chunk.lastIndexOf('\n');
+        if (lastNewline > maxLength * 0.7) { // Only adjust if we're not losing too much content
+          endIndex = startIndex + lastNewline;
+          chunk = text.substring(startIndex, endIndex);
+        }
+      }
+      
+      if (chunk.trim()) {
+        chunks.push(chunk.trim());
+        console.log(`📦 Created chunk ${chunks.length}: ${chunk.length} chars (startIndex: ${startIndex}, endIndex: ${endIndex})`);
+      }
+      
+      startIndex = endIndex;
+    }
+    
+    // Send chunks with error handling for each chunk
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        if (chunks[i].length > 0 && chunks[i].length <= 4096) {
+          // Enhanced message options for better Telegram compatibility
+          const messageOptions = {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            ...options
+          };
+          
+          const result = await bot.sendMessage(chatId, chunks[i], i === 0 ? messageOptions : { parse_mode: 'HTML', disable_web_page_preview: true });
+          console.log(`✅ Sent chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars) - Message ID: ${result.message_id}`);
+          
+          if (i < chunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Even longer delay for better reading
+          }
+        } else {
+          console.log(`⚠️ Skipping invalid chunk ${i + 1}: length=${chunks[i].length}`);
+        }
+      } catch (chunkError) {
+        console.error(`❌ Error sending chunk ${i + 1}:`, chunkError.message);
+        // Try sending a fallback message instead
+        try {
+          await bot.sendMessage(chatId, `📚 មាតិកាមួយផ្នែក... ជំនួយ: @Chendasum`);
+        } catch (fallbackError) {
+          console.error("Fallback message failed:", fallbackError.message);
+        }
+      }
+    }
+    
+    console.log(`🎉 Successfully processed all ${chunks.length} chunks`);
+  } catch (error) {
+    console.error("❌ Error in sendLongMessage:", error);
+    // Final fallback - send short error message
+    try {
+      await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើសារ។ សូមទាក់ទង @Chendasum");
+    } catch (finalError) {
+      console.error("Final fallback failed:", finalError.message);
+    }
+  }
 }
 
 // BUILT-IN DAILY CONTENT FOR RAILWAY
@@ -4878,3 +5044,349 @@ bot.onText(/\/book_?custom_?session$/i, async (msg) => {
   }
 });
 
+// 🤖 CLAUDE AI COMMANDS - Add this section at the end of your index.js
+// (After all your existing commands, before the server setup)
+
+console.log("🤖 Loading Claude AI commands...");
+
+// /ask command - AI chat assistance
+bot.onText(/^\/ask/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const question = msg.text.replace('/ask', '').trim();
+
+    if (!question) {
+        await bot.sendMessage(chatId, 
+            `🤖 Claude AI Assistant:\n\n` +
+            `💬 /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ\n` +
+            `🎯 /coach - ការណែនាំផ្ទាល់ខ្លួន\n` +
+            `🔍 /find_leaks - រកមើល Money Leaks\n` +
+            `🆘 /ai_help - ជំនួយពេញលេញ\n\n` +
+            `ឧទាហរណ៍: /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?`
+        );
+        return;
+    }
+
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        
+        // Get user context (you can enhance this with real user data later)
+        const userContext = {
+            name: msg.from.first_name || 'User',
+            tier: 'essential', // You can get this from your database
+            currentDay: 1      // You can get this from your progress table
+        };
+        
+        const response = await aiService.handleUserQuestion(question, userContext);
+        
+        // Use your existing sendLongMessage function for long responses
+        if (response.response.length > MESSAGE_CHUNK_SIZE) {
+            await sendLongMessage(bot, chatId, `🤖 Claude AI:\n\n${response.response}`);
+        } else {
+            await bot.sendMessage(chatId, `🤖 Claude AI:\n\n${response.response}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Claude AI ask error:', error);
+        await bot.sendMessage(chatId, "❌ Claude AI មានបញ្ហា។ សូមសាកម្តងទៀត។");
+    }
+});
+
+// /coach command - AI personalized coaching
+bot.onText(/^\/coach/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        
+        // Get user progress (you can enhance this with real data from your progress table)
+        const userProgress = {
+            currentDay: 1,
+            completedDays: 0,
+            challenges: [],
+            goals: ['គ្រប់គ្រងលុយកាន់តែប្រសើរ']
+        };
+        
+        const response = await aiService.getPersonalizedCoaching(userProgress, 1);
+        
+        if (response.response.length > MESSAGE_CHUNK_SIZE) {
+            await sendLongMessage(bot, chatId, `🎯 AI Coach:\n\n${response.response}`);
+        } else {
+            await bot.sendMessage(chatId, `🎯 AI Coach:\n\n${response.response}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Claude AI coach error:', error);
+        await bot.sendMessage(chatId, "❌ AI Coach មានបញ្ហា។ សូមសាកម្តងទៀត។");
+    }
+});
+
+// /find_leaks command - AI money leak detection
+bot.onText(/^\/find_leaks/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        
+        // Sample expense data (you can get real data from your database)
+        const expenses = {
+            food: 300,
+            transport: 100,
+            entertainment: 150,
+            subscriptions: 50,
+            utilities: 200,
+            other: 100
+        };
+        const income = 1000;
+        
+        const response = await aiService.detectMoneyLeaks(expenses, income);
+        
+        if (response.response.length > MESSAGE_CHUNK_SIZE) {
+            await sendLongMessage(bot, chatId, `🔍 Money Leak Detective:\n\n${response.response}`);
+        } else {
+            await bot.sendMessage(chatId, `🔍 Money Leak Detective:\n\n${response.response}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Money leak detection error:', error);
+        await bot.sendMessage(chatId, "❌ Money Leak Detection មានបញ្ហា។ សូមសាកម្តងទៀត។");
+    }
+});
+
+// /ai_help command - Claude AI help menu
+bot.onText(/^\/ai_help/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const helpMessage = `🤖 Claude AI Assistant ជំនួយ
+
+🎯 **ពាក្យបញ្ជា AI:**
+• /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ
+• /coach - ការណែនាំផ្ទាល់ខ្លួន
+• /find_leaks - រកមើល Money Leaks
+• /ai_help - មើលមេនុនេះ
+
+💡 **ឧទាហរណ៍សំណួរ:**
+• "តើខ្ញុំគួរសន្សំយ៉ាងណា?"
+• "ចំណាយអ្វីខ្លះដែលអាចកាត់បន្ថយ?"
+• "តើធ្វើយ៉ាងណាដើម្បីបង្កើនចំណូល?"
+• "រកមើល subscription ដែលខ្ញុំភ្លេច"
+
+🔮 **Claude AI - ពិសេសបំផុត:**
+• ឆ្លាតវៃ និងយល់ពីបរិបទ
+• ការវិភាគហិរញ្ញវត្ថុផ្ទាល់ខ្លួន
+• ការណែនាំតាមស្ថានការណ៍ពិត
+• ជំនួយជាភាសាខ្មែរពេញលេញ
+
+🎓 **Tips សម្រាប់ការប្រើប្រាស់:**
+• សួរជាកសាងរឿង - ទទួលចម្លើយល្អ
+• Claude AI អាចជួយបាន 24/7
+• ចម្លើយទាន់ពេលវេលា ជាភាសាខ្មែរ
+• សាកសួរជាច្រើន - Claude មិនថប់!
+
+🚀 ចាប់ផ្តើម: /ask តើខ្ញុំអាចសន្សំបានយ៉ាងណា?
+
+🔧 Status: ${aiAvailable ? '✅ Claude AI Online' : '⚠️ Fallback Mode'}`;
+
+    await bot.sendMessage(chatId, helpMessage);
+});
+
+// /ai_status command - AI system status (Admin only)
+bot.onText(/^\/ai_status/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    try {
+        // Simple admin check (you can enhance this with your AccessControl service)
+        const adminIds = [process.env.ADMIN_ID, 123456789]; // Add your admin IDs
+        if (!adminIds.includes(userId)) {
+            await bot.sendMessage(chatId, "🔒 ត្រូវការសិទ្ធិអ្នកគ្រប់គ្រង។");
+            return;
+        }
+
+        const status = aiService.getStatus();
+        const testResult = await aiService.testConnection();
+
+        const statusMessage = `🤖 Claude AI System Status
+
+✅ **Service Info:**
+• AI Available: ${status.ai_available}
+• Service: ${status.service}
+• Model: ${status.model || 'N/A'}
+• Mode: ${status.fallback_mode ? 'Fallback' : 'Active'}
+
+🧪 **Connection Test:**
+• Success: ${testResult.success}
+• Message: ${testResult.message}
+
+📊 **Capabilities:**
+• Question Answering: ${aiAvailable ? '✅' : '❌'}
+• Financial Analysis: ${aiAvailable ? '✅' : '❌'}
+• Coaching: ${aiAvailable ? '✅' : '❌'}
+• Money Leak Detection: ${aiAvailable ? '✅' : '❌'}
+
+⏰ Last Check: ${status.last_check}
+
+🔧 **Environment:**
+• API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing'}
+• Node ENV: ${process.env.NODE_ENV || 'development'}`;
+
+        await bot.sendMessage(chatId, statusMessage);
+
+    } catch (error) {
+        console.error('Error in /ai_status command:', error);
+        await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការពិនិត្យស្ថានភាព AI។");
+    }
+});
+
+// OPTIONAL: Smart auto-responses (responds automatically to financial questions)
+bot.on('message', async (msg) => {
+    // Only for regular text messages (not commands) and private chats
+    if (!msg.text || msg.text.startsWith('/') || msg.chat.type !== 'private') return;
+    
+    const text = msg.text.toLowerCase();
+    const financialKeywords = [
+        'លុយ', 'ប្រាក់', 'សន្សំ', 'ចំណាយ', 'ចំណូល', 'ជំនួយ', 'help', 
+        'money', 'save', 'spend', 'income', 'មិនដឹង', 'confused', 'បញ្ហា', 'problem',
+        'ព្រួយបារម្ភ', 'worry', 'debt', 'បំណុល', 'investment', 'វិនិយោគ'
+    ];
+    
+    const hasFinancialKeyword = financialKeywords.some(keyword => text.includes(keyword));
+    
+    // Only respond to messages with financial keywords and sufficient length
+    if (hasFinancialKeyword && text.length > 10 && aiAvailable) {
+        try {
+            await bot.sendChatAction(msg.chat.id, 'typing');
+            
+            const userContext = {
+                name: msg.from.first_name || 'User',
+                tier: 'essential',
+                currentDay: 1
+            };
+            
+            const response = await aiService.handleUserQuestion(msg.text, userContext);
+            
+            if (response.success) {
+                const smartResponse = `💡 Claude AI ជំនួយ:\n\n${response.response}\n\n💬 ចង់សួរបន្ថែម? ប្រើ /ask [សំណួរ]`;
+                
+                if (smartResponse.length > MESSAGE_CHUNK_SIZE) {
+                    await sendLongMessage(bot, msg.chat.id, smartResponse);
+                } else {
+                    await bot.sendMessage(msg.chat.id, smartResponse);
+                }
+            }
+        } catch (error) {
+            // Fail silently for auto-responses to avoid spam
+            console.error('Smart response error:', error);
+        }
+    }
+});
+
+// Enhanced Day 7 command with Claude AI smart reset
+bot.onText(/^\/day7/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    try {
+        // Your existing day 7 logic here...
+        // After completing day 7 content, offer AI-powered reset
+        
+        setTimeout(async () => {
+            const resetOffer = `🎉 អបអរសាទរ! បញ្ចប់ថ្ងៃទី 7!
+
+🤖 **Claude AI Smart Reset:**
+តើអ្នកចង់បាន AI ជួយវិភាគ និងបង្កើត Smart Money Allocation?
+
+💰 Claude AI អាចជួយ:
+• វិភាគស្ថានការណ៍ហិរញ្ញវត្ថុ
+• ផ្តល់យោបល់ការវិនិយោគ
+• បង្កើត portfolio តាមហានិភ័យ
+• ការណែនាំជាក់លាក់សម្រាប់កម្ពុជា
+
+🎯 ប្រើ /ai_reset [amount] ដើម្បីចាប់ផ្តើម AI Reset!
+ឧទាហរណ៍: /ai_reset 1000
+
+🔮 ឬសួរ Claude: /ask តើខ្ញុំគួរវិនិយោគយ៉ាងណា?`;
+
+            await bot.sendMessage(chatId, resetOffer);
+        }, 5000); // 5 seconds after day 7 completion
+
+    } catch (error) {
+        console.error('Error in enhanced day 7:', error);
+    }
+});
+
+// /ai_reset command - AI-powered money reset
+bot.onText(/^\/ai_reset (\d+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const amount = parseInt(match[1]);
+
+    if (!amount || amount < 100) {
+        await bot.sendMessage(chatId, "💰 សូមបញ្ចូលចំនួនលុយ: /ai_reset [amount]\nឧទាហរណ៍: /ai_reset 1000");
+        return;
+    }
+
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        await bot.sendMessage(chatId, `🤖 Claude AI កំពុងវិភាគ ${amount.toLocaleString()} របស់អ្នក...`);
+
+        // Execute smart reset using your existing smartFlow class
+        const resetResult = await smartFlow.executeSmartReset(userId, amount);
+
+        if (resetResult.success) {
+            const resetMessage = resetResult.message;
+            
+            if (resetMessage.length > MESSAGE_CHUNK_SIZE) {
+                await sendLongMessage(bot, chatId, resetMessage);
+            } else {
+                await bot.sendMessage(chatId, resetMessage);
+            }
+
+            // Follow up with additional AI advice
+            setTimeout(async () => {
+                const followUp = `🎯 **បន្ទាប់ពី AI Reset:**
+
+📈 ការណែនាំបន្ថែម:
+• ពិនិត្យ portfolio រាល់ 3 ខែ
+• កុំភ្លេចបន្ថែមលុយជាប្រចាំ
+• រក្សាសមតុល្យតាមគោលដៅ
+
+💬 សួរ Claude អ្វីក៏បាន: /ask [សំណួរ]
+🎓 ឬទទួលការណែនាំ: /coach
+
+🏆 អ្នកបានបញ្ចប់ 7-Day Money Flow Reset™ ដោយជោគជ័យ!`;
+
+                await bot.sendMessage(chatId, followUp);
+            }, 3000);
+
+        } else {
+            await bot.sendMessage(chatId, `⚠️ AI បានណែនាំ: ${resetResult.message}`);
+        }
+
+    } catch (error) {
+        console.error('AI reset error:', error);
+        await bot.sendMessage(chatId, "❌ AI Reset មានបញ្ហា។ សូមសាកម្តងទៀត ឬប្រើ /help");
+    }
+});
+
+// Add AI section to your existing /help command
+// Find your existing help command and add this AI section:
+/*
+Add this to your existing help command:
+
+const aiSection = `\n\n🤖 **Claude AI Assistant:**
+• /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ
+• /coach - ការណែនាំផ្ទាល់ខ្លួន
+• /find_leaks - រកមើល Money Leaks
+• /ai_reset [amount] - AI Smart Reset
+• /ai_help - AI ជំនួយពេញលេញ
+
+💡 Claude AI អាចជួយឆ្លើយសំណួរផ្ទាល់ជាភាសាខ្មែរ!
+🔮 Status: ${aiAvailable ? '✅ Online' : '⚠️ Offline'}`;
+
+// Add aiSection to your existing help message
+*/
+
+console.log("✅ Claude AI commands loaded successfully!");
