@@ -75,23 +75,264 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// 🚀 Integration with Your Existing Debug-Ready Claude AI Setup
-// Add this to your main bot file after your improved aiService
+// 2. ✅ SECOND: Initialize Claude AI (your existing code)
+console.log("🤖 Initializing Claude AI Integration for Smart Money Flow...");
 
-// Since you already have debug tools, let's use them for smart features too
-console.log("🔗 Integrating smart features with existing Claude AI setup...");
+let aiService = null;
+let aiHelper = null;
+let aiAvailable = false;
+let anthropicClient = null;
 
-// Import the smart features (create these files as mentioned earlier)
-const SmartAutomation = require('./services/smart-automation');
-const SmartInteractionManager = require('./services/smart-interaction-manager');
+try {
+    // Your existing Claude AI initialization code here
+    const Anthropic = require('@anthropic-ai/sdk');
+    
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    console.log("🔑 API Key status:", apiKey ? `Set (${apiKey.substring(0, 10)}...)` : 'Missing');
+    
+    if (apiKey) {
+        anthropicClient = new Anthropic({
+            apiKey: apiKey,
+        });
+        console.log("✅ Anthropic client initialized");
+        aiAvailable = true;
+    }
+    
+    // Your existing aiService object here
+    aiService = {
+        async handleUserQuestion(question, userContext = {}) {
+            // Your existing handleUserQuestion code
+            console.log("🤖 handleUserQuestion called:", { question, context: userContext });
+            
+            if (!anthropicClient) {
+                return {
+                    success: false,
+                    response: "🤖 Claude AI មិនអាចប្រើបានឥឡូវនេះ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
+                    source: 'no_client',
+                    timestamp: new Date().toISOString()
+                };
+            }
 
-// 🔧 Enhance your existing aiService with methods needed for smart features
+            try {
+                const prompt = `You are a financial coach for the 7-Day Money Flow Reset program in Cambodia.
+
+User: ${userContext.name || 'User'} (Tier: ${userContext.tier || 'essential'}, Day: ${userContext.currentDay || 1})
+Question: "${question}"
+
+Provide helpful financial advice in Khmer language. Be:
+- Encouraging and supportive
+- Practical and actionable  
+- Specific to Cambodia (USD/KHR, ABA/ACLEDA banks)
+- Related to the 7-Day Money Flow program when relevant
+
+Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
+
+                const message = await anthropicClient.messages.create({
+                    model: "claude-3-5-sonnet-20241022",
+                    max_tokens: 800,
+                    messages: [{
+                        role: "user", 
+                        content: prompt
+                    }]
+                });
+
+                return {
+                    success: true,
+                    response: message.content[0].text,
+                    source: 'claude',
+                    timestamp: new Date().toISOString()
+                };
+                
+            } catch (error) {
+                console.error('❌ Claude API error:', error);
+                return {
+                    success: false,
+                    response: `🤖 Claude AI មានបញ្ហា: ${error.message}. សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។`,
+                    source: 'error',
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                };
+            }
+        },
+
+        async getPersonalizedCoaching(userProgress, dayNumber) {
+            // Your existing getPersonalizedCoaching code
+            console.log("🎯 getPersonalizedCoaching called:", { userProgress, dayNumber });
+            
+            if (!anthropicClient) {
+                return {
+                    success: true,
+                    response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI កំពុងបច្ចុប្បន្នភាព...`,
+                    source: 'fallback',
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+            try {
+                const prompt = `Provide personalized coaching for Day ${dayNumber} of 7-Day Money Flow Reset.
+
+User Progress:
+- Completed Days: ${userProgress.completedDays || 0}
+- Current Day: ${dayNumber}
+
+Create encouraging coaching message in Khmer with:
+1. Acknowledgment of progress
+2. Day ${dayNumber} specific guidance
+3. Motivation to continue
+4. Practical next steps
+
+Maximum 250 words in Khmer.`;
+
+                const message = await anthropicClient.messages.create({
+                    model: "claude-3-5-sonnet-20241022", 
+                    max_tokens: 700,
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                });
+
+                return {
+                    success: true,
+                    response: message.content[0].text,
+                    source: 'claude',
+                    timestamp: new Date().toISOString()
+                };
+                
+            } catch (error) {
+                console.error('❌ Claude coaching error:', error);
+                return {
+                    success: true,
+                    response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។`,
+                    source: 'fallback',
+                    timestamp: new Date().toISOString()
+                };
+            }
+        },
+
+        async testConnection() {
+            if (!anthropicClient) {
+                return {
+                    success: false,
+                    message: 'Anthropic client not initialized'
+                };
+            }
+
+            try {
+                const message = await anthropicClient.messages.create({
+                    model: "claude-3-5-sonnet-20241022",
+                    max_tokens: 100,
+                    messages: [{
+                        role: "user",
+                        content: "Test connection. Respond with: CONNECTION_OK"
+                    }]
+                });
+
+                return {
+                    success: true,
+                    message: 'Claude AI connection successful',
+                    response: message.content[0].text
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    message: 'Claude AI connection failed: ' + error.message,
+                    error: error
+                };
+            }
+        },
+
+        getStatus() {
+            return {
+                ai_available: !!anthropicClient,
+                service: 'Claude AI',
+                model: 'claude-3-5-sonnet-20241022',
+                fallback_mode: !anthropicClient,
+                client_status: anthropicClient ? 'initialized' : 'not_initialized',
+                last_check: new Date().toISOString()
+            };
+        }
+    };
+    
+    console.log(`🎯 Claude AI Integration Status: ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
+    
+} catch (error) {
+    console.log("⚠️ Claude AI Integration not available:", error.message);
+    aiAvailable = false;
+    
+    // Fallback aiService
+    aiService = {
+        async handleUserQuestion() {
+            return {
+                success: false,
+                response: "🤖 AI មានបញ្ហា។ សូមទាក់ទង @Chendasum",
+                source: 'fallback'
+            };
+        },
+        async getPersonalizedCoaching(progress, day) {
+            return {
+                success: true,
+                response: `💪 ថ្ងៃទី ${day}: បន្តដំណើររបស់អ្នក!`,
+                source: 'fallback'
+            };
+        },
+        async testConnection() {
+            return { success: false, message: 'Claude AI not available' };
+        },
+        getStatus() {
+            return { ai_available: false, fallback_mode: true };
+        }
+    };
+}
+
+// 3. ✅ THIRD: Initialize your bot
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+
+// 4. ✅ FOURTH: Your existing debug commands
+bot.onText(/^\/ai_debug/, async (msg) => {
+    // Your existing ai_debug code here
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    const adminIds = [123456789, 987654321]; // Replace with your admin IDs
+    if (!adminIds.includes(userId)) {
+        await bot.sendMessage(chatId, "🔒 Admin only command");
+        return;
+    }
+
+    try {
+        const debugInfo = `🔧 **Claude AI Debug Information**
+
+🔑 **Environment Variables:**
+• ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing'}
+• NODE_ENV: ${process.env.NODE_ENV || 'not set'}
+
+🤖 **AI Service Status:**
+• aiAvailable: ${aiAvailable}
+• aiService exists: ${!!aiService}
+• Service type: ${aiService?.getStatus?.()?.service || 'unknown'}
+
+🧪 **Testing Claude Connection...**`;
+
+        await bot.sendMessage(chatId, debugInfo);
+
+        if (aiService) {
+            const testResult = await aiService.testConnection();
+            await bot.sendMessage(chatId, `🧪 **Connection Test Result:**
+• Success: ${testResult.success}
+• Message: ${testResult.message}`);
+        }
+
+    } catch (error) {
+        await bot.sendMessage(chatId, `❌ Debug command failed: ${error.message}`);
+    }
+});
+
+// 5. ✅ FIFTH: NOW enhance aiService for smart features (AFTER it's defined)
 if (aiService && aiAvailable) {
     console.log('🔗 Enhancing existing Claude AI service for smart features...');
     
-    // Add missing methods that smart features need
-    aiService.analyzeFinancialSituation = aiService.handleUserQuestion; // Reuse existing method
-    
+    // Add the detectMoneyLeaks method
     aiService.detectMoneyLeaks = async function(expenses, income) {
         try {
             const prompt = `Analyze expenses for money leaks in Cambodia context.
@@ -103,14 +344,13 @@ Identify potential money leaks and provide advice in Khmer:
 1. Unnecessary subscriptions
 2. Small daily expenses that add up
 3. Cambodia-specific savings opportunities
-4. Behavioral patterns to change
 
 Provide practical recommendations in Khmer. Maximum 300 words.`;
 
             if (!anthropicClient) {
                 return {
                     success: true,
-                    response: `🔍 ការវិភាគ Money Leak មូលដ្ឋាន:\n\n🎯 ពិនិត្យមើលតំបន់ទាំងនេះ:\n• Subscriptions (Netflix, Spotify)\n• ការទិញម្ហូបញឹកញាប់\n• កាហ្វេប្រចាំថ្ងៃ\n• Impulse buying\n\n💡 ការកាត់បន្ថយតូចៗ = សន្សំធំ!`,
+                    response: `🔍 ការវិភាគ Money Leak មូលដ្ឋាន:\n\n🎯 ពិនិត្យមើល:\n• Subscriptions\n• ការទិញម្ហូបញឹកញាប់\n• កាហ្វេប្រចាំថ្ងៃ\n\n💡 ការកាត់បន្ថយតូចៗ = សន្សំធំ!`,
                     source: 'fallback'
                 };
             }
@@ -141,71 +381,55 @@ Provide practical recommendations in Khmer. Maximum 300 words.`;
         }
     };
     
-    // Add the sendAIResponse method that your ai-command-handler needs
+    // Add the sendAIResponse method
     aiService.sendAIResponse = async function(bot, chatId, aiResponse) {
         try {
             if (aiResponse.success) {
-                // Use your existing message splitter if available
                 const { sendLongMessage } = require('./utils/message-splitter');
                 await sendLongMessage(bot, chatId, `🤖 ${aiResponse.response}`);
                 
-                // Add source indicator
-                const sourceEmoji = aiResponse.source === 'claude' ? '🔮' : 
-                                  aiResponse.source === 'fallback' ? '📚' : '🤖';
+                const sourceEmoji = aiResponse.source === 'claude' ? '🔮' : '📚';
                 await bot.sendMessage(chatId, `${sourceEmoji} ជំនួយដោយ AI • ${new Date().toLocaleTimeString()}`);
             } else {
                 await bot.sendMessage(chatId, aiResponse.response || "❌ មានបញ្ហាជាមួយ AI។");
             }
         } catch (error) {
             console.error('Error sending AI response:', error);
-            await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើចម្លើយ។ សូមទាក់ទង @Chendasum");
+            await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើចម្លើយ។");
         }
     };
 
+    // Add analyzeFinancialSituation method
+    aiService.analyzeFinancialSituation = aiService.handleUserQuestion;
+
     console.log('✅ Claude AI enhanced for smart features');
-} else {
-    console.log('⚠️ Claude AI not available - smart features will use fallback');
 }
 
-// 🤖 Initialize Smart Features with your existing setup
-async function initializeSmartFeaturesWithDebug(bot) {
+// 6. ✅ SIXTH: Initialize smart features (AFTER aiService is ready)
+async function initializeSmartFeatures() {
     try {
-        console.log('🚀 Initializing Smart Features with debug-ready Claude AI...');
+        console.log('🚀 Initializing Smart Features...');
 
-        // 1. Test your existing Claude AI first
-        if (aiService && aiAvailable) {
-            console.log('🧪 Testing existing Claude AI...');
-            const testResult = await aiService.testConnection();
-            console.log('Claude test result:', testResult);
-        }
+        // Import smart features
+        const SmartAutomation = require('./services/smart-automation');
+        const SmartInteractionManager = require('./services/smart-interaction-manager');
 
-        // 2. Initialize AI Command Handler (your existing one)
+        // Initialize AI Command Handler
         const AICommandHandler = require('./commands/ai-command-handler');
         const aiHandler = new AICommandHandler();
         aiHandler.registerCommands(bot);
-        console.log('✅ AI Commands registered with enhanced Claude');
+        console.log('✅ AI Commands registered');
 
-        // 3. Initialize Smart Automation
+        // Initialize Smart Automation
         const automation = SmartAutomation.registerAutomation(bot);
         console.log('✅ Smart Automation active');
 
-        // 4. Initialize Smart Interaction Manager
+        // Initialize Smart Interaction Manager
         const interactionManager = SmartInteractionManager.register(bot);
         console.log('✅ Smart Interactions active');
 
-        // 5. Setup enhanced message routing with debug
-        setupEnhancedRouting(bot, aiHandler, automation, interactionManager);
-
-        // 6. Add debug commands for smart features
-        addSmartDebugCommands(bot, automation, interactionManager);
-
-        console.log('🎉 Smart Bot fully initialized with debug-ready Claude AI!');
-        console.log('📱 New features active:');
-        console.log('   • Enhanced conversation flows');
-        console.log('   • Smart daily notifications');
-        console.log('   • Context-aware responses');
-        console.log('   • Debug-ready monitoring');
-
+        console.log('🎉 Smart Bot fully initialized!');
+        
         return { aiHandler, automation, interactionManager };
 
     } catch (error) {
@@ -214,319 +438,33 @@ async function initializeSmartFeaturesWithDebug(bot) {
     }
 }
 
-// 🧠 ENHANCED MESSAGE ROUTING with Debug Logging
-function setupEnhancedRouting(bot, aiHandler, automation, interactionManager) {
-    console.log('🔧 Setting up enhanced message routing...');
-    
-    // Store original message handler for debugging
-    const originalHandlers = bot.listeners('message');
-    console.log(`📝 Found ${originalHandlers.length} existing message handlers`);
-    
-    // Remove existing handlers to avoid conflicts
-    bot.removeAllListeners('message');
-    
-    bot.on('message', async (msg) => {
-        try {
-            const chatId = msg.chat.id;
-            const userId = msg.from.id;
-            const text = msg.text?.toLowerCase() || '';
-
-            // Debug logging
-            console.log(`📨 Message from ${userId}: ${text.substring(0, 50)}...`);
-
-            // Skip commands - let command handlers deal with them
-            if (msg.text && msg.text.startsWith('/')) {
-                console.log(`⚡ Command detected: ${msg.text}`);
-                return;
-            }
-
-            // Update user activity
-            try {
-                await db.update(users)
-                    .set({ last_active: new Date() })
-                    .where(eq(users.telegram_id, userId));
-                console.log(`📊 Updated activity for user ${userId}`);
-            } catch (dbError) {
-                console.log('❌ DB update error:', dbError.message);
-            }
-
-            // Priority routing with debug
-            console.log('🎯 Analyzing message intent...');
-
-            // Priority 1: Active conversation flows
-            if (interactionManager.conversationFlows && interactionManager.conversationFlows.has(userId)) {
-                console.log('💬 Routing to conversation flow');
-                return; // Let interaction manager handle it
-            }
-
-            // Priority 2: Urgent help
-            const urgentKeywords = ['help', 'ជំនួយ', 'lost', 'confused', 'មិនយល់', 'មិនដឹង'];
-            if (urgentKeywords.some(keyword => text.includes(keyword))) {
-                console.log('🆘 Urgent help detected');
-                await handleUrgentHelpWithDebug(bot, msg);
-                return;
-            }
-
-            // Priority 3: Financial questions for Claude AI
-            const financialKeywords = ['money', 'លុយ', 'ប្រាក់', 'save', 'សន្សំ', 'spend', 'ចំណាយ'];
-            if (financialKeywords.some(keyword => text.includes(keyword)) && text.length > 10) {
-                console.log('💰 Financial question detected - routing to Claude AI');
-                await handleFinancialChatWithDebug(bot, msg);
-                return;
-            }
-
-            // Priority 4: Progress inquiries
-            const progressKeywords = ['progress', 'រីកចម្រើន', 'status', 'day'];
-            if (progressKeywords.some(keyword => text.includes(keyword))) {
-                console.log('📊 Progress inquiry detected');
-                await handleProgressChatWithDebug(bot, msg);
-                return;
-            }
-
-            // Default: Suggest options
-            console.log('💡 Providing default suggestions');
-            await suggestOptionsWithDebug(bot, chatId);
-
-        } catch (error) {
-            console.error('❌ Enhanced routing error:', error);
-            await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាបច្ចេកទេស។ សូមប្រើ /help");
-        }
-    });
-
-    console.log('✅ Enhanced message routing setup complete');
-}
-
-// 🆘 URGENT HELP with Debug
-async function handleUrgentHelpWithDebug(bot, msg) {
-    const chatId = msg.chat.id;
-    console.log(`🆘 Providing urgent help to user ${msg.from.id}`);
-    
-    const helpMessage = `🆘 **ខ្ញុំនៅទីនេះជួយអ្នក!**\n\n` +
-        `មិនអីទេ - គ្រប់គ្នាត្រូវការជំនួយពេលខ្លះ។\n\n` +
-        `🎯 **ជម្រើសរហ័ស:**`;
-
-    await bot.sendMessage(chatId, helpMessage, {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '🤖 សួរ Claude AI', callback_data: 'urgent_claude_help' }],
-                [{ text: '📞 ទាក់ទងអ្នកគ្រប់គ្រង', callback_data: 'contact_admin' }],
-                [{ text: '🔧 Debug Info', callback_data: 'debug_info' }],
-                [{ text: '🔄 ចាប់ផ្តើមឡើងវិញ', callback_data: 'restart_fresh' }]
-            ]
-        }
-    });
-}
-
-// 💰 FINANCIAL CHAT with Debug
-async function handleFinancialChatWithDebug(bot, msg) {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-
-    console.log(`💰 Processing financial question from user ${userId}`);
-
+// 7. ✅ SEVENTH: Start everything
+async function startBot() {
     try {
-        // Show typing indicator
-        await bot.sendChatAction(chatId, 'typing');
-
-        // Get user context
-        const userRecord = await db.select().from(users).where(eq(users.telegram_id, userId)).limit(1);
-        const progressRecord = await db.select().from(progress).where(eq(progress.user_id, userId)).limit(1);
-
-        const userContext = {
-            name: userRecord[0]?.first_name || 'User',
-            tier: userRecord[0]?.tier || 'essential',
-            currentDay: progressRecord[0]?.current_day || 1,
-            isPaid: userRecord[0]?.is_paid || false
-        };
-
-        console.log('👤 User context:', userContext);
-
-        // Use your existing Claude AI service
-        console.log('🤖 Calling Claude AI...');
-        const response = await aiService.handleUserQuestion(msg.text, userContext);
-        console.log('✅ Claude response received:', response.success, response.source);
-
-        if (response.success) {
-            await bot.sendMessage(chatId, 
-                `💡 **Claude AI ជំនួយ:**\n\n${response.response}\n\n` +
-                `🎯 **បន្ថែម:** ប្រើ /analyze សម្រាប់ការវិភាគលម្អិត`
-            );
-
-            // Suggest follow-up actions
-            setTimeout(async () => {
-                await bot.sendMessage(chatId, `💬 **ចង់សួរបន្ថែមទេ?**`, {
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: '🔍 វិភាគហិរញ្ញវត្ថុ', callback_data: 'analyze_finances' }],
-                            [{ text: '🎯 ទទួលការណែនាំ', callback_data: 'get_coaching' }],
-                            [{ text: '🔧 Debug Claude AI', callback_data: 'debug_claude' }]
-                        ]
-                    }
-                });
-            }, 3000);
-        } else {
-            console.log('❌ Claude AI failed, providing fallback');
-            await bot.sendMessage(chatId, 
-                `😅 Claude AI មានបញ្ហាបន្តិច។\n\n` +
-                `🔧 Debug: ${response.error || 'Unknown error'}\n\n` +
-                `ព្យាយាម:\n💬 /ask [សំណួរ]\n🔧 /ai_debug (admin only)`
-            );
-        }
-
-    } catch (error) {
-        console.error('❌ Financial chat error:', error);
-        await bot.sendMessage(chatId, 
-            `❌ មានបញ្ហាបច្ចេកទេស: ${error.message}\n\nសូមប្រើ /ai_debug ដើម្បីពិនិត្យ`
-        );
-    }
-}
-
-// 📊 PROGRESS CHAT with Debug
-async function handleProgressChatWithDebug(bot, msg) {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-
-    console.log(`📊 Showing progress for user ${userId}`);
-
-    try {
-        const progressRecord = await db.select().from(progress).where(eq(progress.user_id, userId)).limit(1);
+        console.log('🚀 Starting Money Flow Reset Smart Bot...');
         
-        const currentDay = progressRecord[0]?.current_day || 1;
-        const completedDays = countCompletedDays(progressRecord[0]);
-
-        console.log(`📈 User progress: Day ${currentDay}, Completed: ${completedDays}`);
-
-        const progressMessage = `📊 **ការរីកចម្រើនរបស់អ្នក:**\n\n` +
-            `🎯 ថ្ងៃបច្ចុប្បន្ន: **Day ${currentDay}**/7\n` +
-            `✅ បានបញ្ចប់: **${completedDays}** ថ្ងៃ\n` +
-            `⏱️ នៅសល់: **${7 - completedDays}** ថ្ងៃ\n\n` +
-            `💪 **អ្នកកំពុងធ្វើបានល្អ!**\n\n` +
-            `🔧 Debug: Data loaded successfully`;
-
-        await bot.sendMessage(chatId, progressMessage, {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: `🎯 បន្ត Day ${currentDay}`, callback_data: `continue_day_${currentDay}` }],
-                    [{ text: '🤖 Claude coaching', callback_data: 'get_claude_coaching' }],
-                    [{ text: '🔧 Debug Progress', callback_data: 'debug_progress' }]
-                ]
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Progress chat error:', error);
-        await bot.sendMessage(chatId, `❌ មានបញ្ហាទិន្នន័យ: ${error.message}\n\nសូមប្រើ /progress`);
-    }
-}
-
-// 💡 SUGGEST OPTIONS with Debug
-async function suggestOptionsWithDebug(bot, chatId) {
-    console.log(`💡 Providing suggestions to chat ${chatId}`);
-    
-    const suggestionMessage = `🤔 **ខ្ញុំអាចជួយអ្នកយ៉ាងណា?**\n\n` +
-        `💬 សួរសំណួរអ្វីក៏បានអំពីលុយ\n` +
-        `📊 ពិនិត្យការរីកចម្រើន\n` +
-        `🎯 ទទួលការណែនាំពី Claude AI\n\n` +
-        `🔧 Debug: Smart routing active\n\n` +
-        `**ឧទាហរណ៍:** "តើខ្ញុំគួរសន្សំយ៉ាងណា?"`;
-
-    await bot.sendMessage(chatId, suggestionMessage, {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '🤖 សួរ Claude AI', callback_data: 'demo_claude' }],
-                [{ text: '📚 មើលពាក្យបញ្ជា', callback_data: 'view_commands' }],
-                [{ text: '🔧 System Debug', callback_data: 'system_debug' }]
-            ]
-        }
-    });
-}
-
-// 🔧 ADD SMART DEBUG COMMANDS
-function addSmartDebugCommands(bot, automation, interactionManager) {
-    // Smart features status
-    bot.onText(/^\/smart_debug/, async (msg) => {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id;
-
-        const adminIds = [123456789, 987654321]; // Replace with your admin IDs
-        if (!adminIds.includes(userId)) {
-            await bot.sendMessage(chatId, "🔒 Admin only command");
-            return;
-        }
-
-        const smartStatus = `🚀 **Smart Features Debug**
-
-🤖 **AI Service:**
-• Available: ${aiAvailable}
-• Client: ${anthropicClient ? '✅' : '❌'}
-• Status: ${aiService?.getStatus?.()?.service || 'Unknown'}
-
-🔄 **Smart Automation:**
-• Active: ${automation ? '✅' : '❌'}
-• User Sessions: ${automation?.userSessions?.size || 0}
-
-💬 **Interaction Manager:**
-• Active: ${interactionManager ? '✅' : '❌'}
-• Active Flows: ${interactionManager?.conversationFlows?.size || 0}
-
-📊 **Database:**
-• Users table: ${users ? '✅' : '❌'}
-• Progress table: ${progress ? '✅' : '❌'}
-
-⏰ **Last Check:** ${new Date().toLocaleString()}`;
-
-        await bot.sendMessage(chatId, smartStatus);
-    });
-
-    console.log('🔧 Smart debug commands added');
-}
-
-// 🔢 HELPER FUNCTION
-function countCompletedDays(progressRecord) {
-    if (!progressRecord) return 0;
-    
-    let count = 0;
-    for (let i = 0; i <= 7; i++) {
-        if (progressRecord[`day_${i}_completed`]) count++;
-    }
-    return count;
-}
-
-// 🚀 MAIN INITIALIZATION
-// Add this to your main bot file after your existing Claude AI setup
-async function initializeEnhancedBot() {
-    console.log('🚀 Initializing enhanced bot with debug-ready Claude AI...');
-    
-    // Your existing bot initialization code here...
-    
-    // Initialize smart features with debug support
-    const smartFeatures = await initializeSmartFeaturesWithDebug(bot);
-    
-    if (smartFeatures) {
-        console.log('✅ Smart features successfully integrated');
-        console.log('🔧 Debug commands available: /ai_debug, /smart_debug');
-        
-        // Test everything
+        // Test Claude AI first
         if (aiService && aiAvailable) {
-            aiService.testConnection()
-                .then(result => {
-                    console.log(result.success ? '✅ All systems operational' : '⚠️ Some issues detected');
-                })
-                .catch(err => console.log('⚠️ System test error:', err.message));
+            const testResult = await aiService.testConnection();
+            console.log(testResult.success ? '✅ Claude AI ready' : '⚠️ Claude AI test failed');
         }
-    } else {
-        console.log('⚠️ Smart features failed to initialize, running basic mode');
+        
+        // Initialize smart features
+        const smartFeatures = await initializeSmartFeatures();
+        
+        if (smartFeatures) {
+            console.log('✅ All systems operational!');
+        } else {
+            console.log('⚠️ Running in basic mode');
+        }
+        
+    } catch (error) {
+        console.error('❌ Bot startup failed:', error);
     }
-    
-    return smartFeatures;
 }
 
-// Export everything
-module.exports = {
-    initializeSmartFeaturesWithDebug,
-    initializeEnhancedBot,
-    setupEnhancedRouting
-};
+// 8. ✅ EIGHTH: Start the bot
+startBot();
 
 // Database Models (embedded for Railway deployment)
 class User {
