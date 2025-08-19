@@ -116,6 +116,7 @@ class AccessControl {
     const baseCommands = `
 🎯 *ពាក្យបញ្ជាទូទៅ*
 /start - ចាប់ផ្តើមកម្មវិធី
+/day1 - ថ្ងៃទី១: Money Flow Basics
 /pricing - ${pricingText}
 /payment - ការណែនាំទូទាត់
 /help - ជំនួយនេះ
@@ -125,6 +126,15 @@ class AccessControl {
       return `${badge} *កម្មវិធីផ្លាស់ប្ដូរ 7-Day Money Flow Reset™*${baseCommands}
 
 🔒 *ចង់ចូលរៀន?* ប្រើ /pricing ដើម្បីមើលកម្មវិធី
+
+🤖 Claude AI Assistant:
+
+💬 /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ
+🎯 /coach - ការណែនាំផ្ទាល់ខ្លួន
+🔍 /find_leaks - រកមើល Money Leaks
+🆘 /ai_help - ជំនួយពេញលេញ
+
+ឧទាហរណ៍: /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?
 
 🛠 *ជំនួយបន្ថែម*
 មានសំណួរអ្វី? អ្នកអាចសរសេរសារមក ខ្ញុំ`;
