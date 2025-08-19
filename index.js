@@ -5654,8 +5654,69 @@ Provide helpful financial advice in Khmer language. Be:
 
 Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
 
+const message = await anthropicClient.messages.create({
+    model: "claude-3-5-sonnet-20241022", // 👈 CHANGE THIS LINE
+    max_tokens: 800,
+    messages: [{
+        role: "user", 
+        content: prompt
+    }]
+});
+
+// In your getPersonalizedCoaching function, change:
+const message = await anthropicClient.messages.create({
+    model: "claude-3-5-sonnet-20241022", // 👈 CHANGE THIS LINE
+    max_tokens: 700,
+    messages: [{
+        role: "user",
+        content: prompt
+    }]
+});
+
+// In your testConnection function, change:
+const message = await anthropicClient.messages.create({
+    model: "claude-3-5-sonnet-20241022", // 👈 CHANGE THIS LINE
+    max_tokens: 100,
+    messages: [{
+        role: "user",
+        content: "Test connection. Respond with: CONNECTION_OK"
+    }]
+});
+
+// 🚀 COMPLETE FIXED aiService - Replace your entire aiService with this:
+
+aiService = {
+    async handleUserQuestion(question, userContext = {}) {
+        console.log("🤖 handleUserQuestion called:", { question, context: userContext });
+        
+        if (!anthropicClient) {
+            console.log("❌ No Anthropic client available");
+            return {
+                success: false,
+                response: "🤖 Claude AI មិនអាចប្រើបានឥឡូវនេះ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
+                source: 'no_client',
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        try {
+            console.log("🔄 Sending request to Claude...");
+            
+            const prompt = `You are a financial coach for the 7-Day Money Flow Reset program in Cambodia.
+
+User: ${userContext.name || 'User'} (Tier: ${userContext.tier || 'essential'}, Day: ${userContext.currentDay || 1})
+Question: "${question}"
+
+Provide helpful financial advice in Khmer language. Be:
+- Encouraging and supportive
+- Practical and actionable  
+- Specific to Cambodia (USD/KHR, ABA/ACLEDA banks)
+- Related to the 7-Day Money Flow program when relevant
+
+Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
+
             const message = await anthropicClient.messages.create({
-                model: "claude-3-sonnet-20240229",
+                model: "claude-3-5-sonnet-20241022", // ✅ FIXED MODEL NAME
                 max_tokens: 800,
                 messages: [{
                     role: "user", 
@@ -5674,12 +5735,6 @@ Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
             
         } catch (error) {
             console.error('❌ Claude API error:', error);
-            
-            // Detailed error logging
-            if (error.status) {
-                console.error('Status:', error.status);
-                console.error('Message:', error.message);
-            }
             
             return {
                 success: false,
@@ -5720,7 +5775,7 @@ Create encouraging coaching message in Khmer with:
 Maximum 250 words in Khmer.`;
 
             const message = await anthropicClient.messages.create({
-                model: "claude-3-sonnet-20240229", 
+                model: "claude-3-5-sonnet-20241022", // ✅ FIXED MODEL NAME
                 max_tokens: 700,
                 messages: [{
                     role: "user",
@@ -5746,6 +5801,57 @@ Maximum 250 words in Khmer.`;
         }
     },
 
+    async detectMoneyLeaks(expenses, income) {
+        if (!anthropicClient) {
+            return {
+                success: true,
+                response: `🔍 ការវិភាគ Money Leak មូលដ្ឋាន:\n\n🎯 ពិនិត្យមើលតំបន់ទាំងនេះ:\n• Subscriptions (Netflix, Spotify)\n• ការទិញម្ហូបញឹកញាប់\n• កាហ្វេប្រចាំថ្ងៃ\n• Impulse buying\n\n💡 ការកាត់បន្ថយតូចៗ = សន្សំធំ!`,
+                source: 'fallback',
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        try {
+            const prompt = `Analyze expenses for money leaks in Cambodia context.
+
+Monthly Income: $${income}
+Expenses: ${JSON.stringify(expenses)}
+
+Identify potential money leaks and provide advice in Khmer:
+1. Unnecessary subscriptions
+2. Small daily expenses that add up
+3. Cambodia-specific savings opportunities
+4. Behavioral patterns to change
+
+Provide practical recommendations in Khmer. Maximum 300 words.`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-5-sonnet-20241022", // ✅ FIXED MODEL NAME
+                max_tokens: 800,
+                messages: [{
+                    role: "user",
+                    content: prompt
+                }]
+            });
+
+            return {
+                success: true,
+                response: message.content[0].text,
+                source: 'claude',
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error('❌ Claude money leak error:', error);
+            return {
+                success: true,
+                response: `🔍 ការវិភាគ Money Leak មូលដ្ឋាន:\n\n🎯 ពិនិត្យមើលតំបន់ទាំងនេះ:\n• Subscriptions\n• ការទិញម្ហូបញឹកញាប់\n• កាហ្វេប្រចាំថ្ងៃ\n\n🤖 Claude AI នឹងផ្តល់ការវិភាគលម្អិតក្នុងពេលឆាប់ៗនេះ!`,
+                source: 'fallback',
+                timestamp: new Date().toISOString()
+            };
+        }
+    },
+
     async testConnection() {
         if (!anthropicClient) {
             return {
@@ -5756,7 +5862,7 @@ Maximum 250 words in Khmer.`;
 
         try {
             const message = await anthropicClient.messages.create({
-                model: "claude-3-sonnet-20240229",
+                model: "claude-3-5-sonnet-20241022", // ✅ FIXED MODEL NAME
                 max_tokens: 100,
                 messages: [{
                     role: "user",
@@ -5779,19 +5885,157 @@ Maximum 250 words in Khmer.`;
         }
     },
 
+    async getSmartAllocation(amount, risk = 'moderate', context = {}) {
+        if (!anthropicClient) {
+            return this.getFallbackAllocation(amount, risk);
+        }
+
+        try {
+            const prompt = `You are a financial advisor for the 7-Day Money Flow Reset program in Cambodia.
+
+User wants to allocate $${amount} with ${risk} risk tolerance on Day ${context.currentDay || 0}.
+
+Provide a JSON response with allocation percentages and amounts:
+{
+  "stocks_percent": 50,
+  "bonds_percent": 40,
+  "cash_percent": 8,
+  "crypto_percent": 2,
+  "stocks_amount": ${amount * 0.5},
+  "bonds_amount": ${amount * 0.4},
+  "cash_amount": ${amount * 0.08},
+  "crypto_amount": ${amount * 0.02},
+  "reasoning": "Balanced approach suitable for moderate risk...",
+  "confidence": 85
+}
+
+Consider Cambodia's financial context (USD/KHR, local banks, conservative culture).
+Keep crypto allocation low (0-5%) for Cambodian users.
+Respond ONLY with valid JSON.`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-5-sonnet-20241022", // ✅ FIXED MODEL NAME
+                max_tokens: 1000,
+                messages: [{
+                    role: "user",
+                    content: prompt
+                }]
+            });
+
+            const response = message.content[0].text;
+            const allocation = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
+            
+            return {
+                ...allocation,
+                ai_used: true,
+                source: 'claude'
+            };
+            
+        } catch (error) {
+            console.error('Claude allocation error:', error);
+            return this.getFallbackAllocation(amount, risk);
+        }
+    },
+
+    async shouldExecuteReset(params = {}) {
+        if (!anthropicClient) {
+            return { 
+                decision: 'YES', 
+                confidence: 75, 
+                reasoning: 'Standard 7-day cycle completed', 
+                ai_used: false,
+                wait_days: 0
+            };
+        }
+
+        try {
+            const prompt = `You are advising a user in the 7-Day Money Flow Reset program.
+
+Context:
+- Current Day: ${params.currentDay || 7}
+- User ID: ${params.userId || 'unknown'}
+- Reset Amount: $${params.amount || 1000}
+- Day Type: ${params.dayType || 'reset_day'}
+
+Should this user execute their money reset today? Consider:
+1. Market conditions
+2. Day 7 completion readiness
+3. User progress
+4. Cambodia economic context
+
+Respond with JSON only:
+{
+  "decision": "YES" or "NO",
+  "confidence": 85,
+  "reasoning": "User has completed 7 days and is ready for reset",
+  "wait_days": 0
+}`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-5-sonnet-20241022", // ✅ FIXED MODEL NAME
+                max_tokens: 500,
+                messages: [{
+                    role: "user",
+                    content: prompt
+                }]
+            });
+
+            const response = message.content[0].text;
+            const decision = JSON.parse(response.replace(/```json/g, '').replace(/```/g, ''));
+            
+            return {
+                ...decision,
+                ai_used: true,
+                source: 'claude'
+            };
+            
+        } catch (error) {
+            console.error('Claude reset decision error:', error);
+            return { 
+                decision: 'YES', 
+                confidence: 75, 
+                reasoning: 'Standard 7-day cycle completed', 
+                ai_used: false,
+                wait_days: 0
+            };
+        }
+    },
+
     getStatus() {
         return {
             ai_available: !!anthropicClient,
             service: 'Claude AI',
-            model: 'claude-3-sonnet-20240229',
+            model: 'claude-3-5-sonnet-20241022', // ✅ FIXED MODEL NAME
             fallback_mode: !anthropicClient,
             client_status: anthropicClient ? 'initialized' : 'not_initialized',
             last_check: new Date().toISOString()
         };
+    },
+
+    getFallbackAllocation(amount, risk) {
+        const allocations = {
+            conservative: { stocks: 30, bonds: 60, cash: 10, crypto: 0 },
+            moderate: { stocks: 50, bonds: 40, cash: 8, crypto: 2 },
+            aggressive: { stocks: 70, bonds: 20, cash: 5, crypto: 5 }
+        };
+        
+        const chosen = allocations[risk] || allocations.moderate;
+        
+        return {
+            stocks_percent: chosen.stocks,
+            bonds_percent: chosen.bonds,
+            cash_percent: chosen.cash,
+            crypto_percent: chosen.crypto,
+            stocks_amount: amount * (chosen.stocks / 100),
+            bonds_amount: amount * (chosen.bonds / 100),
+            cash_amount: amount * (chosen.cash / 100),
+            crypto_amount: amount * (chosen.crypto / 100),
+            reasoning: `Fallback ${risk} allocation - Claude AI unavailable`,
+            confidence: 70,
+            ai_used: false,
+            source: 'fallback'
+        };
     }
 };
 
-// Update aiAvailable status
-aiAvailable = !!anthropicClient;
-
-console.log(`🎯 Improved Claude AI Service loaded - Status: ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
+console.log("✅ Claude AI service updated with correct model name!");
