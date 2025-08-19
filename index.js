@@ -5513,110 +5513,285 @@ bot.on('message', async (msg) => {
     }
 });
 
-// Enhanced Day 7 command with Claude AI smart reset
-bot.onText(/^\/day7/, async (msg) => {
+// 🔧 DEBUG CLAUDE AI INTEGRATION
+// Add this debugging section to your index.js to identify the issue
+
+// Add this test command to debug Claude AI
+bot.onText(/^\/ai_debug/, async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
-    try {
-        // Your existing day 7 logic here...
-        // After completing day 7 content, offer AI-powered reset
-        
-        setTimeout(async () => {
-            const resetOffer = `🎉 អបអរសាទរ! បញ្ចប់ថ្ងៃទី 7!
-
-🤖 **Claude AI Smart Reset:**
-តើអ្នកចង់បាន AI ជួយវិភាគ និងបង្កើត Smart Money Allocation?
-
-💰 Claude AI អាចជួយ:
-• វិភាគស្ថានការណ៍ហិរញ្ញវត្ថុ
-• ផ្តល់យោបល់ការវិនិយោគ
-• បង្កើត portfolio តាមហានិភ័យ
-• ការណែនាំជាក់លាក់សម្រាប់កម្ពុជា
-
-🎯 ប្រើ /ai_reset [amount] ដើម្បីចាប់ផ្តើម AI Reset!
-ឧទាហរណ៍: /ai_reset 1000
-
-🔮 ឬសួរ Claude: /ask តើខ្ញុំគួរវិនិយោគយ៉ាងណា?`;
-
-            await bot.sendMessage(chatId, resetOffer);
-        }, 5000); // 5 seconds after day 7 completion
-
-    } catch (error) {
-        console.error('Error in enhanced day 7:', error);
-    }
-});
-
-// /ai_reset command - AI-powered money reset
-bot.onText(/^\/ai_reset (\d+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const amount = parseInt(match[1]);
-
-    if (!amount || amount < 100) {
-        await bot.sendMessage(chatId, "💰 សូមបញ្ចូលចំនួនលុយ: /ai_reset [amount]\nឧទាហរណ៍: /ai_reset 1000");
+    // Simple admin check (replace with your admin ID)
+    const adminIds = [123456789, 987654321]; // Add your Telegram user ID here
+    if (!adminIds.includes(userId)) {
+        await bot.sendMessage(chatId, "🔒 Admin only command");
         return;
     }
 
     try {
-        await bot.sendChatAction(chatId, 'typing');
-        await bot.sendMessage(chatId, `🤖 Claude AI កំពុងវិភាគ ${amount.toLocaleString()} របស់អ្នក...`);
+        const debugInfo = `🔧 **Claude AI Debug Information**
 
-        // Execute smart reset using your existing smartFlow class
-        const resetResult = await smartFlow.executeSmartReset(userId, amount);
+🔑 **Environment Variables:**
+• ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? '✅ Set (' + process.env.ANTHROPIC_API_KEY.substring(0, 10) + '...)' : '❌ Missing'}
+• CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✅ Set (' + process.env.CLAUDE_API_KEY.substring(0, 10) + '...)' : '❌ Missing'}
+• NODE_ENV: ${process.env.NODE_ENV || 'not set'}
 
-        if (resetResult.success) {
-            const resetMessage = resetResult.message;
+🤖 **AI Service Status:**
+• aiAvailable: ${aiAvailable}
+• aiService exists: ${!!aiService}
+• Service type: ${aiService?.getStatus?.()?.service || 'unknown'}
+
+📦 **Package Check:**
+• @anthropic-ai/sdk installed: ${(() => {
+    try {
+        require('@anthropic-ai/sdk');
+        return '✅ Yes';
+    } catch (e) {
+        return '❌ No: ' + e.message;
+    }
+})()}
+
+🧪 **Testing Claude Connection...**`;
+
+        await bot.sendMessage(chatId, debugInfo);
+
+        // Test Claude connection
+        try {
+            await bot.sendMessage(chatId, "🔄 Testing Claude API connection...");
             
-            if (resetMessage.length > MESSAGE_CHUNK_SIZE) {
-                await sendLongMessage(bot, chatId, resetMessage);
+            const testResult = await aiService.testConnection();
+            
+            await bot.sendMessage(chatId, `🧪 **Connection Test Result:**
+• Success: ${testResult.success}
+• Message: ${testResult.message}
+• Response: ${testResult.response || 'N/A'}`);
+
+        } catch (testError) {
+            await bot.sendMessage(chatId, `❌ **Connection Test Failed:**
+Error: ${testError.message}
+Stack: ${testError.stack?.substring(0, 500) || 'N/A'}`);
+        }
+
+        // Test manual Claude call
+        try {
+            await bot.sendMessage(chatId, "🔄 Testing manual Claude call...");
+            
+            if (aiAvailable && aiService.handleUserQuestion) {
+                const manualTest = await aiService.handleUserQuestion("Test question", { name: "Debug" });
+                await bot.sendMessage(chatId, `🧪 **Manual Test Result:**
+• Success: ${manualTest.success}
+• Response: ${manualTest.response.substring(0, 200)}...
+• Source: ${manualTest.source}`);
             } else {
-                await bot.sendMessage(chatId, resetMessage);
+                await bot.sendMessage(chatId, "❌ AI service not available for manual test");
             }
 
-            // Follow up with additional AI advice
-            setTimeout(async () => {
-                const followUp = `🎯 **បន្ទាប់ពី AI Reset:**
-
-📈 ការណែនាំបន្ថែម:
-• ពិនិត្យ portfolio រាល់ 3 ខែ
-• កុំភ្លេចបន្ថែមលុយជាប្រចាំ
-• រក្សាសមតុល្យតាមគោលដៅ
-
-💬 សួរ Claude អ្វីក៏បាន: /ask [សំណួរ]
-🎓 ឬទទួលការណែនាំ: /coach
-
-🏆 អ្នកបានបញ្ចប់ 7-Day Money Flow Reset™ ដោយជោគជ័យ!`;
-
-                await bot.sendMessage(chatId, followUp);
-            }, 3000);
-
-        } else {
-            await bot.sendMessage(chatId, `⚠️ AI បានណែនាំ: ${resetResult.message}`);
+        } catch (manualError) {
+            await bot.sendMessage(chatId, `❌ **Manual Test Failed:**
+Error: ${manualError.message}`);
         }
 
     } catch (error) {
-        console.error('AI reset error:', error);
-        await bot.sendMessage(chatId, "❌ AI Reset មានបញ្ហា។ សូមសាកម្តងទៀត ឬប្រើ /help");
+        await bot.sendMessage(chatId, `❌ Debug command failed: ${error.message}`);
     }
 });
 
-// Add AI section to your existing /help command
-// Find your existing help command and add this AI section:
-/*
-Add this to your existing help command:
+// 🛠️ FIXED CLAUDE AI SERVICE - Replace your current aiService with this
+// This version has better error handling and debugging
 
-const aiSection = `\n\n🤖 **Claude AI Assistant:**
-• /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ
-• /coach - ការណែនាំផ្ទាល់ខ្លួន
-• /find_leaks - រកមើល Money Leaks
-• /ai_reset [amount] - AI Smart Reset
-• /ai_help - AI ជំនួយពេញលេញ
+console.log("🔧 Loading improved Claude AI service...");
 
-💡 Claude AI អាចជួយឆ្លើយសំណួរផ្ទាល់ជាភាសាខ្មែរ!
-🔮 Status: ${aiAvailable ? '✅ Online' : '⚠️ Offline'}`;
+let anthropicClient = null;
 
-// Add aiSection to your existing help message
-*/
+// Try to initialize Anthropic client
+try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    console.log("🔑 API Key status:", apiKey ? `Set (${apiKey.substring(0, 10)}...)` : 'Missing');
+    
+    if (apiKey) {
+        anthropicClient = new Anthropic({
+            apiKey: apiKey,
+        });
+        console.log("✅ Anthropic client initialized");
+    } else {
+        console.log("❌ No API key found");
+    }
+    
+} catch (initError) {
+    console.error("❌ Anthropic initialization failed:", initError.message);
+}
 
-console.log("✅ Claude AI commands loaded successfully!");
+// Improved AI Service with better error handling
+aiService = {
+    async handleUserQuestion(question, userContext = {}) {
+        console.log("🤖 handleUserQuestion called:", { question, context: userContext });
+        
+        if (!anthropicClient) {
+            console.log("❌ No Anthropic client available");
+            return {
+                success: false,
+                response: "🤖 Claude AI មិនអាចប្រើបានឥឡូវនេះ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
+                source: 'no_client',
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        try {
+            console.log("🔄 Sending request to Claude...");
+            
+            const prompt = `You are a financial coach for the 7-Day Money Flow Reset program in Cambodia.
+
+User: ${userContext.name || 'User'} (Tier: ${userContext.tier || 'essential'}, Day: ${userContext.currentDay || 1})
+Question: "${question}"
+
+Provide helpful financial advice in Khmer language. Be:
+- Encouraging and supportive
+- Practical and actionable  
+- Specific to Cambodia (USD/KHR, ABA/ACLEDA banks)
+- Related to the 7-Day Money Flow program when relevant
+
+Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-sonnet-20240229",
+                max_tokens: 800,
+                messages: [{
+                    role: "user", 
+                    content: prompt
+                }]
+            });
+
+            console.log("✅ Claude response received");
+
+            return {
+                success: true,
+                response: message.content[0].text,
+                source: 'claude',
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error('❌ Claude API error:', error);
+            
+            // Detailed error logging
+            if (error.status) {
+                console.error('Status:', error.status);
+                console.error('Message:', error.message);
+            }
+            
+            return {
+                success: false,
+                response: `🤖 Claude AI មានបញ្ហា: ${error.message}. សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។`,
+                source: 'error',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
+        }
+    },
+
+    async getPersonalizedCoaching(userProgress, dayNumber) {
+        console.log("🎯 getPersonalizedCoaching called:", { userProgress, dayNumber });
+        
+        if (!anthropicClient) {
+            return {
+                success: true,
+                response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI កំពុងបច្ចុប្បន្នភាព...`,
+                source: 'fallback',
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        try {
+            const prompt = `Provide personalized coaching for Day ${dayNumber} of 7-Day Money Flow Reset.
+
+User Progress:
+- Completed Days: ${userProgress.completedDays || 0}
+- Current Day: ${dayNumber}
+- Goals: ${userProgress.goals?.join(', ') || 'Financial improvement'}
+
+Create encouraging coaching message in Khmer with:
+1. Acknowledgment of progress
+2. Day ${dayNumber} specific guidance
+3. Motivation to continue
+4. Practical next steps
+
+Maximum 250 words in Khmer.`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-sonnet-20240229", 
+                max_tokens: 700,
+                messages: [{
+                    role: "user",
+                    content: prompt
+                }]
+            });
+
+            return {
+                success: true,
+                response: message.content[0].text,
+                source: 'claude',
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error('❌ Claude coaching error:', error);
+            return {
+                success: true,
+                response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI មានបញ្ហាបន្តិច។ សូមទាក់ទង @Chendasum`,
+                source: 'fallback',
+                timestamp: new Date().toISOString()
+            };
+        }
+    },
+
+    async testConnection() {
+        if (!anthropicClient) {
+            return {
+                success: false,
+                message: 'Anthropic client not initialized'
+            };
+        }
+
+        try {
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-sonnet-20240229",
+                max_tokens: 100,
+                messages: [{
+                    role: "user",
+                    content: "Test connection. Respond with: CONNECTION_OK"
+                }]
+            });
+
+            const response = message.content[0].text;
+            return {
+                success: true,
+                message: 'Claude AI connection successful',
+                response: response
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Claude AI connection failed: ' + error.message,
+                error: error
+            };
+        }
+    },
+
+    getStatus() {
+        return {
+            ai_available: !!anthropicClient,
+            service: 'Claude AI',
+            model: 'claude-3-sonnet-20240229',
+            fallback_mode: !anthropicClient,
+            client_status: anthropicClient ? 'initialized' : 'not_initialized',
+            last_check: new Date().toISOString()
+        };
+    }
+};
+
+// Update aiAvailable status
+aiAvailable = !!anthropicClient;
+
+console.log(`🎯 Improved Claude AI Service loaded - Status: ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
