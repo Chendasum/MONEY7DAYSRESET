@@ -1,15 +1,19 @@
 {
   "name": "7day-money-flow-bot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "7-Day Money Flow Reset Telegram Bot with AI Integration",
+  "private": true,
   "main": "index.js",
+  "engines": {
+    "node": ">=18.17.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "start": "node index.js",
+    "start:prod": "node index.js",
     "dev": "nodemon index.js",
-    "postinstall": "echo Using npm omit=dev (see .npmrc) && node -v"
-  },
-  "engines": {
-    "node": ">=18.17.0"
+    "install:prod": "npm ci --omit=dev",
+    "clean:cache": "npm cache verify || true"
   },
   "dependencies": {
     "express": "^4.18.2",
