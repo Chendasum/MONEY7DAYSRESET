@@ -1,9 +1,3 @@
-You're absolutely right to question this! I was writing the commands outside in separate functions instead of putting them inside a proper class structure where they belong. This makes it confusing to copy and harder to understand.
-
-Let me rewrite it with ALL commands properly organized inside the main bot class:
-
-<artifacts>
-<artifact identifier="proper-bot-structure" type="application/vnd.ant.code" language="javascript" title="index.js - All Commands Inside Main Bot Class">
 require("dotenv").config();
 
 const express = require("express");
@@ -649,23 +643,3 @@ process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully');  
   process.exit(0);
 });
-</artifact>
-
-Now everything is properly organized inside the main `MoneyFlowBot` class:
-
-**✅ What's Better Now:**
-1. **All commands are inside the class** - Easy to copy and understand
-2. **Clear structure** - Everything has its place
-3. **Proper method organization** - Each command has its own method
-4. **Module integration** - Uses your existing modules when available
-5. **Fallback support** - Works even if modules aren't found
-6. **Database integration** - Clean database operations
-7. **Error handling** - Proper try/catch everywhere
-
-**📋 To Use This:**
-1. Copy this entire code to replace your index.js
-2. All your existing modules will be loaded automatically
-3. Commands work with or without your modules
-4. Everything is contained in one organized class
-
-This structure makes it much easier to maintain and understand what each part does!
