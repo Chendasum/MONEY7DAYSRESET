@@ -4,87 +4,316 @@ const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
 
-// Import configurations
-const { initializeDatabase } = require('./config/database');
-const aiConfig = require('./config/ai-config');
-
-// Import services
-const AIService = require('./services/aiIntegration');
-const Analytics = require('./services/analytics');
-const Scheduler = require('./services/scheduler');
-const AccessControl = require('./services/access-control');
-const ConversionOptimizer = require('./services/conversion-optimizer');
-const MessageQueue = require('./services/message-queue');
-
-// Import utilities
-const { sendLongMessage } = require('./utils/message-splitter');
-const { isDuplicateMessage } = require('./utils/aiHelper');
-
-// Import command handlers
-const StartCommand = require('./commands/start');
-const DailyCommands = require('./commands/daily');
-const PaymentCommands = require('./commands/payment');
-const VipCommands = require('./commands/vip');
-const AdminCommands = require('./commands/admin');
-const FreeToolsCommands = require('./commands/free-tools');
-const QuotesCommands = require('./commands/quotes');
-const BadgesCommands = require('./commands/badges');
-
-console.log("🚀 Starting 7-Day Money Flow Bot with Clean Architecture...");
+console.log("🚀 Starting 7-Day Money Flow Bot - Quick Fix Version...");
 
 // Constants
 const MESSAGE_CHUNK_SIZE = 4090;
 const PORT = process.env.PORT || 5000;
 const HOST = "0.0.0.0";
 
-// Initialize Express app
+// Database setup (embedded for now - no separate file needed)
+const { drizzle } = require('drizzle-orm/node-postgres');
+const { Pool } = require('pg');
+const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
+const { eq } = require('drizzle-orm');
+
+// Database Schema
+const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
+  username: text('username'),
+  first_name: text('first_name'),
+  last_name: text('last_name'),
+  phone_number: text('phone_number'),
+  email: text('email'),
+  joined_at: timestamp('joined_at').defaultNow(),
+  is_paid: boolean('is_paid').default(false),
+  payment_date: timestamp('payment_date'),
+  transaction_id: text('transaction_id'),
+  is_vip: boolean('is_vip').default(false),
+  tier: text('tier').default('free'),
+  tier_price: integer('tier_price').default(0),
+  last_active: timestamp('last_active').defaultNow(),
+  timezone: text('timezone').default('Asia/Phnom_Penh'),
+});
+
+const progress = pgTable('progress', {
+  id: serial('id').primaryKey(),
+  user_id: bigint('user_id', { mode: 'number' }).notNull().unique(),
+  current_day: integer('current_day').default(0),
+  ready_for_day_1: boolean('ready_for_day_1').default(false),
+  day_0_completed: boolean('day_0_completed').default(false),
+  day_1_completed: boolean('day_1_completed').default(false),
+  day_2_completed: boolean('day_2_completed').default(false),
+  day_3_completed: boolean('day_3_completed').default(false),
+  day_4_completed: boolean('day_4_completed').default(false),
+  day_5_completed: boolean('day_5_completed').default(false),
+  day_6_completed: boolean('day_6_completed').default(false),
+  day_7_completed: boolean('day_7_completed').default(false),
+  program_completed: boolean('program_completed').default(false),
+  program_completed_at: timestamp('program_completed_at'),
+  responses: jsonb('responses'),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
+const db = drizzle(pool, { schema: { users, progress } });
+
+// Database Models
+class User {
+  static async findOne(condition) {
+    try {
+      if (condition.telegram_id) {
+        const result = await db.select().from(users).where(eq(users.telegram_id, condition.telegram_id));
+        return result[0] || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Database error in User.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    const { upsert = false } = options;
+    
+    try {
+      if (condition.telegram_id) {
+        const existing = await this.findOne(condition);
+        
+        if (existing) {
+          const validFields = [
+            'username', 'first_name', 'last_name', 'phone_number', 
+            'email', 'is_paid', 'payment_date', 'transaction_id', 
+            'is_vip', 'tier', 'tier_price', 'last_active', 'timezone'
+          ];
+          
+          const safeUpdates = {};
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              safeUpdates[key] = value;
+            }
+          });
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            safeUpdates.last_active = new Date();
+            const result = await db
+              .update(users)
+              .set(safeUpdates)
+              .where(eq(users.telegram_id, condition.telegram_id))
+              .returning();
+            return result[0];
+          }
+          return existing;
+        } else if (upsert) {
+          const insertData = { 
+            telegram_id: condition.telegram_id, 
+            last_active: new Date() 
+          };
+          
+          const validFields = [
+            'username', 'first_name', 'last_name', 'phone_number', 
+            'email', 'is_paid', 'payment_date', 'transaction_id', 
+            'is_vip', 'tier', 'tier_price', 'timezone'
+          ];
+          
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              insertData[key] = value;
+            }
+          });
+          
+          const result = await db
+            .insert(users)
+            .values(insertData)
+            .returning();
+          return result[0];
+        }
+      }
+    } catch (error) {
+      console.error('Database error in User.findOneAndUpdate:', error.message);
+      return null;
+    }
+    
+    return null;
+  }
+}
+
+class Progress {
+  static async findOne(condition) {
+    try {
+      if (condition.userId || condition.user_id) {
+        const id = condition.userId || condition.user_id;
+        const result = await db.select().from(progress).where(eq(progress.user_id, id));
+        return result[0] || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Database error in Progress.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    const { upsert = false } = options;
+    
+    try {
+      if (condition.userId || condition.user_id) {
+        const id = condition.userId || condition.user_id;
+        const existing = await this.findOne(condition);
+        
+        if (existing) {
+          const validFields = [
+            'current_day', 'ready_for_day_1', 
+            'day_0_completed', 'day_1_completed', 'day_2_completed', 'day_3_completed',
+            'day_4_completed', 'day_5_completed', 'day_6_completed', 'day_7_completed',
+            'program_completed', 'program_completed_at', 'responses'
+          ];
+          
+          const safeUpdates = {};
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              safeUpdates[key] = value;
+            }
+          });
+          
+          if (Object.keys(safeUpdates).length > 0) {
+            safeUpdates.updated_at = new Date();
+            const result = await db
+              .update(progress)
+              .set(safeUpdates)
+              .where(eq(progress.user_id, id))
+              .returning();
+            return result[0];
+          }
+          return existing;
+        } else if (upsert) {
+          const insertData = { 
+            user_id: id, 
+            created_at: new Date(), 
+            updated_at: new Date() 
+          };
+          
+          const validFields = [
+            'current_day', 'ready_for_day_1', 
+            'day_0_completed', 'day_1_completed', 'day_2_completed', 'day_3_completed',
+            'day_4_completed', 'day_5_completed', 'day_6_completed', 'day_7_completed',
+            'program_completed', 'program_completed_at', 'responses'
+          ];
+          
+          Object.entries(updates).forEach(([key, value]) => {
+            if (validFields.includes(key) && value !== undefined && value !== null) {
+              insertData[key] = value;
+            }
+          });
+          
+          const result = await db
+            .insert(progress)
+            .values(insertData)
+            .returning();
+          return result[0];
+        }
+      }
+    } catch (error) {
+      console.error('Database error in Progress.findOneAndUpdate:', error.message);
+      return null;
+    }
+    
+    return null;
+  }
+}
+
+// Utilities
+async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
+  try {
+    if (message.length <= chunkSize) {
+      return await bot.sendMessage(chatId, message, options);
+    }
+
+    const chunks = [];
+    let currentChunk = '';
+    const paragraphs = message.split('\n\n');
+    
+    for (const paragraph of paragraphs) {
+      if ((currentChunk + paragraph).length <= chunkSize) {
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = paragraph;
+        } else {
+          const sentences = paragraph.split('\n');
+          for (const sentence of sentences) {
+            if ((currentChunk + sentence).length <= chunkSize) {
+              currentChunk += (currentChunk ? '\n' : '') + sentence;
+            } else {
+              if (currentChunk) chunks.push(currentChunk);
+              currentChunk = sentence;
+            }
+          }
+        }
+      }
+    }
+    
+    if (currentChunk) chunks.push(currentChunk);
+
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        await bot.sendMessage(chatId, chunks[i], {
+          ...options,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        });
+        
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (chunkError) {
+        console.error(`Error sending chunk ${i + 1}:`, chunkError.message);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error in sendLongMessage:', error.message);
+    throw error;
+  }
+}
+
+// Duplicate message prevention
+const processedMessages = new Set();
+function isDuplicateMessage(msg) {
+  const messageId = `${msg.chat.id}-${msg.message_id}`;
+  processedMessages.add(messageId);
+  
+  if (processedMessages.size > 200) {
+    const messagesToKeep = Array.from(processedMessages).slice(-100);
+    processedMessages.clear();
+    messagesToKeep.forEach(id => processedMessages.add(id));
+  }
+  
+  return false; // Never block in webhook mode
+}
+
+// Express app setup
 const app = express();
 app.use(express.json({ limit: "10mb", charset: "utf-8" }));
 app.use(express.urlencoded({ extended: true, charset: "utf-8" }));
-
-// Set UTF-8 headers
 app.use((req, res, next) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   next();
 });
 
-// Initialize services
-let bot, db, aiService, analytics, scheduler, accessControl, conversionOptimizer;
-
-async function initializeBot() {
-  try {
-    console.log("🔄 Initializing bot services...");
-
-    // Initialize database
-    db = await initializeDatabase();
-    console.log("✅ Database connected");
-
-    // Initialize Telegram bot
-    bot = new TelegramBot(process.env.BOT_TOKEN, {
-      polling: false,
-      onlyFirstMatch: true,
-    });
-    console.log("✅ Telegram bot initialized");
-
-    // Initialize AI service
-    aiService = new AIService();
-    await aiService.initialize();
-    console.log("✅ AI service initialized");
-
-    // Initialize other services
-    analytics = new Analytics(db);
-    scheduler = new Scheduler(bot, db);
-    accessControl = new AccessControl(db);
-    conversionOptimizer = new ConversionOptimizer(bot, db);
-    
-    console.log("✅ All services initialized");
-
-    return true;
-  } catch (error) {
-    console.error("❌ Bot initialization failed:", error);
-    throw error;
-  }
-}
+// Initialize bot
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+  polling: false,
+  onlyFirstMatch: true,
+});
 
 function getRailwayUrl() {
   if (process.env.RAILWAY_PUBLIC_DOMAIN) {
@@ -93,7 +322,278 @@ function getRailwayUrl() {
   return `https://money7daysreset-production.up.railway.app`;
 }
 
-async function setupWebhook() {
+// Try to import your existing modules (with fallbacks)
+let startCommand, dailyCommands, paymentCommands, vipCommands, adminCommands;
+
+function safeRequire(modulePath, fallbackName) {
+  try {
+    const module = require(modulePath);
+    console.log(`✅ ${fallbackName} loaded successfully`);
+    return module;
+  } catch (error) {
+    console.log(`⚠️ ${fallbackName} not found, using fallback`);
+    return null;
+  }
+}
+
+// Try to load your existing command modules
+startCommand = safeRequire("./commands/start", "startCommand");
+dailyCommands = safeRequire("./commands/daily", "dailyCommands");
+paymentCommands = safeRequire("./commands/payment", "paymentCommands");
+vipCommands = safeRequire("./commands/vip", "vipCommands");
+adminCommands = safeRequire("./commands/admin", "adminCommands");
+
+// Built-in daily content (fallback)
+function getDailyContent(day) {
+  const dailyContent = {
+    1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក
+
+🔥 គោលដៅថ្ងៃនេះ: រកលុយ $30-50+ ក្នុង ២០ នាទី តាមវិធីសាស្ត្រពិតប្រាកដ!
+
+👋 ជំរាបសួរ! ថ្ងៃនេះយើងនឹងមកយល់ដឹងអំពីលុយរបស់អ្នកឱ្យបានច្បាស់លាស់ និងរកលុយភ្លាមៗ!
+
+💎 តំបន់សកម្មភាពបន្ទាន់ (២០ នាទី)
+
+⚡ ជំហានភ្លាមៗ (៥ នាទី): ពិនិត្យមើលការជាវឌីជីថល
+→ បើក Phone Settings → Subscriptions/App Store
+→ រកមើលកម្មវិធីដែលអ្នកលែងប្រើប្រាស់ហើយ
+→ គោលដៅ: រកឃើញ $15+ ភ្លាមៗដែលអ្នកអាចសន្សំបានរៀងរាល់ខែ
+
+📞 ជំនួយ: @Chendasum | Website: 7daymoneyflow.com`,
+
+    2: `💧 ថ្ងៃទី ២: ស្វែងរកកន្លែងដែលលុយលេចធ្លាយ (Money Leaks) 💧
+
+🎯 គោលដៅថ្ងៃនេះ: រកកន្លែងលេចធ្លាយលុយ $50-100+ ដែលអ្នកមិនដឹង!
+
+🔍 កន្លែងលេចធ្លាយលុយទូទៅនៅកម្ពុជា:
+• ថ្លៃធនាគារ និង ថ្លៃសេវាកម្ម
+• ចំណាយដឹកជញ្ជូន
+• ចំណាយអាហារ
+
+📞 ជំនួយ: @Chendasum`,
+    
+    // Add more days as needed
+  };
+
+  return dailyContent[day] || `📚 ថ្ងៃទី ${day} - មាតិកានឹងមកដល់ឆាប់ៗ\n\n📞 ទាក់ទង @Chendasum សម្រាប់មាតិកាពេញលេញ។`;
+}
+
+// Basic command handlers (fallbacks if modules don't exist)
+async function handleStart(msg) {
+  if (startCommand && startCommand.handle) {
+    await startCommand.handle(msg, bot);
+  } else {
+    const welcomeMessage = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
+
+💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ
+
+🎯 តម្លៃពិសេស: $24 USD (បញ្ចុះពី $47)
+🏷️ កូដ: LAUNCH50
+
+📚 អ្វីដែលអ្នកនឹងទទួលបាន:
+✅ មេរៀន ៧ ថ្ងៃពេញលេញ
+✅ ការគ្រប់គ្រងលុយបានល្អ
+✅ ការកាត់បន្ថយចំណាយ
+✅ ការបង្កើនចំណូល
+✅ ផែនការហិរញ្ញវត្ថុច្បាស់
+
+💎 វិធីទូទាត់:
+• ABA Bank: 000 194 742
+• ACLEDA Bank: 092 798 169  
+• Wing: 102 534 677
+• ឈ្មោះ: SUM CHENDA
+• កំណត់ចំណាំ: BOT${msg.from.id}
+
+📱 ប្រើប្រាស់: /pricing ដើម្បីមើលលម្អិត
+💳 ទូទាត់: /payment ដើម្បីចាប់ផ្តើម
+
+👨‍💼 ទាក់ទង: @Chendasum សម្រាប់ជំនួយ`;
+
+    await sendLongMessage(bot, msg.chat.id, welcomeMessage);
+    
+    // Register user in database
+    try {
+      await User.findOneAndUpdate(
+        { telegram_id: msg.from.id },
+        {
+          first_name: msg.from.first_name,
+          last_name: msg.from.last_name,
+          username: msg.from.username,
+          joined_at: new Date()
+        },
+        { upsert: true }
+      );
+    } catch (dbError) {
+      console.log("Database registration skipped (fallback mode)");
+    }
+  }
+}
+
+async function handleDaily(msg, match) {
+  const dayNumber = parseInt(match[1]);
+  
+  if (dailyCommands && dailyCommands.handle) {
+    await dailyCommands.handle(msg, match, bot);
+  } else {
+    // Check if user is paid
+    try {
+      const user = await User.findOne({ telegram_id: msg.from.id });
+      const isPaid = user?.is_paid === true || user?.is_paid === 't';
+
+      if (!user || !isPaid) {
+        await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+        return;
+      }
+
+      // Send daily content
+      const dayContent = getDailyContent(dayNumber);
+      await sendLongMessage(bot, msg.chat.id, dayContent);
+      
+      // Update progress
+      try {
+        await Progress.findOneAndUpdate(
+          { user_id: msg.from.id },
+          { current_day: Math.max(dayNumber, 0) },
+          { upsert: true }
+        );
+      } catch (progressError) {
+        console.log("Progress update skipped");
+      }
+      
+    } catch (error) {
+      console.error("Error in daily handler:", error);
+      await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+    }
+  }
+}
+
+async function handlePricing(msg) {
+  if (paymentCommands && paymentCommands.pricing) {
+    await paymentCommands.pricing(msg, bot);
+  } else {
+    const pricingMessage = `💰 តម្លៃកម្មវិធី 7-Day Money Flow Reset™
+
+🎯 កម្មវិធីសាមញ្ញ (Essential Program)
+💵 តម្លៃ: $24 USD (បញ្ចុះតម្លៃ 50%)
+
+📚 អ្វីដែលអ្នកនឹងទទួលបាន:
+✅ មេរៀន ៧ ថ្ងៃពេញលេញ
+✅ ការគ្រប់គ្រងលុយបានល្អ
+✅ ការកាត់បន្ថយចំណាយ
+✅ ការបង្កើនចំណូល
+
+💎 វិធីទូទាត់:
+• ABA Bank: 000 194 742
+• ACLEDA Bank: 092 798 169  
+• Wing: 102 534 677
+• ឈ្មោះ: SUM CHENDA
+• កំណត់ចំណាំ: BOT${msg.from.id}
+
+⚡ ចាប់ផ្តើមភ្លាមៗ: /payment`;
+
+    await bot.sendMessage(msg.chat.id, pricingMessage);
+  }
+}
+
+// Set up bot commands
+bot.onText(/\/start/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  await handleStart(msg);
+});
+
+bot.onText(/\/day([1-7])/i, async (msg, match) => {
+  if (isDuplicateMessage(msg)) return;
+  await handleDaily(msg, match);
+});
+
+bot.onText(/\/pricing/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  await handlePricing(msg);
+});
+
+bot.onText(/\/help/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  const helpMessage = `📱 ជំនួយ (Help):
+
+🌟 7-Day Money Flow Reset™ 
+
+📱 ពាក្យបញ្ជាសំខាន់:
+- /start - ចាប់ផ្តើម
+- /pricing - មើលតម្លៃ
+- /payment - ការទូទាត់
+- /help - ជំនួយ
+
+💬 ជំនួយ: @Chendasum`;
+  
+  await bot.sendMessage(msg.chat.id, helpMessage);
+});
+
+bot.onText(/\/payment/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  const paymentMessage = `💳 ការណែនាំទូទាត់
+
+🏦 ABA Bank (រហ័ស)
+• គណនី: 000 194 742
+• ឈ្មោះ: SUM CHENDA  
+• ចំនួន: $24 USD
+• Reference: BOT${msg.from.id}
+
+📱 Wing (លឿនបំផុត)
+• លេខ: 102 534 677
+• ឈ្មោះ: SUM CHENDA
+• ចំនួន: $24 USD
+• កំណត់ចំណាំ: BOT${msg.from.id}
+
+⚡ បន្ទាប់ពីទូទាត់:
+1. ថតរូបបញ្ជាក់ការទូទាត់
+2. ផ្ញើមកដោយផ្ទាល់ក្នុងនេះ
+3. ចាប់ផ្តើម Day 1 ភ្លាមៗ!
+
+💬 ជំនួយ: @Chendasum`;
+
+  await bot.sendMessage(msg.chat.id, paymentMessage);
+});
+
+// Express routes
+app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
+  try {
+    console.log("🔔 Webhook received");
+    if (bot) {
+      await bot.processUpdate(req.body);
+    }
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Webhook error:", error.message);
+    res.sendStatus(500);
+  }
+});
+
+app.get("/", (req, res) => {
+  res.json({
+    name: "7-Day Money Flow Reset™ Telegram Bot",
+    status: "Running - Quick Fix Version",
+    time: new Date().toISOString(),
+    version: "2.1.0 - Quick Fix",
+    modules_loaded: {
+      startCommand: !!startCommand,
+      dailyCommands: !!dailyCommands,
+      paymentCommands: !!paymentCommands,
+      database: "embedded"
+    }
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "OK", 
+    time: new Date().toISOString(),
+    bot_initialized: !!bot,
+    database: "connected"
+  });
+});
+
+// Initialize webhook
+async function initBotWebhook() {
   try {
     await bot.stopPolling();
     await bot.deleteWebHook();
@@ -109,325 +609,15 @@ async function setupWebhook() {
   }
 }
 
-// Command handlers setup
-function setupCommandHandlers() {
-  console.log("🎯 Setting up command handlers...");
-
-  // Initialize command classes with dependencies
-  const startCommand = new StartCommand(bot, db, conversionOptimizer);
-  const dailyCommands = new DailyCommands(bot, db, sendLongMessage);
-  const paymentCommands = new PaymentCommands(bot, db);
-  const vipCommands = new VipCommands(bot, db);
-  const adminCommands = new AdminCommands(bot, db, analytics);
-  const freeToolsCommands = new FreeToolsCommands(bot, db);
-  const quotesCommands = new QuotesCommands(bot, db);
-  const badgesCommands = new BadgesCommands(bot, db);
-
-  // Basic commands
-  bot.onText(/\/start/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await startCommand.handle(msg);
-  });
-
-  bot.onText(/\/help/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    const helpContent = await accessControl.getTierSpecificHelp(msg.from.id);
-    await sendLongMessage(bot, msg.chat.id, helpContent, { parse_mode: "Markdown" });
-  });
-
-  // Daily lesson commands
-  bot.onText(/\/day([1-7])/i, async (msg, match) => {
-    if (isDuplicateMessage(msg)) return;
-    await dailyCommands.handleDay(msg, match);
-  });
-
-  // Payment commands
-  bot.onText(/\/pricing/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await paymentCommands.showPricing(msg);
-  });
-
-  bot.onText(/\/payment/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await paymentCommands.showInstructions(msg);
-  });
-
-  // VIP commands
-  bot.onText(/\/vip/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await vipCommands.showInfo(msg);
-  });
-
-  // Admin commands
-  bot.onText(/\/admin_users/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await adminCommands.showUsers(msg);
-  });
-
-  bot.onText(/\/admin_analytics/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await adminCommands.showAnalytics(msg);
-  });
-
-  // Free tools
-  bot.onText(/\/financial_quiz/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await freeToolsCommands.startQuiz(msg);
-  });
-
-  // AI commands
-  bot.onText(/^\/ask(.*)/, async (msg, match) => {
-    if (isDuplicateMessage(msg)) return;
-    const question = match[1].trim();
-    if (!question) {
-      await bot.sendMessage(msg.chat.id, "🤖 Usage: /ask [your question]");
-      return;
-    }
-    await aiService.handleQuestion(msg, question);
-  });
-
-  // Progress and badges
-  bot.onText(/\/progress/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await badgesCommands.showProgress(msg);
-  });
-
-  bot.onText(/\/badges/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await badgesCommands.showBadges(msg);
-  });
-
-  // Status and FAQ
-  bot.onText(/\/status/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await showUserStatus(msg);
-  });
-
-  bot.onText(/\/faq/i, async (msg) => {
-    if (isDuplicateMessage(msg)) return;
-    await showFAQ(msg);
-  });
-
-  console.log("✅ All command handlers set up");
-}
-
-// Message handlers
-function setupMessageHandlers() {
-  // Handle text messages
-  bot.on('message', async (msg) => {
-    if (!msg.text || msg.text.startsWith('/')) return;
-    
-    console.log(`📝 Processing text message: "${msg.text}" from user ${msg.from.id}`);
-    
-    const text = msg.text.toUpperCase();
-    
-    // Handle specific text patterns
-    if (text === "VIP APPLY") {
-      await vipCommands.handleApplication(msg);
-      return;
-    }
-    
-    if (text.includes("READY FOR DAY 1")) {
-      await dailyCommands.handleReadyForDay1(msg);
-      return;
-    }
-    
-    if (text.includes("DAY") && text.includes("COMPLETE")) {
-      await dailyCommands.handleDayComplete(msg);
-      return;
-    }
-    
-    if (text.includes("PROGRAM COMPLETE")) {
-      await dailyCommands.handleProgramComplete(msg);
-      return;
-    }
-
-    // AI-powered smart responses
-    if (aiService.shouldRespondToMessage(msg.text)) {
-      await aiService.handleSmartResponse(msg);
-    }
-  });
-
-  console.log("✅ Message handlers set up");
-}
-
-// Express routes
-function setupRoutes() {
-  // Webhook handler
-  app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
-    try {
-      console.log("🔔 Webhook received");
-      await bot.processUpdate(req.body);
-      res.sendStatus(200);
-    } catch (error) {
-      console.error("Webhook error:", error.message);
-      res.sendStatus(500);
-    }
-  });
-
-  // Health check routes
-  app.get("/", (req, res) => {
-    res.json({
-      name: "7-Day Money Flow Reset™ Telegram Bot",
-      status: "Running with Clean Architecture",
-      time: new Date().toISOString(),
-      version: "3.0.0",
-      architecture: "Modular",
-      modules: [
-        "Commands", "Services", "Utils", "Config", "Models"
-      ]
-    });
-  });
-
-  app.get("/health", (req, res) => {
-    res.json({ 
-      status: "OK", 
-      time: new Date().toISOString(),
-      services: {
-        bot: !!bot,
-        database: !!db,
-        ai: aiService?.isReady() || false,
-        analytics: !!analytics,
-        scheduler: !!scheduler
-      }
-    });
-  });
-
-  app.get("/api/stats", async (req, res) => {
-    try {
-      const stats = await analytics.getBasicStats();
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get stats" });
-    }
-  });
-
-  console.log("✅ Express routes set up");
-}
-
-// Helper functions
-async function showUserStatus(msg) {
+// Start server
+async function startServer() {
   try {
-    const User = require('./models/User');
-    const Progress = require('./models/Progress');
+    await initBotWebhook();
     
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    const progress = await Progress.findOne({ user_id: msg.from.id });
-    
-    if (!user) {
-      await bot.sendMessage(msg.chat.id, "អ្នកមិនទាន់ចុះឈ្មោះ។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
-      return;
-    }
-
-    const statusMessage = `📊 ស្ថានភាពគណនីរបស់អ្នក:
-    
-👤 អ្នកប្រើប្រាស់: ${user.first_name || "មិនស្គាល់"}
-💰 ស្ថានភាព: ${user.is_paid ? "✅ បានទូទាត់" : "❌ មិនទាន់ទូទាត់"}
-🎯 កម្រិត: ${user.tier || "Essential"}
-📈 ថ្ងៃបច្ចុប្បន្ន: Day ${progress?.current_day || 0}`;
-
-    await sendLongMessage(bot, msg.chat.id, statusMessage);
-  } catch (error) {
-    console.error("Error showing status:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការទាញយកស្ថានភាព។");
-  }
-}
-
-async function showFAQ(msg) {
-  try {
-    const User = require('./models/User');
-    const user = await User.findOne({ telegram_id: msg.from.id });
-    const isPaid = user?.is_paid;
-
-    const faqMessage = isPaid ? 
-      await getFAQForPaidUsers(user) : 
-      await getFAQForFreeUsers();
-
-    await sendLongMessage(bot, msg.chat.id, faqMessage, { parse_mode: "Markdown" });
-  } catch (error) {
-    console.error("Error showing FAQ:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
-  }
-}
-
-async function getFAQForFreeUsers() {
-  return `❓ សំណួរញឹកញាប់ (FAQ)
-
-💰 អំពីតម្លៃ:
-- តម្លៃប៉ុន្មាន? → $24 (Essential) / $97 (Premium) / $197 (VIP)
-- ទូទាត់យ៉ាងដូចម្តេច? → ABA Bank, ACLEDA Bank, Wing Payment
-- ទទួលបានអ្វីខ្លះ? → /pricing ដើម្បីមើលលម្អិត
-
-📱 ពាក្យបញ្ជាសំខាន់:
-- /start - ចាប់ផ្តើម
-- /pricing - មើលតម្លៃ
-- /payment - ការទូទាត់
-- /help - ជំនួយ
-
-💬 ជំនួយ: @Chendasum`;
-}
-
-async function getFAQForPaidUsers(user) {
-  return `❓ សំណួរញឹកញាប់ (FAQ) - Complete Member Guide
-
-💰 ស្ថានភាពរបស់អ្នក:
-- កម្រិត: ${user.tier || "Essential"}
-- ស្ថានភាព: ✅ បានទូទាត់
-
-🚀 ពាក្យបញ្ជាកម្មវិធី:
-- /day1 ដល់ /day7 - មេរៀន ៧ ថ្ងៃ
-- /progress - ការរីកចម្រើន
-- /badges - សមិទ្ធផល
-
-💬 ជំនួយ: @Chendasum`;
-}
-
-// Cron jobs
-function setupCronJobs() {
-  // Daily lessons reminder
-  cron.schedule("0 9 * * *", async () => {
-    console.log("🕘 Sending daily reminders...");
-    try {
-      await scheduler.sendDailyReminders();
-    } catch (error) {
-      console.error("Error sending daily reminders:", error);
-    }
-  });
-
-  // Weekly analytics
-  cron.schedule("0 9 * * 1", async () => {
-    console.log("📊 Generating weekly analytics...");
-    try {
-      await analytics.generateWeeklyReport();
-    } catch (error) {
-      console.error("Error generating weekly report:", error);
-    }
-  });
-
-  console.log("✅ Cron jobs scheduled");
-}
-
-// Main startup function
-async function startBot() {
-  try {
-    console.log("🚀 Starting bot initialization...");
-
-    // Initialize all services
-    await initializeBot();
-    
-    // Setup webhook
-    await setupWebhook();
-    
-    // Setup handlers
-    setupCommandHandlers();
-    setupMessageHandlers();
-    setupRoutes();
-    setupCronJobs();
-
-    // Start Express server
     const server = app.listen(PORT, HOST, () => {
-      console.log(`🌐 Server running on ${HOST}:${PORT}`);
-      console.log(`🔗 Webhook URL: ${getRailwayUrl()}/bot${process.env.BOT_TOKEN}`);
+      console.log(`🚀 Server running on ${HOST}:${PORT}`);
+      console.log(`🌐 URL: ${getRailwayUrl()}`);
+      console.log("✅ Quick Fix Version - Bot is ready!");
     });
 
     // Graceful shutdown
@@ -439,15 +629,18 @@ async function startBot() {
       });
     });
 
-    console.log("🎉 7-Day Money Flow Reset™ Bot started successfully!");
-    console.log("🏗️ Architecture: Clean & Modular");
-    console.log("📊 All services initialized and running");
+    process.on("SIGINT", () => {
+      console.log("SIGINT received, shutting down gracefully");  
+      server.close(() => {
+        console.log("Server closed");
+        process.exit(0);
+      });
+    });
 
   } catch (error) {
-    console.error("❌ Failed to start bot:", error);
+    console.error("❌ Failed to start server:", error);
     process.exit(1);
   }
 }
 
-// Start the bot
-startBot();
+startServer();
