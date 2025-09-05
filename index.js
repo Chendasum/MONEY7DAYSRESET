@@ -3106,33 +3106,27 @@ Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
       }, 3600000); // 1 hour delay
     }
 
-    // ADD MISSING AUTOMATION: 30-day follow-up automation (after Day 7)
-    if (dayNum === 7) {
-      setTimeout(async () => {
-        const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
-
+// ADD MISSING AUTOMATION: 30-day follow-up automation (after Day 7)
+try {
+  if (dayNum === 7) {
+    setTimeout(async () => {
+      const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
 បាន 30 ថ្ងៃហើយចាប់តាំងពីអ្នកបានបញ្ចប់ 7-Day Money Flow Reset™!
-
 🤔 តើអ្នកសន្សំបានប៉ុន្មាន?
-
 ចូលរួមការស្ទង់មតិរហ័ស (២ នាទី):
 ✅ ចែករំលលទ្ធផលរបស់អ្នក
 ✅ ទទួលបានការណែនាំបន្ថែម
 ✅ ជួយកម្មវិធីកាន់តែប្រសើរ
-
 សរសេរលទ្ធផលរបស់អ្នកមកឱ្យខ្ញុំ! 📊
-
 ឧទាហរណ៍: "ខ្ញុំកែប្រែទម្លាប់ការចំណាយបានហើយ!"`;
-
-        await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
-      }, 2592000000); // 30 days delay
-    }
-  } catch (error) {
-    console.error("Error in daily command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+      await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
+    }, 2592000000); // 30 days delay
   }
-});
-
+} catch (error) {
+  console.error("Error in daily command:", error);
+  await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+}
+      
 // ADD MISSING FUNCTIONALITY: Advanced Day Completion Handler
 async function handleDayComplete(msg) {
   const dayMatch = msg.text.toUpperCase().match(/DAY\s*(\d+)\s*COMPLETE/);
