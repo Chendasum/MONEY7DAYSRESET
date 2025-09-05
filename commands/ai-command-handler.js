@@ -45,7 +45,7 @@ class AICommandHandler {
             const userContext = await this.getUserContextSafely(userId);
             
             // Enhanced question with Cambodia context
-            const enhancedQuestion = this.enhanceQuestionForCambodia(question, userContext);
+            const enhancedQuestion = question; // Simple pass-through
             
             // Get AI response with fallback
             const aiResponse = await this.getAIResponseSafely('handleUserQuestion', enhancedQuestion, userContext);
