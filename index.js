@@ -618,18 +618,35 @@ Ready to manage the system or test user experience?`;
 
       await bot.sendMessage(msg.chat.id, welcomeMessage);
       
-      // Register user in database and trigger marketing automation
-      try {
-        const user = await User.findOneAndUpdate(
-          { telegram_id: msg.from.id },
-          {
-            first_name: msg.from.first_name,
-            last_name: msg.from.last_name,
-            username: msg.from.username,
-            joined_at: new Date()
-          },
-          { upsert: true }
-        );
+// Register user in database and trigger marketing automation
+try {
+  // Check if user exists
+  const [existingUser] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+  
+  let user;
+  if (!existingUser) {
+    // Create new user
+    await db.insert(users).values({
+      telegram_id: msg.from.id,
+      first_name: msg.from.first_name,
+      last_name: msg.from.last_name,
+      username: msg.from.username,
+      joined_at: new Date()
+    });
+    user = { telegram_id: msg.from.id, is_paid: false }; // For the marketing logic below
+  } else {
+    
+    // Update existing user
+    await db.update(users)
+      .set({
+        first_name: msg.from.first_name,
+        last_name: msg.from.last_name,
+        username: msg.from.username,
+        last_active: new Date()
+      })
+      .where(eq(users.telegram_id, msg.from.id));
+    user = existingUser;
+  }
         
         // Trigger automated marketing sequence for unpaid users
         if (!user || !user.is_paid) {
