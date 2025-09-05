@@ -4037,12 +4037,12 @@ bot.onText(/\/book_financial_review$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-  try {
-    const user = await User.findOne({ telegram_id: userId });
-    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
-      await bot.sendMessage(chatId, "🔒 ការកក់ការពិនិត្យហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក VIP។");
-      return;
-    }
+try {
+  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+  if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+    await bot.sendMessage(chatId, "🔒 ការកក់ការពិនិត្យហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក VIP។");
+    return;
+  }
 
     const financialReview = `📊 VIP FINANCIAL REVIEW BOOKING
 
