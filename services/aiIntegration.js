@@ -1,4 +1,41 @@
 // Enhanced AI Integration Service with Claude AI - PRODUCTION READY
+async initializeAIServices() {
+    try {
+        console.log('🔍 Initializing AI services...');
+        console.log('ANTHROPIC_API_KEY exists:', !!process.env.ANTHROPIC_API_KEY);
+        console.log('CLAUDE_API_KEY exists:', !!process.env.CLAUDE_API_KEY);
+        
+        // Check for Claude API
+        if (process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY) {
+            try {
+                console.log('📦 Loading Anthropic SDK...');
+                const Anthropic = require('@anthropic-ai/sdk');
+                console.log('✅ Anthropic SDK loaded successfully');
+                
+                this.anthropic = new Anthropic({
+                    apiKey: process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY,
+                });
+                
+                console.log('🧪 Testing Claude connection...');
+                // Test the connection
+                await this.anthropic.messages.create({
+                    model: "claude-3-sonnet-20240229",
+                    max_tokens: 50,
+                    messages: [{ role: "user", content: "Test" }]
+                });
+                
+                this.claudeAvailable = true;
+                console.log('✅ Claude AI initialized and tested successfully');
+            } catch (error) {
+                console.log('❌ Claude initialization failed:', error.message);
+                console.log('Error details:', error);
+            }
+        } else {
+            console.log('⚠️ No Claude API key found');
+        }
+        
+        // ... rest of your initialization code
+
 class EnhancedAIIntegration {
     constructor() {
         this.claudeAvailable = false;
