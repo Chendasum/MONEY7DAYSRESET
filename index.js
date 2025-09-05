@@ -3647,9 +3647,9 @@ bot.onText(/\/admin_performance_test$/i, async (msg) => {
   const testStartTime = Date.now();
   await bot.sendMessage(msg.chat.id, "🔄 Running system performance test...");
 
-  try {
-    const dbTest = await User.findOne({ telegram_id: msg.from.id });
-    const dbTime = Date.now() - testStartTime;
+try {
+  const [dbTest] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+  const dbTime = Date.now() - testStartTime;
 
     const testResults = `✅ System Performance Test
 
