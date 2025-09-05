@@ -25,7 +25,7 @@ class ClaudeAIIntegration {
                     
                     // Simple test call
                     const testMessage = await this.anthropic.messages.create({
-                        model: "claude-3-sonnet-20240229",
+                        model: "claude-sonnet-4-20250514",
                         max_tokens: 50,
                         messages: [
                             {
@@ -158,7 +158,7 @@ class ClaudeAIIntegration {
             console.log('📤 Sending to Claude (first 100 chars):', fullPrompt.substring(0, 100) + '...');
 
             const message = await this.anthropic.messages.create({
-                model: "claude-3-sonnet-20240229",
+                model: "claude-sonnet-4-20250514",
                 max_tokens: this.getMaxTokens(type),
                 system: this.getSystemPrompt(type),
                 messages: [
