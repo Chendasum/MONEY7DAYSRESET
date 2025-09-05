@@ -3083,18 +3083,26 @@ async function handleDayComplete(msg) {
   const dayNumber = parseInt(dayMatch[1]);
   const nextDay = dayNumber + 1;
 
-  // Update progress with static field names to avoid SQL syntax errors
-  try {
-    await Progress.findOneAndUpdate(
-      { user_id: msg.from.id },
-      {
-        current_day: nextDay <= 7 ? nextDay : 7
-      },
-      { upsert: true }
-    );
-  } catch (dbError) {
-    console.log("Progress update failed:", dbError.message);
+// Update progress with static field names to avoid SQL syntax errors
+try {
+  // Check if progress record exists
+  const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+
+  if (existingProgress) {
+    // Update existing progress
+    await db.update(progress)
+      .set({ current_day: nextDay <= 7 ? nextDay : 7 })
+      .where(eq(progress.user_id, msg.from.id));
+  } else {
+    // Create new progress record
+    await db.insert(progress).values({
+      user_id: msg.from.id,
+      current_day: nextDay <= 7 ? nextDay : 7
+    });
   }
+} catch (dbError) {
+  console.log("Progress update failed:", dbError.message);
+}
 
   // Day completion celebration
   const completeReaction = `🎉 បានល្អណាស់! អ្នកបានបញ្ចប់ Day ${dayNumber}!`;
