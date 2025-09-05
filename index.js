@@ -3906,13 +3906,13 @@ bot.onText(/\/quote_traditional$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-  try {
-    const user = await User.findOne({ telegram_id: userId });
-    const isPaid = user?.is_paid === true || user?.is_paid === 't';
-    if (!isPaid) {
-      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រពេណី សម្រាប់តែសមាជិក។");
-      return;
-    }
+try {
+  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+  const isPaid = user?.is_paid === true || user?.is_paid === 't';
+  if (!isPaid) {
+    await bot.sendMessage(chatId, "🔒 សម្រង់ប្រពេណី សម្រាប់តែសមាជិក។");
+    return;
+  }
 
     const traditionalQuotes = [
       `🏛️ សម្រង់ប្រពេណីខ្មែរ
