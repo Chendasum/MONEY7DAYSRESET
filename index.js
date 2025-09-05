@@ -2,9 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
-const mongoose = require('mongoose');
 
-console.log("🚀 Starting 7-Day Money Flow Bot with MongoDB on Railway...");
+console.log("🚀 Starting 7-Day Money Flow Bot with PostgreSQL on Railway...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
 
@@ -13,316 +12,69 @@ process.env.NODE_ICU_DATA = "/usr/share/nodejs/node-icu-data";
 process.env.LANG = "en_US.UTF-8";
 
 // Constants for message handling
-const MESSAGE_CHUNK_SIZE = 4090; // Maximum safe message size for Khmer text (near Telegram's 4096 limit)
+const MESSAGE_CHUNK_SIZE = 4090;
 
-console.log("🔍 Setting up MongoDB connection for Railway...");
+console.log("🔍 Setting up PostgreSQL connection for Railway...");
 
-// MongoDB Schema Definitions
-const userSchema = new mongoose.Schema({
-  telegram_id: { 
-    type: Number, 
-    required: true, 
-    unique: true,
-    index: true 
-  },
-  username: { type: String, default: null },
-  first_name: { type: String, default: null },
-  last_name: { type: String, default: null },
-  phone_number: { type: String, default: null },
-  email: { type: String, default: null },
-  joined_at: { type: Date, default: Date.now },
-  is_paid: { type: Boolean, default: false },
-  payment_date: { type: Date, default: null },
-  transaction_id: { type: String, default: null },
-  is_vip: { type: Boolean, default: false },
-  tier: { type: String, default: 'free' },
-  tier_price: { type: Number, default: 0 },
-  last_active: { type: Date, default: Date.now },
-  timezone: { type: String, default: 'Asia/Phnom_Penh' },
-  testimonials: { type: mongoose.Schema.Types.Mixed, default: null },
-  testimonial_requests: { type: mongoose.Schema.Types.Mixed, default: null },
-  upsell_attempts: { type: mongoose.Schema.Types.Mixed, default: null },
-  conversion_history: { type: mongoose.Schema.Types.Mixed, default: null }
-}, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
-  collection: 'users'
+// Database connection setup for Railway deployment
+const { drizzle } = require('drizzle-orm/node-postgres');
+const { Pool } = require('pg');
+const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
+const { eq } = require('drizzle-orm');
+
+// Database Schema
+const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
+  username: text('username'),
+  first_name: text('first_name'),
+  last_name: text('last_name'),
+  phone_number: text('phone_number'),
+  email: text('email'),
+  joined_at: timestamp('joined_at').defaultNow(),
+  is_paid: boolean('is_paid').default(false),
+  payment_date: timestamp('payment_date'),
+  transaction_id: text('transaction_id'),
+  is_vip: boolean('is_vip').default(false),
+  tier: text('tier').default('free'),
+  tier_price: integer('tier_price').default(0),
+  last_active: timestamp('last_active').defaultNow(),
+  timezone: text('timezone').default('Asia/Phnom_Penh'),
+  testimonials: jsonb('testimonials'),
+  testimonial_requests: jsonb('testimonial_requests'),
+  upsell_attempts: jsonb('upsell_attempts'),
+  conversion_history: jsonb('conversion_history'),
 });
 
-const progressSchema = new mongoose.Schema({
-  user_id: { 
-    type: Number, 
-    required: true, 
-    unique: true,
-    index: true 
-  },
-  current_day: { type: Number, default: 0 },
-  ready_for_day_1: { type: Boolean, default: false },
-  day_0_completed: { type: Boolean, default: false },
-  day_1_completed: { type: Boolean, default: false },
-  day_2_completed: { type: Boolean, default: false },
-  day_3_completed: { type: Boolean, default: false },
-  day_4_completed: { type: Boolean, default: false },
-  day_5_completed: { type: Boolean, default: false },
-  day_6_completed: { type: Boolean, default: false },
-  day_7_completed: { type: Boolean, default: false },
-  program_completed: { type: Boolean, default: false },
-  program_completed_at: { type: Date, default: null },
-  responses: { type: mongoose.Schema.Types.Mixed, default: null }
-}, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
-  collection: 'progress'
+const progress = pgTable('progress', {
+  id: serial('id').primaryKey(),
+  user_id: bigint('user_id', { mode: 'number' }).notNull().unique(),
+  current_day: integer('current_day').default(0),
+  ready_for_day_1: boolean('ready_for_day_1').default(false),
+  day_0_completed: boolean('day_0_completed').default(false),
+  day_1_completed: boolean('day_1_completed').default(false),
+  day_2_completed: boolean('day_2_completed').default(false),
+  day_3_completed: boolean('day_3_completed').default(false),
+  day_4_completed: boolean('day_4_completed').default(false),
+  day_5_completed: boolean('day_5_completed').default(false),
+  day_6_completed: boolean('day_6_completed').default(false),
+  day_7_completed: boolean('day_7_completed').default(false),
+  program_completed: boolean('program_completed').default(false),
+  program_completed_at: timestamp('program_completed_at'),
+  responses: jsonb('responses'),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
 });
 
-// Create MongoDB Models
-let User, Progress, db;
-
-// MongoDB Connection Function
-async function connectMongoDB() {
-  try {
-    // Check for MongoDB URL in Railway environment variables
-    const mongoUrl = process.env.MONGO_URL || 
-                     process.env.DATABASE_URL || 
-                     process.env.MONGODB_URI ||
-                     process.env.MONGODB_URL;
-    
-    console.log("🔍 Checking MongoDB connection strings...");
-    console.log("MONGO_URL exists:", !!process.env.MONGO_URL);
-    console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
-    
-    if (!mongoUrl) {
-      throw new Error("❌ No MongoDB URL found in environment variables. Please set MONGO_URL or DATABASE_URL in Railway.");
-    }
-
-    // Validate MongoDB URL format
-    if (!mongoUrl.includes('mongodb://') && !mongoUrl.includes('mongodb+srv://')) {
-      console.log("⚠️ URL doesn't contain mongodb://, might be PostgreSQL URL");
-      throw new Error("❌ Invalid MongoDB URL format. Expected mongodb:// or mongodb+srv://");
-    }
-
-    console.log("🔗 Connecting to MongoDB...");
-    console.log("📍 URL format:", mongoUrl.substring(0, 20) + "...");
-
-    // Connect to MongoDB with Railway-optimized settings
-    await mongoose.connect(mongoUrl, {
-      maxPoolSize: 10, // Railway connection limit
-      serverSelectionTimeoutMS: 5000, // Keep this short for Railway
-      socketTimeoutMS: 45000,
-      family: 4 // Use IPv4, skip trying IPv6
-    });
-
-    console.log("✅ MongoDB connected successfully (Railway internal)");
-    
-    // Create models after connection
-    User = mongoose.model('User', userSchema);
-    Progress = mongoose.model('Progress', progressSchema);
-    
-    // Test the connection with a simple query
-    await User.countDocuments();
-    console.log("✅ MongoDB models created and tested successfully");
-    
-    // Set db reference for compatibility
-    db = mongoose.connection;
-    
-    return true;
-  } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
-    
-    // Provide helpful debugging info
-    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-      console.log("🔧 Network connection failed. Possible issues:");
-      console.log("   - MongoDB service not running in Railway");
-      console.log("   - Incorrect URL in environment variables");
-      console.log("   - Network connectivity issues");
-    }
-    
-    if (error.message.includes('authentication failed')) {
-      console.log("🔧 Authentication failed. Check username/password in URL");
-    }
-    
-    return false;
-  }
-}
-
-// Mongoose Model Wrapper Classes (for compatibility with existing code)
-class UserModel {
-  static async findOne(condition) {
-    try {
-      if (!User) {
-        console.log("⚠️ User model not initialized, attempting reconnection...");
-        await connectMongoDB();
-      }
-      
-      if (condition.telegram_id || condition.telegramId) {
-        const telegramId = condition.telegram_id || condition.telegramId;
-        const result = await User.findOne({ telegram_id: telegramId });
-        return result;
-      }
-      
-      return await User.findOne(condition);
-    } catch (error) {
-      console.error('❌ MongoDB error in User.findOne:', error.message);
-      return null;
-    }
-  }
-
-  static async findOneAndUpdate(condition, updates, options = {}) {
-    try {
-      if (!User) {
-        console.log("⚠️ User model not initialized, attempting reconnection...");
-        await connectMongoDB();
-      }
-      
-      const { upsert = false, new: returnNew = true } = options;
-      
-      if (condition.telegram_id || condition.telegramId) {
-        const telegramId = condition.telegram_id || condition.telegramId;
-        
-        // Clean up updates object - remove invalid fields
-        const validUpdates = { ...updates };
-        delete validUpdates.$inc; // Remove MongoDB operators that might cause issues
-        
-        // Always update last_active
-        validUpdates.last_active = new Date();
-        
-        const result = await User.findOneAndUpdate(
-          { telegram_id: telegramId },
-          validUpdates,
-          { upsert, new: returnNew }
-        );
-        
-        return result;
-      }
-      
-      return await User.findOneAndUpdate(condition, updates, { upsert, new: returnNew });
-    } catch (error) {
-      console.error('❌ MongoDB error in User.findOneAndUpdate:', error.message);
-      return null;
-    }
-  }
-
-  static async find(condition = {}) {
-    try {
-      if (!User) {
-        await connectMongoDB();
-      }
-      return await User.find(condition);
-    } catch (error) {
-      console.error('❌ MongoDB error in User.find:', error.message);
-      return [];
-    }
-  }
-
-  static async countDocuments(condition = {}) {
-    try {
-      if (!User) {
-        await connectMongoDB();
-      }
-      return await User.countDocuments(condition);
-    } catch (error) {
-      console.error('❌ MongoDB error in User.countDocuments:', error.message);
-      return 0;
-    }
-  }
-}
-
-class ProgressModel {
-  static async findOne(condition) {
-    try {
-      if (!Progress) {
-        console.log("⚠️ Progress model not initialized, attempting reconnection...");
-        await connectMongoDB();
-      }
-      
-      if (condition.userId || condition.user_id) {
-        const userId = condition.userId || condition.user_id;
-        const result = await Progress.findOne({ user_id: userId });
-        return result;
-      }
-      
-      return await Progress.findOne(condition);
-    } catch (error) {
-      console.error('❌ MongoDB error in Progress.findOne:', error.message);
-      return null;
-    }
-  }
-
-  static async findOneAndUpdate(condition, updates, options = {}) {
-    try {
-      if (!Progress) {
-        console.log("⚠️ Progress model not initialized, attempting reconnection...");
-        await connectMongoDB();
-      }
-      
-      const { upsert = false, new: returnNew = true } = options;
-      
-      if (condition.userId || condition.user_id) {
-        const userId = condition.userId || condition.user_id;
-        
-        // Clean up updates object
-        const validUpdates = { ...updates };
-        delete validUpdates.$inc;
-        
-        // Always update timestamp
-        validUpdates.updatedAt = new Date();
-        
-        const result = await Progress.findOneAndUpdate(
-          { user_id: userId },
-          validUpdates,
-          { upsert, new: returnNew }
-        );
-        
-        return result;
-      }
-      
-      return await Progress.findOneAndUpdate(condition, updates, { upsert, new: returnNew });
-    } catch (error) {
-      console.error('❌ MongoDB error in Progress.findOneAndUpdate:', error.message);
-      return null;
-    }
-  }
-
-  static async find(condition = {}) {
-    try {
-      if (!Progress) {
-        await connectMongoDB();
-      }
-      return await Progress.find(condition);
-    } catch (error) {
-      console.error('❌ MongoDB error in Progress.find:', error.message);
-      return [];
-    }
-  }
-
-  static async countDocuments(condition = {}) {
-    try {
-      if (!Progress) {
-        await connectMongoDB();
-      }
-      return await Progress.countDocuments(condition);
-    } catch (error) {
-      console.error('❌ MongoDB error in Progress.countDocuments:', error.message);
-      return 0;
-    }
-  }
-}
-
-// Export the models for compatibility with existing code
-const UserCompatible = UserModel;
-const ProgressCompatible = ProgressModel;
-
-// Initialize MongoDB connection immediately
-console.log("🚀 Initializing MongoDB connection...");
-connectMongoDB().then(success => {
-  if (success) {
-    console.log("🎉 MongoDB initialization completed successfully");
-  } else {
-    console.log("⚠️ MongoDB initialization failed, bot will run with limited functionality");
-  }
-}).catch(err => {
-  console.error("💥 MongoDB initialization error:", err.message);
+// Database Connection Pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-console.log("✅ MongoDB setup completed - models and connections ready");
+const db = drizzle(pool, { schema: { users, progress } });
+
+console.log("✅ PostgreSQL setup completed - ready for Railway deployment");
 
 // Enhanced message sending function with better chunking for Khmer content
 async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
