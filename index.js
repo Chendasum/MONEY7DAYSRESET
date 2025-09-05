@@ -2304,11 +2304,22 @@ async function handleReadyForDay1(msg) {
       return;
     }
     
-    await Progress.findOneAndUpdate(
-      { user_id: msg.from.id },
-      { ready_for_day_1: true, current_day: 1 },
-      { upsert: true }
-    );
+// Check if progress record exists
+const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+
+if (existingProgress) {
+  // Update existing progress
+  await db.update(progress)
+    .set({ ready_for_day_1: true, current_day: 1 })
+    .where(eq(progress.user_id, msg.from.id));
+} else {
+  // Create new progress record
+  await db.insert(progress).values({
+    user_id: msg.from.id,
+    ready_for_day_1: true,
+    current_day: 1
+  });
+}
     
     await bot.sendMessage(msg.chat.id, `🎉 ល្អហើយ! អ្នកត្រៀមរួចហើយ!
 
