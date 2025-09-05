@@ -2051,13 +2051,11 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     const userId = msg.from.id;
-    const user = await User.findOne({ telegram_id: userId });
-
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
     if (!user) {
       await bot.sendMessage(msg.chat.id, "អ្នកមិនទាន់ចុះឈ្មោះ។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
-
     const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
     const userProgress = progress || {};
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
