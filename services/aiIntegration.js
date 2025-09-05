@@ -615,8 +615,8 @@ class ClaudeBrainCore {
             brain_initialized: this.brainInitialized,
             claude_available: this.intelligence.get('claude_available'),
             intelligence_level: 'high',
-            modules_loaded: this.systemCore.active_modules.size,
-            commands_available: this.systemCore.available_commands.size,
+            modules_loaded: this.systemCore.get('active_modules').size,
+            commands_available: this.systemCore.get('available_commands').size,
             learning_mode: this.learningMode,
             model: 'claude-sonnet-4-20250514',
             core_type: 'integrated_intelligence'
