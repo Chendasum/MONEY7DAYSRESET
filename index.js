@@ -666,7 +666,7 @@ Ready to manage the system or test user experience?`;
       return;
     }
     
-    if (startCommand && startCommand.handle) {
+if (startCommand && startCommand.handle) {
       await startCommand.handle(msg, bot);
     } else {
       // Enhanced fallback welcome message
@@ -685,11 +685,11 @@ Ready to manage the system or test user experience?`;
 ✅ ផែនការហិរញ្ញវត្ថុច្បាស់
 
 💎 វិធីទូទាត់:
-• ABA Bank: 000 194 742
-• ACLEDA Bank: 092 798 169  
-• Wing: 102 534 677
-• ឈ្មោះ: SUM CHENDA
-• កំណត់ចំណាំ: BOT${msg.from.id}
+- ABA Bank: 000 194 742
+- ACLEDA Bank: 092 798 169  
+- Wing: 102 534 677
+- ឈ្មោះ: SUM CHENDA
+- កំណត់ចំណាំ: BOT${msg.from.id}
 
 📱 ប្រើប្រាស់: /pricing ដើម្បីមើលលម្អិត
 💳 ទូទាត់: /payment ដើម្បីចាប់ផ្តើម
@@ -700,30 +700,50 @@ Ready to manage the system or test user experience?`;
 
       await bot.sendMessage(msg.chat.id, welcomeMessage);
       
-      // Register user in database and trigger marketing automation
+      // FIXED: Register user in database and trigger marketing automation
       try {
-        const user = await User.findOneAndUpdate(
-          { telegram_id: msg.from.id },
-          {
+        // Check if user exists
+        const [existingUser] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+        
+        let user;
+        if (!existingUser) {
+          // Create new user
+          await db.insert(users).values({
+            telegram_id: msg.from.id,
             first_name: msg.from.first_name,
             last_name: msg.from.last_name,
             username: msg.from.username,
             joined_at: new Date()
-          },
-          { upsert: true }
-        );
+          });
+          user = { telegram_id: msg.from.id, is_paid: false };
+        } else {
+          // Update existing user
+          await db.update(users)
+            .set({
+              first_name: msg.from.first_name,
+              last_name: msg.from.last_name,
+              username: msg.from.username,
+              last_active: new Date()
+            })
+            .where(eq(users.telegram_id, msg.from.id));
+          user = existingUser;
+        }
         
         // Trigger automated marketing sequence for unpaid users
         if (!user || !user.is_paid) {
           console.log(`🚀 Starting automated marketing sequence for unpaid user: ${msg.from.id}`);
-          conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+          if (conversionOptimizer && conversionOptimizer.scheduleFollowUpSequence) {
+            conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+          }
         }
       } catch (dbError) {
-        console.log("Database registration skipped (using fallback)");
+        console.log("Database registration skipped (using fallback):", dbError.message);
         
         // Still trigger marketing automation even if database fails
         console.log(`🚀 Starting automated marketing sequence for user: ${msg.from.id}`);
-        conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+        if (conversionOptimizer && conversionOptimizer.scheduleFollowUpSequence) {
+          conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
+        }
       }
     }
     
