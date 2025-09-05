@@ -3012,13 +3012,6 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       tier: user?.tier,
     });
 
-    console.log(`Daily command access check for user ${msg.from.id}:`, {
-      user_found: !!user,
-      is_paid_raw: user?.is_paid,
-      is_paid_boolean: user?.is_paid === true || user?.is_paid === "t",
-      tier: user?.tier,
-    });
-
     // Check if user exists and is paid
     if (!user) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមចុះឈ្មោះជាមុនសិន។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
@@ -3033,47 +3026,88 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       return;
     }
 
+    const dayNum = parseInt(match[1]);
+    
+    // 🔥 CRITICAL FIX: Get and validate user progress
+    let currentProgress;
+    try {
+      [currentProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+    } catch (progressError) {
+      console.log("⚠️ Progress lookup failed:", progressError.message);
+      currentProgress = null;
+    }
+    
+    const userCurrentDay = currentProgress?.current_day || 0;
+    
+    // 🎯 PROGRESSION LOGIC: Only allow current day or next day
+    if (dayNum > userCurrentDay + 1) {
+      await bot.sendMessage(msg.chat.id, 
+        `📚 សូមបញ្ចប់ថ្ងៃទី ${userCurrentDay + 1} ជាមុនសិន!\n\n` +
+        `🎯 ថ្ងៃបច្ចុប្បន្នរបស់អ្នក: ${userCurrentDay + 1}\n` +
+        `📖 ចុច /day${userCurrentDay + 1} ដើម្បីបន្ត`
+      );
+      return;
+    }
+
     // Try to use daily commands module if available
     if (dailyCommands && dailyCommands.handle) {
       await dailyCommands.handle(msg, match, bot);
     } else {
       // Enhanced fallback daily content with full day content
-      const dayContent = getDailyContent(parseInt(match[1]));
+      const dayContent = getDailyContent(dayNum);
       await sendLongMessage(bot, msg.chat.id, dayContent);
+    }
+
+    // 🎯 CRITICAL FIX: Update progress after content delivery
+    try {
+      const newCurrentDay = Math.max(dayNum + 1, userCurrentDay + 1);
+      const dayCompletedField = `day_${dayNum}_completed`;
       
-      // FIXED: Update progress using Drizzle syntax
-      try {
-        const dayNum = parseInt(match[1]);
-        
-        // Get current progress using Drizzle
-        const [currentProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-        
-        const newCurrentDay = Math.max(dayNum, currentProgress?.current_day || 0);
-        
-        if (currentProgress) {
-          // Update existing progress
-          await db.update(progress)
-            .set({ 
-              current_day: newCurrentDay,
-              updated_at: new Date()
-            })
-            .where(eq(progress.user_id, msg.from.id));
-        } else {
-          // Create new progress record
-          await db.insert(progress).values({
-            user_id: msg.from.id,
+      if (currentProgress) {
+        // Update existing progress
+        await db.update(progress)
+          .set({ 
             current_day: newCurrentDay,
-            created_at: new Date(),
+            [dayCompletedField]: true,
             updated_at: new Date()
-          });
-        }
+          })
+          .where(eq(progress.user_id, msg.from.id));
         
-        console.log(`✅ Progress updated for user ${msg.from.id}, day ${dayNum}`);
+        console.log(`✅ Progress updated for user ${msg.from.id}: day ${dayNum} → current_day ${newCurrentDay}`);
+      } else {
+        // Create new progress record
+        const newProgress = {
+          user_id: msg.from.id,
+          current_day: newCurrentDay,
+          [dayCompletedField]: true,
+          created_at: new Date(),
+          updated_at: new Date()
+        };
         
-      } catch (dbError) {
-        console.log("⚠️ Progress update failed:", dbError.message);
-        // Continue anyway - don't block the lesson content
+        await db.insert(progress).values(newProgress);
+        console.log(`✅ New progress created for user ${msg.from.id}: day ${dayNum} completed`);
       }
+      
+      // 🎉 Send completion confirmation
+      setTimeout(async () => {
+        const completionMessage = `✅ ថ្ងៃទី ${dayNum} បានបញ្ចប់!
+
+📈 ការរីកចម្រើន: ${dayNum}/7 ថ្ងៃ
+💪 អ្នកកំពុងធ្វើបានល្អ!
+
+${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្ងៃទី ${dayNum + 1}: /day${dayNum + 1}` : '🎊 អបអរសាទរ! បានបញ្ចប់កម្មវិធីពេញលេញ!'}`;
+        
+        await bot.sendMessage(msg.chat.id, completionMessage);
+      }, 3000);
+      
+    } catch (dbError) {
+      console.log("⚠️ Progress update failed:", dbError.message);
+      // Continue anyway - don't block the lesson content
+      
+      // Still send a completion message even if database fails
+      setTimeout(async () => {
+        await bot.sendMessage(msg.chat.id, `✅ ថ្ងៃទី ${dayNum} បានបញ្ចប់! បន្តទៅថ្ងៃបន្ទាប់៖ /day${dayNum + 1}`);
+      }, 3000);
     }
 
     // Update user's last active timestamp
@@ -3086,7 +3120,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       // Continue anyway - this is not critical
     }
 
-    // FIXED: Add missing automation with proper try blocks
+    // 🎯 AUTOMATION: Next-day reminders and upsells
     const dayNum = parseInt(match[1]);
 
     // Auto next-day reminders (24h delay)
@@ -3134,6 +3168,12 @@ Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
         }
       }, 3600000); // 1 hour delay
     }
+
+  } catch (error) {
+    console.error("❌ Error in daily command:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
 
     // 30-day follow-up automation (after Day 7)
     if (dayNum === 7) {
