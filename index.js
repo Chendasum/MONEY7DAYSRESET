@@ -1820,7 +1820,8 @@ bot.onText(/\/progress/i, async (msg) => {
     if (badgesCommands && badgesCommands.showProgress) {
       await badgesCommands.showProgress(msg, bot);
     } else {
-      const progress = await Progress.findOne({ user_id: msg.from.id }) || {};
+      const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+      const userProgress = progress || {};
       
       let progressMessage = `📈 ការរីកចម្រើនរបស់អ្នក
 
