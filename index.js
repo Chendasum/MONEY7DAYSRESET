@@ -2431,11 +2431,22 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
     
     await sendLongMessage(bot, msg.chat.id, programCelebration, {}, MESSAGE_CHUNK_SIZE);
     
-    await Progress.findOneAndUpdate(
-      { user_id: msg.from.id },
-      { program_completed: true, program_completed_at: new Date() },
-      { upsert: true }
-    );
+// Check if progress record exists
+const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+
+if (existingProgress) {
+  // Update existing progress
+  await db.update(progress)
+    .set({ program_completed: true, program_completed_at: new Date() })
+    .where(eq(progress.user_id, msg.from.id));
+} else {
+  // Create new progress record
+  await db.insert(progress).values({
+    user_id: msg.from.id,
+    program_completed: true,
+    program_completed_at: new Date()
+  });
+}
     
     // Offer VIP program after completion
     if (vipCommands && vipCommands.offer) {
