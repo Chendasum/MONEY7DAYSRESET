@@ -1212,10 +1212,8 @@ const extendedContent = {
 📝 កិច្ចការប្រចាំថ្ងៃ:
 បង្កើត "ក្តារទស្សនវិស័យហិរញ្ញវត្ថុ" (Financial Vision Board) ឬសរសេរគោលដៅហិរញ្ញវត្ថុរយៈពេលវែងកំពូលទាំង 3 របស់អ្នកសម្រាប់រយៈពេល 5-10 ឆ្នាំខាងមុខ។`,
 
-    challenge:
-      "កំណត់ប្រធានបទហិរញ្ញវត្ថុថ្មីមួយដែលអ្នកចង់រៀនបន្ថែមក្នុងខែបន្ទាប់ ហើយស្វែងរកប្រភពដែលអាចទុកចិត្តបានដើម្បីសិក្សាវា។",
-    quote:
-      "ការវិនិយោគក្នុងការចំណេះដឹងផ្តល់ផលប្រយោជន៍ល្អបំផុត។ - Benjamin Franklin",
+    challenge: "កំណត់ប្រធានបទហិរញ្ញវត្ថុថ្មីមួយដែលអ្នកចង់រៀនបន្ថែមក្នុងខែបន្ទាប់ ហើយស្វែងរកប្រភពដែលអាចទុកចិត្តបានដើម្បីសិក្សាវា។",
+    quote: "ការវិនិយោគក្នុងការចំណេះដឹងផ្តល់ផលប្រយោជន៍ល្អបំផុត។ - Benjamin Franklin",
   },
 };
 
@@ -1244,9 +1242,10 @@ ${content.challenge}
   };
 }
 
+// FIXED FUNCTION - Updated to work with your database system
 async function handleExtendedDay(msg, bot, day) {
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id  });
+    const user = await User.findOne({ telegram_id: msg.from.id });
 
     if (!user || !user.is_paid) {
       await bot.sendMessage(
@@ -1264,12 +1263,29 @@ async function handleExtendedDay(msg, bot, day) {
 
     await bot.sendMessage(msg.chat.id, content.message);
 
-    // Track extended content progress
-    if (!user.extendedProgress) {
-      user.extendedProgress = {};
+    // FIXED: Track extended content progress using proper database update
+    try {
+      // Initialize extendedProgress if it doesn't exist
+      const progressUpdate = user.extendedProgress || {};
+      progressUpdate[`day${day}`] = new Date();
+
+      // Use the proper update method for your database system
+      // This replaces the problematic user.save() call
+      await User.updateOne(
+        { telegram_id: msg.from.id },
+        { 
+          $set: { 
+            extendedProgress: progressUpdate 
+          } 
+        }
+      );
+
+      console.log(`Extended day ${day} progress tracked for user ${msg.from.id}`);
+    } catch (updateError) {
+      console.error(`Error updating progress for day ${day}:`, updateError);
+      // Don't throw - the user still gets the content even if progress tracking fails
     }
-    user.extendedProgress[`day${day}`] = new Date();
-    await user.save();
+
   } catch (error) {
     console.error(`Error in extended day ${day}:`, error);
     await bot.sendMessage(
