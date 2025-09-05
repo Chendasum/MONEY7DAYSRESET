@@ -375,4 +375,29 @@ Identify money leaks and provide savings recommendations in Khmer.`;
     }
 }
 
+async debugClaudeConnection() {
+    try {
+        console.log('🧪 Testing Claude with minimal request...');
+        
+        const message = await this.anthropic.messages.create({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 100,
+            messages: [
+                {
+                    role: "user", 
+                    content: "Say hello in Khmer"
+                }
+            ]
+        });
+        
+        console.log('✅ Debug test successful:', message.content[0].text);
+        return true;
+    } catch (error) {
+        console.error('❌ Debug test failed:', error.message);
+        console.error('Status:', error.status);
+        console.error('Type:', error.type);
+        return false;
+    }
+}
+
 module.exports = new ClaudeAIIntegration();
