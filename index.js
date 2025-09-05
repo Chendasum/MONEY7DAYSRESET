@@ -1201,16 +1201,18 @@ const adminCommands_safe = {
       return;
     }
     
-    try {
-      const user = await User.findOneAndUpdate(
-        { telegram_id: userId },
-        { 
-          is_paid: true,
-          payment_date: new Date(),
-          tier: 'essential'
-        },
-        { new: true }
-      );
+try {
+  // Update the user's payment status
+  await db.update(users)
+    .set({
+      is_paid: true,
+      payment_date: new Date(),
+      tier: 'essential'
+    })
+    .where(eq(users.telegram_id, userId));
+  
+  // Get the updated user info
+  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
       
       if (user) {
         await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.first_name} (${userId})`);
