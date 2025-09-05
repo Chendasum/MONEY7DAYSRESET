@@ -1,10 +1,85 @@
 /**
  * Access Control Service for Tier-Based Features
- * Manages user access based on payment tier levels
+ * Updated for Drizzle ORM compatibility
  */
 
-const User = require('../models/User');
-const TierManager = require('./tier-manager');
+const { drizzle } = require('drizzle-orm/node-postgres');
+const { Pool } = require('pg');
+const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
+const { eq } = require('drizzle-orm');
+
+// Database setup (reuse your existing connection)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
+// Database schema (matching your main file)
+const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
+  username: text('username'),
+  first_name: text('first_name'),
+  last_name: text('last_name'),
+  phone_number: text('phone_number'),
+  email: text('email'),
+  joined_at: timestamp('joined_at').defaultNow(),
+  is_paid: boolean('is_paid').default(false),
+  payment_date: timestamp('payment_date'),
+  transaction_id: text('transaction_id'),
+  is_vip: boolean('is_vip').default(false),
+  tier: text('tier').default('free'),
+  tier_price: integer('tier_price').default(0),
+  last_active: timestamp('last_active').defaultNow(),
+  timezone: text('timezone').default('Asia/Phnom_Penh'),
+  testimonials: jsonb('testimonials'),
+  testimonial_requests: jsonb('testimonial_requests'),
+  upsell_attempts: jsonb('upsell_attempts'),
+  conversion_history: jsonb('conversion_history'),
+});
+
+const db = drizzle(pool, { schema: { users } });
+
+class TierManager {
+  constructor() {
+    this.tiers = {
+      free: {
+        name: 'ឥតគិតថ្លៃ',
+        features: ['preview', 'basic_help'],
+        badge: '🆓'
+      },
+      essential: {
+        name: 'សំខាន់',
+        features: ['daily_lessons', 'progress_tracking', 'basic_support'],
+        badge: '✅'
+      },
+      premium: {
+        name: 'ពិសេស',
+        features: ['daily_lessons', 'progress_tracking', 'priority_support', 'advanced_analytics', 'admin_contact'],
+        badge: '🚀'
+      },
+      vip: {
+        name: 'វី.អាយ.ភី',
+        features: ['daily_lessons', 'progress_tracking', 'priority_support', 'advanced_analytics', 'admin_contact', 'booking_system', 'capital_clarity', 'vip_reports'],
+        badge: '👑'
+      }
+    };
+  }
+
+  hasFeatureAccess(userTier, feature) {
+    const tier = this.tiers[userTier] || this.tiers.free;
+    return tier.features.includes(feature);
+  }
+
+  getTierInfo(tierName) {
+    return this.tiers[tierName] || this.tiers.free;
+  }
+
+  getTierBadge(tierName) {
+    const tier = this.tiers[tierName] || this.tiers.free;
+    return tier.badge;
+  }
+}
 
 class AccessControl {
   constructor() {
@@ -19,7 +94,7 @@ class AccessControl {
    */
   async checkAccess(telegramId, feature) {
     try {
-      const user = await User.findOne({ telegramId });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, telegramId));
       
       if (!user) {
         return {
@@ -29,7 +104,7 @@ class AccessControl {
         };
       }
 
-      if (!user.isPaid) {
+      if (!user.is_paid) {
         return {
           hasAccess: false,
           userTier: 'free',
@@ -71,9 +146,9 @@ class AccessControl {
    */
   async getUserTierInfo(telegramId) {
     try {
-      const user = await User.findOne({ telegramId });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, telegramId));
       
-      if (!user || !user.isPaid) {
+      if (!user || !user.is_paid) {
         return {
           tier: 'free',
           tierInfo: this.tierManager.getTierInfo('free'),
@@ -86,8 +161,8 @@ class AccessControl {
         tier: userTier,
         tierInfo: this.tierManager.getTierInfo(userTier),
         badge: this.tierManager.getTierBadge(userTier),
-        price: user.tierPrice || 0,
-        paidAt: user.paymentDate
+        price: user.tier_price || 0,
+        paidAt: user.payment_date
       };
     } catch (error) {
       console.error('Error getting user tier info:', error);
@@ -108,105 +183,80 @@ class AccessControl {
     const tierInfo = await this.getUserTierInfo(telegramId);
     const { tier, badge } = tierInfo;
 
-    // Payment-status-aware pricing display
-    const user = await User.findOne({ telegramId });
-    const isPaid = user ? user.isPaid : false;
-    const pricingText = isPaid ? 'មើលតម្លៃ ($47 / $97 / $197)' : 'មើលតម្លៃ ($47)';
+    // Get user to check payment status
+    let user = null;
+    try {
+      const [userData] = await db.select().from(users).where(eq(users.telegram_id, telegramId));
+      user = userData;
+    } catch (error) {
+      console.error('Error getting user for help:', error);
+    }
 
-    const baseCommands = `
-🎯 *ពាក្យបញ្ជាទូទៅ*
-/start - ចាប់ផ្តើមកម្មវិធី
-/day1 - ថ្ងៃទី១: Money Flow Basics
-/pricing - ${pricingText}
-/payment - ការណែនាំទូទាត់
-/help - ជំនួយនេះ
-/whoami - មើលព័ត៌មានគណនី`;
+    const isPaid = user ? user.is_paid : false;
+    const pricingText = isPaid ? 'មើលតម្លៃ ($24 / $97 / $197)' : 'មើលតម្លៃ ($24)';
+
+    const baseCommands = `📱 ពាក្យបញ្ជាសំខាន់:
+- /start - ចាប់ផ្តើម
+- /pricing - ${pricingText}
+- /payment - ការទូទាត់
+- /help - ជំនួយ
+- /faq - សំណួរញឹកញាប់
+
+💬 ជំនួយ: @Chendasum`;
 
     if (tier === 'free') {
-      return `${badge} *កម្មវិធីផ្លាស់ប្ដូរ 7-Day Money Flow Reset™*${baseCommands}
+      return `📱 ជំនួយ (Help):
 
-🔒 *ចង់ចូលរៀន?* ប្រើ /pricing ដើម្បីមើលកម្មវិធី
+🌟 7-Day Money Flow Reset™ 
 
-🤖 Claude AI Assistant:
+${baseCommands}
 
-💬 /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ
-🎯 /coach - ការណែនាំផ្ទាល់ខ្លួន
-🔍 /find_leaks - រកមើល Money Leaks
-🆘 /ai_help - ជំនួយពេញលេញ
+🔒 ចង់ចូលរៀន? ប្រើ /pricing ដើម្បីមើលកម្មវិធី
 
-ឧទាហរណ៍: /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?
-
-🛠 *ជំនួយបន្ថែម*
-មានសំណួរអ្វី? អ្នកអាចសរសេរសារមក ខ្ញុំ`;
+💬 ជំនួយ: @Chendasum`;
     }
 
     const paidCommands = `
-🎯 *ពាក្យបញ្ជាមេរៀន*
-/day1 - ថ្ងៃទី១: Money Flow Basics
-/day2 - ថ្ងៃទី២: Money Leaks
-/day3 - ថ្ងៃទី៣: System Evaluation
-/day4 - ថ្ងៃទី៤: Income/Cost Mapping
-/day5 - ថ្ងៃទី៥: Survival vs Growth
-/day6 - ថ្ងៃទី៦: Action Planning
-/day7 - ថ្ងៃទី៧: Integration
+🎯 ពាក្យបញ្ជាមេរៀន:
+- /day1 - ថ្ងៃទី១: ស្គាល់ Money Flow
+- /day2 - ថ្ងៃទី២: ស្វែងរក Money Leaks
+- /day3 - ថ្ងៃទី៣: វាយតម្លៃប្រព័ន្ធ
+- /day4 - ថ្ងៃទី៤: បង្កើតផែនទីលុយ
+- /day5 - ថ្ងៃទី៥: Survival vs Growth
+- /day6 - ថ្ងៃទី៦: រៀបចំផែនការ
+- /day7 - ថ្ងៃទី៧: Integration
 
-🏆 *ការតាមដាន*
-/badges - មើលការរីកចម្រើន
-/progress - ការរីកចម្រើនពេញលេញ
-/milestones - សមិទ្ធផលទាំងអស់
-/streak - មើលការធ្វើបន្តបន្ទាប់
-
-📚 *សម្រង់ប្រាជ្ញាខ្មែរ*
-/quote - សម្រង់ប្រាជ្ញាប្រចាំថ្ងៃ
-/wisdom - សម្រង់ចៃដន្យ
-/quote_categories - ប្រភេទសម្រង់ទាំងអស់`;
+🏆 ការតាមដាន:
+- /badges - មើលការរីកចម្រើន
+- /progress - ការរីកចម្រើនពេញលេញ
+- /status - ស្ថានភាព`;
 
     let specificFeatures = '';
     
     if (tier === 'premium' || tier === 'vip') {
       specificFeatures += `
-🚀 *មុខងារ Premium*
-/admin_contact - ទាក់ទងអ្នកគ្រប់គ្រង
-/priority_support - ការជំនួយពិសេស
-/advanced_analytics - ទិន្នន័យលម្អិត`;
+🚀 មុខងារ Premium:
+- /admin_contact - ទាក់ទងអ្នកគ្រប់គ្រង
+- /priority_support - ការជំនួយពិសេស
+- /advanced_analytics - ទិន្នន័យលម្អិត`;
     }
 
     if (tier === 'vip') {
       specificFeatures += `
-👑 *មុខងារ VIP*
-/book_session - កក់ពេលជួប 1-on-1
-/capital_clarity - Capital Clarity Sessions
-/vip_reports - របាយការណ៍ផ្ទាល់ខ្លួន
-/extended_tracking - ការតាមដាន 30 ថ្ងៃ`;
+👑 មុខងារ VIP:
+- /book_session - កក់ពេលជួប 1-on-1
+- /vip_program_info - ព័ត៌មាន VIP ពេញលេញ
+- សរសេរ "VIP APPLY" - ដាក់ពាក្យ VIP`;
     }
 
-    return `${badge} *កម្មវិធីផ្លាស់ប្ដូរ 7-Day Money Flow Reset™*
-*កម្រិតបច្ចុប្បន្ន: ${tierInfo.tierInfo.name}*${baseCommands}${paidCommands}${specificFeatures}
+    return `📱 ជំនួយ (Help):
 
-🛠 *ជំនួយបន្ថែម*
-មានសំណួរអ្វី? អ្នកអាចសរសេរសារមក ខ្ញុំ`;
-  }
+🌟 7-Day Money Flow Reset™ 
+កម្រិតបច្ចុប្បន្ន: ${badge} ${tierInfo.tierInfo.name}
 
-  /**
-   * Middleware function for command protection
-   * @param {string} feature - Feature name
-   * @returns {Function} Middleware function
-   */
-  requiresFeature(feature) {
-    return async (msg, bot, next) => {
-      const access = await this.checkAccess(msg.from.id, feature);
-      
-      if (!access.hasAccess) {
-        await bot.sendMessage(msg.chat.id, access.message);
-        return;
-      }
+${baseCommands}${paidCommands}${specificFeatures}
 
-      // Add user and tier info to message object
-      msg.userTier = access.userTier;
-      msg.user = access.user;
-      
-      if (next) next();
-    };
+💬 ជំនួយ: @Chendasum`;
   }
 
   /**
@@ -215,8 +265,8 @@ class AccessControl {
    * @returns {Promise<boolean>} Whether user has admin access
    */
   async hasAdminAccess(telegramId) {
-    const access = await this.checkAccess(telegramId, 'admin_access');
-    return access.hasAccess;
+    const adminIds = [484389665]; // Your admin ID
+    return adminIds.includes(telegramId);
   }
 
   /**
