@@ -1,636 +1,643 @@
-// Claude 4 Sonnet Intelligent Core Brain - Direct Program Integration
-const fs = require('fs').promises;
-const path = require('path');
-
-class ClaudeBrainCore {
+// Complete Enhanced Claude Sonnet 4 AI Integration - Fixed & Finished
+class EnhancedClaudeAIService {
     constructor() {
-        this.intelligence = {
-            financial_knowledge: new Map(),
-            user_patterns: new Map(),
-            program_state: new Map(),
-            decision_tree: new Map()
-        };
-        
-        this.systemCore = {
-            available_commands: new Set(),
-            active_modules: new Map(),
-            user_progress: new Map(),
-            financial_algorithms: new Map()
-        };
-        
-        this.claudeAPI = null;
-        this.brainInitialized = false;
-        this.learningMode = true;
-        
-        this.initializeBrain();
+        this.claudeAvailable = false;
+        this.isInitialized = false;
+        this.initializeClaude();
     }
 
-    async initializeBrain() {
-        console.log('🧠 Initializing Claude 4 Sonnet Brain Core...');
-        
+    async initializeClaude() {
         try {
-            // Load financial intelligence database
-            await this.loadFinancialIntelligence();
+            console.log('🔮 Initializing Enhanced Claude Sonnet 4...');
             
-            // Initialize Claude 4 connection
-            await this.initializeClaudeConnection();
-            
-            // Load program modules
-            await this.loadProgramModules();
-            
-            // Initialize decision algorithms
-            this.initializeDecisionAlgorithms();
-            
-            this.brainInitialized = true;
-            console.log('✅ Claude Brain Core: ONLINE');
-            
-        } catch (error) {
-            console.error('❌ Brain initialization error:', error.message);
-            // Activate emergency intelligence mode
-            this.activateEmergencyIntelligence();
-        }
-    }
+            if (!process.env.ANTHROPIC_API_KEY) {
+                console.log('❌ No ANTHROPIC_API_KEY found');
+                this.claudeAvailable = false;
+                this.isInitialized = true;
+                return;
+            }
 
-    async initializeClaudeConnection() {
-        if (!process.env.ANTHROPIC_API_KEY) {
-            console.log('⚠️ No Claude API - activating local intelligence core');
-            return;
-        }
-
-        try {
             const Anthropic = require('@anthropic-ai/sdk');
-            this.claudeAPI = new Anthropic({
+            this.anthropic = new Anthropic({
                 apiKey: process.env.ANTHROPIC_API_KEY,
             });
 
-            // Test with Claude 4 Sonnet
-            const testResponse = await this.claudeAPI.messages.create({
-                model: "claude-sonnet-4-20250514", // Your Claude 4 model
+            // Test with a formatted response
+            console.log('🧪 Testing Claude with formatted response...');
+            const testResponse = await this.anthropic.messages.create({
+                model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
                 max_tokens: 100,
-                messages: [{
-                    role: "user",
-                    content: "Initialize brain core connection test"
-                }]
+                system: this.getSystemPrompt('test'),
+                messages: [{ role: "user", content: "សួស្តី អ្នកជាអ្វី?" }]
             });
 
-            if (testResponse?.content?.[0]?.text) {
-                console.log('🚀 Claude 4 Sonnet connected to brain core');
-                this.intelligence.set('claude_available', true);
+            if (testResponse && testResponse.content && testResponse.content[0]) {
+                this.claudeAvailable = true;
+                console.log('✅ Enhanced Claude connected successfully!');
+                console.log('Test response preview:', testResponse.content[0].text.substring(0, 100));
             }
 
         } catch (error) {
-            console.log('⚠️ Claude API connection failed, using local brain:', error.message);
-            this.intelligence.set('claude_available', false);
+            console.log('❌ Claude connection failed:', error.message);
+            this.claudeAvailable = false;
+        } finally {
+            this.isInitialized = true;
         }
     }
 
-    async loadFinancialIntelligence() {
-        // Load Cambodia-specific financial knowledge
-        const cambodiaFinancialData = {
-            banks: {
-                'aba': {
-                    features: ['mobile_app', 'instant_transfer', 'savings_account'],
-                    fees: { transfer: 0, savings_interest: 0.025 },
-                    recommendations: 'best_for_daily_use'
-                },
-                'acleda': {
-                    features: ['business_banking', 'term_deposit', 'branches'],
-                    fees: { transfer: 1000, savings_interest: 0.03 },
-                    recommendations: 'best_for_savings'
-                }
-            },
-            
-            financial_patterns: {
-                cambodia_average_income: { min: 300, max: 2000, currency: 'USD' },
-                living_costs: { basic: 400, comfortable: 800, luxury: 1500 },
-                savings_targets: { emergency: 3, comfortable: 6, wealthy: 12 }
-            },
-            
-            investment_options: {
-                'term_deposit': { risk: 'low', return: 0.035, min_amount: 1000 },
-                'gold': { risk: 'medium', return: 0.08, accessibility: 'high' },
-                'real_estate': { risk: 'medium', return: 0.12, min_amount: 50000 }
-            }
-        };
-
-        this.intelligence.set('cambodia_financial_data', cambodiaFinancialData);
-        console.log('📊 Financial intelligence database loaded');
-    }
-
-    async loadProgramModules() {
-        try {
-            // Scan and load all available commands
-            const commandsPath = path.join(__dirname, '../commands');
-            const commandFiles = await fs.readdir(commandsPath);
-            
-            for (const file of commandFiles) {
-                if (file.endsWith('.js')) {
-                    const commandName = file.replace('.js', '');
-                    this.systemCore.available_commands.add(commandName);
-                    
-                    // Load module functionality
-                    try {
-                        const module = require(path.join(commandsPath, file));
-                        this.systemCore.active_modules.set(commandName, module);
-                        console.log(`🔧 Loaded module: ${commandName}`);
-                    } catch (moduleError) {
-                        console.log(`⚠️ Module ${commandName} not loadable`);
-                    }
-                }
-            }
-            
-            // Load services
-            const servicesPath = path.join(__dirname, '../services');
-            const serviceFiles = await fs.readdir(servicesPath);
-            
-            for (const file of serviceFiles) {
-                if (file.endsWith('.js') && file !== 'aiIntegration.js') {
-                    const serviceName = file.replace('.js', '');
-                    try {
-                        const service = require(path.join(servicesPath, file));
-                        this.systemCore.active_modules.set(serviceName, service);
-                        console.log(`⚙️ Loaded service: ${serviceName}`);
-                    } catch (serviceError) {
-                        console.log(`⚠️ Service ${serviceName} not loadable`);
-                    }
-                }
-            }
-            
-        } catch (error) {
-            console.log('⚠️ Program modules loading error:', error.message);
+    // Enhanced question handler with better formatting
+    async handleUserQuestion(question, userContext = {}) {
+        console.log('🤖 Processing enhanced question:', question.substring(0, 50));
+        
+        if (!this.claudeAvailable) {
+            console.log('📚 Using enhanced fallback');
+            return this.getEnhancedFallback(question, userContext);
         }
-    }
-
-    initializeDecisionAlgorithms() {
-        // Financial decision algorithms
-        this.systemCore.financial_algorithms.set('savings_optimization', (income, expenses, goals) => {
-            const availableIncome = income - expenses;
-            const emergencyTarget = expenses * 3; // 3 months emergency fund
-            
-            if (availableIncome <= 0) {
-                return {
-                    priority: 'expense_reduction',
-                    action: 'activate_money_leak_detection',
-                    urgency: 'high'
-                };
-            }
-            
-            const savingsRate = (availableIncome / income) * 100;
-            
-            if (savingsRate < 10) {
-                return {
-                    priority: 'increase_savings_rate',
-                    action: 'implement_50_30_20_rule',
-                    target: 15
-                };
-            }
-            
-            return {
-                priority: 'investment_planning',
-                action: 'consider_term_deposit_or_investment',
-                allocation: {
-                    emergency: Math.min(availableIncome * 0.5, emergencyTarget),
-                    investment: availableIncome * 0.5
-                }
-            };
-        });
-
-        // Day progression algorithm
-        this.systemCore.financial_algorithms.set('day_progression', (currentDay, userProgress) => {
-            const dayModules = {
-                1: ['daily', 'financial-quiz', 'progress-tracker'],
-                2: ['daily', 'money_leak_detection', 'expense_tracking'],
-                3: ['daily', 'system_evaluation', 'banking_optimization'],
-                4: ['daily', 'financial_planning', 'goal_setting'],
-                5: ['daily', 'survival_vs_growth', 'investment_basics'],
-                6: ['daily', 'action_plan_creation', 'automation_setup'],
-                7: ['daily', 'graduation', 'celebration', 'next_steps']
-            };
-            
-            return {
-                required_modules: dayModules[currentDay] || ['daily'],
-                next_actions: this.generateNextActions(currentDay, userProgress),
-                recommendations: this.generateDayRecommendations(currentDay)
-            };
-        });
-
-        console.log('🧮 Decision algorithms initialized');
-    }
-
-    // CORE INTELLIGENCE METHODS
-
-    async think(userInput, userContext = {}) {
-        console.log('🧠 Claude Brain thinking...');
-        
-        // Analyze user input with intelligence
-        const analysis = await this.analyzeUserInput(userInput, userContext);
-        
-        // Make intelligent decisions
-        const decision = this.makeIntelligentDecision(analysis, userContext);
-        
-        // Execute actions
-        const actions = await this.executeIntelligentActions(decision, userContext);
-        
-        // Generate response with full context
-        const response = await this.generateIntelligentResponse(analysis, decision, actions, userContext);
-        
-        // Learn from interaction
-        this.learnFromInteraction(userInput, userContext, decision, response);
-        
-        return response;
-    }
-
-    async analyzeUserInput(input, context) {
-        const analysis = {
-            intent: this.detectIntent(input),
-            emotion: this.detectEmotion(input),
-            financial_context: this.analyzeFinancialContext(input, context),
-            urgency: this.assessUrgency(input, context),
-            required_actions: [],
-            confidence: 0
-        };
-
-        // If Claude is available, enhance analysis
-        if (this.intelligence.get('claude_available')) {
-            try {
-                const enhancedAnalysis = await this.getClaudeAnalysis(input, context, analysis);
-                Object.assign(analysis, enhancedAnalysis);
-            } catch (error) {
-                console.log('⚠️ Claude analysis fallback to local intelligence');
-            }
-        }
-
-        return analysis;
-    }
-
-    detectIntent(input) {
-        const inputLower = input.toLowerCase();
-        
-        // Intent detection patterns
-        const intents = {
-            'get_advice': ['ធ្វើដូចម្តេច', 'យ៉ាងណា', 'how', 'what should', 'need help'],
-            'check_progress': ['វឌ្ឍនភាព', 'progress', 'status', 'ដល់ឯណា'],
-            'start_day': ['ចាប់ផ្តើម', 'start', 'begin', 'ថ្ងៃ'],
-            'financial_question': ['លុយ', 'ប្រាក់', 'money', 'savings', 'income'],
-            'emergency_help': ['ជួយ', 'បន្ទាន់', 'help', 'urgent', 'problem']
-        };
-
-        for (const [intent, patterns] of Object.entries(intents)) {
-            if (patterns.some(pattern => inputLower.includes(pattern))) {
-                return intent;
-            }
-        }
-
-        return 'general_inquiry';
-    }
-
-    detectEmotion(input) {
-        const emotionPatterns = {
-            'frustrated': ['ទុក្ខ', 'អាក្រក់', 'frustrated', 'angry', 'difficult'],
-            'excited': ['រីករាយ', 'ល្អ', 'excited', 'great', 'awesome'],
-            'confused': ['មិនយល់', 'confused', 'don\'t understand', 'unclear'],
-            'motivated': ['ចង់', 'motivated', 'ready', 'let\'s go'],
-            'worried': ['បារម្ភ', 'worried', 'scared', 'afraid']
-        };
-
-        const inputLower = input.toLowerCase();
-        
-        for (const [emotion, patterns] of Object.entries(emotionPatterns)) {
-            if (patterns.some(pattern => inputLower.includes(pattern))) {
-                return emotion;
-            }
-        }
-
-        return 'neutral';
-    }
-
-    makeIntelligentDecision(analysis, userContext) {
-        const decision = {
-            primary_action: null,
-            secondary_actions: [],
-            response_tone: this.determineResponseTone(analysis.emotion),
-            urgency_level: analysis.urgency,
-            modules_to_activate: [],
-            data_to_fetch: []
-        };
-
-        // Decision tree based on intent and context
-        switch (analysis.intent) {
-            case 'start_day':
-                decision.primary_action = 'activate_daily_module';
-                decision.modules_to_activate = this.getDayModules(userContext.currentDay || 1);
-                break;
-                
-            case 'financial_question':
-                decision.primary_action = 'provide_financial_guidance';
-                decision.modules_to_activate = ['financial-analysis', 'recommendation-engine'];
-                break;
-                
-            case 'check_progress':
-                decision.primary_action = 'display_progress';
-                decision.modules_to_activate = ['progress-tracker', 'analytics'];
-                break;
-                
-            case 'emergency_help':
-                decision.primary_action = 'emergency_assistance';
-                decision.urgency_level = 'high';
-                decision.modules_to_activate = ['emergency-helper', 'immediate-actions'];
-                break;
-                
-            default:
-                decision.primary_action = 'general_assistance';
-                decision.modules_to_activate = ['smart-responder'];
-        }
-
-        return decision;
-    }
-
-    async executeIntelligentActions(decision, userContext) {
-        const results = {
-            executed_actions: [],
-            data_retrieved: {},
-            modules_activated: [],
-            errors: []
-        };
 
         try {
-            // Execute primary action
-            const primaryResult = await this.executePrimaryAction(decision.primary_action, userContext);
-            results.executed_actions.push({
-                action: decision.primary_action,
-                result: primaryResult,
-                success: true
+            const enhancedPrompt = `អ្នកប្រើប្រាស់កម្ពុជាមានសំណួរ: "${question}"
+
+បរិបទ: 
+- កម្មវិធី "7-Day Money Flow Reset™"
+- ថ្ងៃទី ${userContext.currentDay || 1} នៃកម្មវិធី
+- អ្នកប្រើប្រាស់: ${userContext.name || 'សមាជិក'}
+- កម្រិត: ${userContext.tier || 'Essential'}
+
+សូមឆ្លើយជាភាសាខ្មែរតាមទម្រង់ដូចខាងក្រោម:
+
+🎯 **ចម្លើយដ៏ស្ម័គ្រចិត្ត:**
+[ផ្តល់ចម្លើយជាក់ស្តែងនិងងាយយល់]
+
+💡 **គន្លឹះជាក់ស្តែង:**
+• [គន្លឹះទី១]
+• [គន្លឹះទី២] 
+• [គន្លឹះទី៣]
+
+🇰🇭 **បរិបទកម្ពុជា:**
+[ដំបូន្មានជាក់ស្តែងសម្រាប់កម្ពុជា - USD/KHR, ABA/ACLEDA, Wing]
+
+📚 **ជំហានបន្ទាប់:**
+• [សកម្មភាពអាចធ្វើបានថ្ងៃនេះ]
+• [ការរៀនបន្ថែម]
+
+កុំប្រើពាក្យ "Claude" ក្នុងចម្លើយ។ ធ្វើឱ្យមានភាពផ្ទាល់ខ្លួន និងមានប្រយោជន៍។`;
+
+            const response = await this.anthropic.messages.create({
+                model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
+                max_tokens: 1000,
+                system: this.getSystemPrompt('chat'),
+                messages: [{ role: "user", content: enhancedPrompt }]
             });
 
-            // Activate required modules
-            for (const moduleName of decision.modules_to_activate) {
-                try {
-                    const module = this.systemCore.active_modules.get(moduleName);
-                    if (module && typeof module.execute === 'function') {
-                        const moduleResult = await module.execute(userContext);
-                        results.modules_activated.push({
-                            module: moduleName,
-                            result: moduleResult
-                        });
-                    } else {
-                        // Simulate module execution
-                        results.modules_activated.push({
-                            module: moduleName,
-                            result: await this.simulateModuleExecution(moduleName, userContext)
-                        });
-                    }
-                } catch (moduleError) {
-                    results.errors.push({
-                        module: moduleName,
-                        error: moduleError.message
-                    });
-                }
+            if (response && response.content && response.content[0]) {
+                const formattedResponse = this.formatClaudeResponse(response.content[0].text);
+                console.log('✅ Enhanced Claude response generated');
+                
+                return {
+                    success: true,
+                    source: 'claude_enhanced',
+                    response: formattedResponse,
+                    timestamp: new Date().toISOString()
+                };
             }
 
         } catch (error) {
-            results.errors.push({
-                action: decision.primary_action,
-                error: error.message
+            console.error('❌ Enhanced Claude error:', error.message);
+        }
+
+        return this.getEnhancedFallback(question, userContext);
+    }
+
+    // Enhanced financial analysis
+    async analyzeFinancialSituation(userFinances, currentDay = 1) {
+        console.log('📊 Enhanced financial analysis...');
+        
+        if (!this.claudeAvailable) {
+            return this.getEnhancedAnalysisFallback(userFinances, currentDay);
+        }
+
+        try {
+            const prompt = `សូមវិភាគស្ថានភាពហិរញ្ញវត្ថុនេះសម្រាប់អ្នកប្រើប្រាស់កម្ពុជានៅថ្ងៃទី ${currentDay}:
+
+📊 **ទិន្នន័យហិរញ្ញវត្ថុ:**
+• ចំណូលខែ: $${userFinances.monthlyIncome || 0} USD
+• ចំណាយខែ: $${userFinances.monthlyExpenses || 0} USD  
+• សន្សំបច្ចុប្បន្ន: $${userFinances.currentSavings || 0} USD
+• បំណុលសរុប: $${userFinances.totalDebts || 0} USD
+
+សូមផ្តល់ការវិភាគជាភាសាខ្មែរតាមទម្រង់:
+
+📈 **ការវាយតម្លៃសុខភាពហិរញ្ញវត្ថុ:**
+[វិភាគជាលក្ខណៈវិជ្ជមាន/អវិជ្ជមាន និងពន្យល់]
+
+🎯 **អាទិភាពសម្រាប់ថ្ងៃទី ${currentDay}:**
+• [កិច្ចការ ១]
+• [កិច្ចការ ២]
+• [កិច្ចការ ៣]
+
+🏦 **ដំបូន្មានធនាគារកម្ពុជា:**
+[ABA, ACLEDA, Wing - តើគួរប្រើយ៉ាងណា]
+
+⚡ **សកម្មភាពរួចរាល់:**
+[អ្វីដែលអាចធ្វើបានភ្លាមៗ]
+
+ធ្វើឱ្យស៊ីជម្រៅនិងមានប្រាជ្ញា។`;
+
+            const response = await this.anthropic.messages.create({
+                model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
+                max_tokens: 1200,
+                system: this.getSystemPrompt('analysis'),
+                messages: [{ role: "user", content: prompt }]
             });
+
+            if (response && response.content && response.content[0]) {
+                const formattedResponse = this.formatClaudeResponse(response.content[0].text);
+                
+                return {
+                    success: true,
+                    source: 'claude_enhanced',
+                    response: formattedResponse,
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+        } catch (error) {
+            console.error('❌ Enhanced analysis error:', error.message);
         }
 
-        return results;
+        return this.getEnhancedAnalysisFallback(userFinances, currentDay);
     }
 
-    async executePrimaryAction(action, userContext) {
-        switch (action) {
-            case 'activate_daily_module':
-                return this.activateDailyModule(userContext);
-                
-            case 'provide_financial_guidance':
-                return this.provideFinancialGuidance(userContext);
-                
-            case 'display_progress':
-                return this.displayUserProgress(userContext);
-                
-            case 'emergency_assistance':
-                return this.provideEmergencyAssistance(userContext);
-                
-            default:
-                return this.provideGeneralAssistance(userContext);
+    // Enhanced coaching
+    async getPersonalizedCoaching(userProgress, dayNumber) {
+        console.log('🎯 Enhanced coaching generation...');
+        
+        if (!this.claudeAvailable) {
+            return this.getEnhancedCoachingFallback(dayNumber, userProgress);
         }
+
+        try {
+            const completedDays = this.countCompletedDays(userProgress);
+            const progressPercent = dayNumber > 0 ? Math.round((completedDays / dayNumber) * 100) : 0;
+
+            const prompt = `បង្កើតការណែនាំផ្ទាល់ខ្លួនសម្រាប់ថ្ងៃទី ${dayNumber} នៃកម្មវិធី "7-Day Money Flow Reset™":
+
+👤 **ព័ត៌មានអ្នកប្រើប្រាស់:**
+• ថ្ងៃបានបញ្ចប់: ${completedDays} ថ្ងៃ
+• ថ្ងៃបច្ចុប្បន្ន: ថ្ងៃទី ${dayNumber}
+• អត្រាវឌ្ឍនភាព: ${progressPercent}%
+
+សូមផ្តល់ការណែនាំជាភាសាខ្មែរតាមទម្រង់:
+
+🌟 **ការលើកទឹកចិត្តផ្ទាល់ខ្លួន:**
+[លើកទឹកចិត្តផ្អែកលើវឌ្ឍនភាពរបស់គាត់]
+
+🎯 **គោលដៅថ្ងៃទី ${dayNumber}:**
+[អ្វីដែលត្រូវផ្តោតលើថ្ងៃនេះ]
+
+💪 **យុទ្ធសាស្ត្រជោគជ័យ:**
+• [យុទ្ធសាស្ត្រ ១]
+• [យុទ្ធសាស្ត្រ ២]
+• [យុទ្ធសាស្ត្រ ៣]
+
+🚀 **ជំហានកម្មវិធី:**
+1. [ជំហានទី១]
+2. [ជំហានទី២]  
+3. [ជំហានទី៣]
+
+ធ្វើឱ្យមានការលើកទឹកចិត្តខ្លាំង និងមានបំផុសគំនិត។`;
+
+            const response = await this.anthropic.messages.create({
+                model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
+                max_tokens: 1000,
+                system: this.getSystemPrompt('coaching'),
+                messages: [{ role: "user", content: prompt }]
+            });
+
+            if (response && response.content && response.content[0]) {
+                const formattedResponse = this.formatClaudeResponse(response.content[0].text);
+                
+                return {
+                    success: true,
+                    source: 'claude_enhanced',
+                    response: formattedResponse,
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+        } catch (error) {
+            console.error('❌ Enhanced coaching error:', error.message);
+        }
+
+        return this.getEnhancedCoachingFallback(dayNumber, userProgress);
     }
 
-    async activateDailyModule(userContext) {
-        const currentDay = userContext.currentDay || 1;
-        const dayProgression = this.systemCore.financial_algorithms.get('day_progression')(currentDay, userContext);
+    // Enhanced money leak detection
+    async detectMoneyLeaks(expenses, income) {
+        console.log('🔍 Enhanced money leak detection...');
         
-        return {
-            day: currentDay,
-            modules: dayProgression.required_modules,
-            actions: dayProgression.next_actions,
-            recommendations: dayProgression.recommendations,
-            status: 'activated'
+        if (!this.claudeAvailable) {
+            return this.getEnhancedLeaksFallback(expenses, income);
+        }
+
+        try {
+            const expenseEntries = Object.entries(expenses).map(([category, amount]) => 
+                `• ${this.translateCategory(category)}: $${amount}`
+            ).join('\n');
+
+            const prompt = `វិភាគ Money Leaks សម្រាប់អ្នកប្រើប្រាស់កម្ពុជា:
+
+💰 **ព័ត៌មានហិរញ្ញវត្ថុ:**
+• ចំណូលខែ: $${income} USD
+• ចំណាយតាមប្រភេទ:
+${expenseEntries}
+
+សូមវិភាគនិងផ្តល់ដំបូន្មានជាភាសាខ្មែរតាមទម្រង់:
+
+🚨 **Money Leaks ដែលរកឃើញ:**
+[បញ្ជីកន្លែងដែលលុយបាត់បង់ដែលអាចកាត់បន្ថយបាន]
+
+💡 **ឱកាសសន្សំលុយ:**
+• [ឱកាស ១ - ចំនួនលុយអាចសន្សំបាន]
+• [ឱកាស ២ - ចំនួនលុយអាចសន្សំបាន]
+• [ឱកាស ៣ - ចំនួនលុយអាចសន្សំបាន]
+
+🇰🇭 **ជម្រើសកម្ពុជា:**
+[ដំបូន្មានជាក់ស្តែងសម្រាប់ការរស់នៅកម្ពុជា]
+
+📱 **កម្មវិធីកម្ពុជាមានប្រយោជន៍:**
+[កម្មវិធី/សេវាកម្មក្នុងស្រុកដែលអាចជួយសន្សំ]
+
+🎯 **ផែនការ 7 ថ្ងៃ:**
+[សកម្មភាពជាក់ស្តែងអាចធ្វើបានក្នុង ៧ ថ្ងៃខាងមុខ]
+
+ធ្វើឱ្យជាក់ស្តែងនិងអាចអនុវត្តបាន។`;
+
+            const response = await this.anthropic.messages.create({
+                model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
+                max_tokens: 1200,
+                system: this.getSystemPrompt('money_leak'),
+                messages: [{ role: "user", content: prompt }]
+            });
+
+            if (response && response.content && response.content[0]) {
+                const formattedResponse = this.formatClaudeResponse(response.content[0].text);
+                
+                return {
+                    success: true,
+                    source: 'claude_enhanced',
+                    response: formattedResponse,
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+        } catch (error) {
+            console.error('❌ Enhanced leak detection error:', error.message);
+        }
+
+        return this.getEnhancedLeaksFallback(expenses, income);
+    }
+
+    // Enhanced system prompts
+    getSystemPrompt(type) {
+        const prompts = {
+            test: "អ្នកជាជំនួយការហិរញ្ញវត្ថុដ៏ឆ្លាតវៃសម្រាប់កម្ពុជា។ ឆ្លើយជាភាសាខ្មែរប្រកបដោយភាពរាក់ទាក់។",
+            
+            chat: `អ្នកជាគ្រូបង្រៀនហិរញ្ញវត្ថុជំនាញកម្រិតខ្ពស់សម្រាប់កម្មវិធី "7-Day Money Flow Reset™" ក្នុងប្រទេសកម្ពុជា។
+
+តួនាទីរបស់អ្នក:
+- ផ្តល់ដំបូន្មានហិរញ្ញវត្ថុជាក់ស្តែងសម្រាប់បរិបទកម្ពុជា
+- ឆ្លើយជាភាសាខ្មែរយ៉ាងច្បាស់លាស់និងងាយយល់
+- ផ្តោតលើការអនុវត្តជាក់ស្តែងនិងមានទម្រង់រៀបរយ
+- រួមបញ្ចូលបរិបទស្រុក (USD/KHR, ABA/ACLEDA/Wing)
+- លើកទឹកចិត្តនិងផ្តល់កម្លាំងចិត្ត
+- កុំប្រើពាក្យ "Claude" ក្នុងចម្លើយ`,
+
+            analysis: `អ្នកជាអ្នកវិភាគហិរញ្ញវត្ថុជំនាញការសម្រាប់ទីផ្សារកម្ពុជា។
+
+ភាពជំនាញរបស់អ្នក:
+- យល់ដឹងស៊ីជម្រៅអំពីប្រព័ន្ធធនាគារកម្ពុជា
+- ការវិភាគលម្អិតអំពីគោលការណ៍ USD/KHR
+- ផ្តល់ដំបូន្មានជាក់លាក់អាចអនុវត្តបាន
+- ការវាយតម្លៃហានិភ័យហិរញ្ញវត្ថុ
+- យុទ្ធសាស្ត្រសន្សំប្រាក់សម្រាប់គ្រួសារកម្ពុជា`,
+
+            coaching: `អ្នកជា coach លើកទឹកចិត្តសម្រាប់កម្មវិធី "7-Day Money Flow Reset™"។
+
+វិធីសាស្រ្តរបស់អ្នក:
+- ការលើកទឹកចិត្តនិងការគាំទ្រ
+- ការណែនាំជាក់ស្តែងជំហានម្តងមួយៗ
+- ការយកចិត្តទុកដាក់ចំពោះតម្លៃកម្ពុជា
+- ផ្តោតលើការកសាងទំនុកចិត្តនិងចំណេះដឹងហិរញ្ញវត្ថុ
+- អបអរសាទរជោគជ័យតូចៗនិងវឌ្ឍនភាព`,
+
+            money_leak: `អ្នកជាអ្នកស៊ើបអង្កេតហិរញ្ញវត្ថុជួយអ្នកប្រើប្រាស់កម្ពុជារកឃើញ money leaks។
+
+ការផ្តោតរបស់អ្នក:
+- ប្រភេទចំណាយទូទៅក្នុងកម្ពុជា
+- សេវាកម្ម subscription និងការទូទាត់ប្រចាំ
+- ចំណាយតូចប្រចាំថ្ងៃដែលកើនឡើង
+- គំរូនៃការចំណាយប្រតិបត្តិការ
+- ឱកាសសន្សំលុយជាក់ស្តែងសម្រាប់បរិបទកម្ពុជា`
         };
+
+        return prompts[type] || prompts.chat;
     }
 
-    async provideFinancialGuidance(userContext) {
-        const finances = userContext.finances || {};
-        const cambodiaData = this.intelligence.get('cambodia_financial_data');
-        
-        const algorithm = this.systemCore.financial_algorithms.get('savings_optimization');
-        const guidance = algorithm(
-            finances.monthlyIncome || 1000,
-            finances.monthlyExpenses || 800,
-            finances.goals || []
-        );
-        
-        return {
-            guidance,
-            cambodia_context: cambodiaData,
-            personalized: true,
-            actionable: true
+    // Response formatting
+    formatClaudeResponse(rawResponse) {
+        return rawResponse
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Remove markdown bold
+            .replace(/^\s*[\*\-\+]\s+/gm, '• ') // Standardize bullet points
+            .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+            .trim();
+    }
+
+    // Utility methods
+    translateCategory(category) {
+        const translations = {
+            food: 'ម្ហូប',
+            transport: 'ដឹកជញ្ជូន', 
+            entertainment: 'កម្សាន្ត',
+            subscriptions: 'សេវាកម្មប្រចាំ',
+            utilities: 'ឆ្លាស់',
+            shopping: 'ទិញឥវ៉ាន់',
+            healthcare: 'សុខភាព',
+            education: 'ការអប់រំ',
+            other: 'ផ្សេងៗ'
         };
+        return translations[category] || category;
     }
 
-    async generateIntelligentResponse(analysis, decision, actions, userContext) {
-        let response = {
+    countCompletedDays(progress) {
+        if (!progress) return 0;
+        let count = 0;
+        for (let i = 1; i <= 7; i++) {
+            if (progress[`day_${i}_completed`] || progress[`day${i}Completed`]) count++;
+        }
+        return count;
+    }
+
+    // Enhanced fallback responses with better formatting
+    getEnhancedFallback(question, userContext = {}) {
+        const questionLower = question.toLowerCase();
+        
+        if (questionLower.includes('សន្សំ') || questionLower.includes('save')) {
+            return {
+                success: true,
+                source: 'enhanced_fallback',
+                response: `🎯 **គន្លឹះសន្សំលុយពីជំនាញការ:**
+
+💰 **ការចាប់ផ្តើមឆ្លាត:**
+• សន្សំ 10% នៃចំណូលជាដំបូង
+• បង្កើតម្ហូបអគារ 3-6 ខែ  
+• កាត់បន្ថយចំណាយមិនចាំបាច់
+
+📊 **វិធី 50/30/20 Rule:**
+• 50% - ចំណាយចាំបាច់ (ម្ហូប, ផ្ទះ, ឆ្លាស់)
+• 30% - ចំណាយកម្សាន្ត (ញ៉ាំលេង, ចូលរូប)
+• 20% - សន្សំនិងវិនិយោគ
+
+🏦 **ធនាគារកម្ពុជា:**
+• ABA Bank - គណនីសន្សំការប្រាក់ល្អ
+• ACLEDA - សេវាកម្មទូទាំងប្រទេស
+• Wing - ងាយស្រួលនិងរហ័ស
+
+📚 **ជំហានបន្ទាប់:**
+• /day${userContext.currentDay || 1} - ចាប់ផ្តើម Money Flow Reset
+• /coach - ការណែនាំផ្ទាល់ខ្លួន  
+• @Chendasum - ការប្រឹក្សាផ្ទាល់`,
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        if (questionLower.includes('រកលុយ') || questionLower.includes('ចំណូល') || questionLower.includes('income')) {
+            return {
+                success: true,
+                source: 'enhanced_fallback',
+                response: `🚀 **វិធីបង្កើនចំណូលក្នុងកម្ពុជា:**
+
+💼 **ឱកាសធំៗ:**
+• បង្រៀនភាសាអង់គ្លេស ($10-20/hour)
+• Freelance Design/Content (Fiverr, Upwork)
+• អាជីវកម្មអនឡាញ (Facebook Shop, TikTok)
+• បកប្រែឯកសារ ($5-15/page)
+
+📱 **Digital Opportunities:**
+• YouTube Channel (Khmer Content)
+• Instagram/TikTok Marketing  
+• Online Course Creation
+• E-commerce តាម Telegram/Facebook
+
+💡 **ចាប់ផ្តើមតូច:**
+• ប្រើជំនាញដែលមានស្រាប់
+• ចាប់ផ្តើម 2-3 hours/day
+• រកសម្រាប់ $100-300 បន្ថែម/ខែ
+
+📚 **ជំហានបន្ទាប់:** /day${userContext.currentDay || 1} | 💬 **ជំនួយ:** @Chendasum`,
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        return {
             success: true,
-            source: 'claude_brain_core',
-            intelligence_level: 'high',
-            response_text: '',
-            actions_taken: actions.executed_actions,
-            modules_used: actions.modules_activated,
-            next_steps: [],
-            confidence: 0.95
+            source: 'enhanced_fallback',
+            response: `🔮 **AI ជំនួយការហិរញ្ញវត្ថុ:**
+
+សំណួរ: "${question}"
+
+💡 **ការណែនាំទូទៅ:**
+• កត់ត្រាចំណូល-ចំណាយប្រចាំថ្ងៃ
+• កំណត់គោលដៅហិរញ្ញវត្ថុច្បាស់លាស់
+• ប្រើកម្មវិធី 7-Day Money Flow Reset
+
+📚 **ឧបករណ៍មានប្រយោជន៍:**
+• /day1-7 - មេរៀនជំហានម្តងមួយៗ
+• /analyze - ការវិភាគហិរញ្ញវត្ថុ
+• /find_leaks - រកឃើញ Money Leaks
+
+💬 **ជំនួយផ្ទាល់:** @Chendasum`,
+            timestamp: new Date().toISOString()
         };
-
-        // Generate response based on Khmer language preference
-        if (this.intelligence.get('claude_available') && this.claudeAPI) {
-            response.response_text = await this.generateClaudeResponse(analysis, decision, actions, userContext);
-        } else {
-            response.response_text = this.generateLocalIntelligentResponse(analysis, decision, actions, userContext);
-        }
-
-        // Add intelligent next steps
-        response.next_steps = this.generateIntelligentNextSteps(decision, userContext);
-
-        return response;
     }
 
-    generateLocalIntelligentResponse(analysis, decision, actions, userContext) {
-        const emotion = analysis.emotion;
-        const intent = analysis.intent;
-        const day = userContext.currentDay || 1;
+    getEnhancedAnalysisFallback(userFinances, currentDay) {
+        const income = userFinances.monthlyIncome || 1000;
+        const expenses = userFinances.monthlyExpenses || 800;
+        const savings = income - expenses;
+        const rate = income > 0 ? ((savings / income) * 100).toFixed(1) : 0;
         
-        let response = `🧠 Claude Brain: `;
-        
-        // Emotional response adaptation
-        switch (emotion) {
-            case 'frustrated':
-                response += `យល់ហើយ! ការគ្រប់គ្រងហិរញ្ញវត្ថុពិតជាពិបាកពេលខ្លះ។ ប៉ុន្តែអ្នកកំពុងធ្វើជំហានត្រឹមត្រូវ។\n\n`;
-                break;
-            case 'excited':
-                response += `អស្ចារ្យ! ស្មារតីរបស់អ្នកពិតជាល្អ! 🚀\n\n`;
-                break;
-            case 'confused':
-                response += `មិនអីទេ! ខ្ញុំនឹងពន្យល់ឱ្យច្បាស់។\n\n`;
-                break;
-            default:
-                response += `សួស្តី! ខ្ញុំត្រៀមជួយអ្នកហើយ។\n\n`;
-        }
+        return {
+            success: true,
+            source: 'enhanced_fallback',
+            response: `📊 **ការវិភាគហិរញ្ញវត្ថុថ្ងៃទី ${currentDay}:**
 
-        // Intent-based response
-        switch (intent) {
-            case 'start_day':
-                response += `📅 ថ្ងៃទី ${day} នៃកម្មវិធី Money Flow Reset\n\n`;
-                response += this.getDayInstructions(day);
-                break;
-                
-            case 'financial_question':
-                response += this.getFinancialAdvice(userContext);
-                break;
-                
-            case 'check_progress':
-                response += this.getProgressReport(userContext);
-                break;
-                
-            default:
-                response += this.getGeneralGuidance(userContext);
-        }
+💰 **ទិន្នន័យបច្ចុប្បន្ន:**
+• ចំណូលខែ: $${income.toLocaleString()} USD
+• ចំណាយខែ: $${expenses.toLocaleString()} USD  
+• សន្សំខែ: $${savings.toLocaleString()} USD
+• អត្រាសន្សំ: ${rate}%
 
-        // Add next actions
-        response += `\n\n🎯 ជំហានបន្ទាប់:\n`;
-        const nextSteps = this.generateIntelligentNextSteps(decision, userContext);
-        nextSteps.forEach((step, index) => {
-            response += `${index + 1}. ${step}\n`;
-        });
+${rate > 15 ? '🌟 **ស្ថានភាពល្អ!** អត្រាសន្សំរបស់អ្នកគួរឱ្យកត់សម្គាល់' : 
+  rate > 5 ? '⚡ **អាចកែលម្អបាន!** ព្យាយាមបង្កើនការសន្សំ' : 
+  '🚨 **ត្រូវការកែលម្អ!** ចាំបាច់ត្រូវកាត់បន្ថយចំណាយ'}
 
-        response += `\n💬 Brain Core Status: ACTIVE | Intelligence: HIGH`;
+🎯 **សកម្មភាពថ្ងៃទី ${currentDay}:**
+• ពិនិត្យគណនីធនាគារ
+• កត់ត្រាចំណាយ 3 ថ្ងៃចុងក្រោយ
+• កំណត់គោលដៅសន្សំខែនេះ
 
-        return response;
+📚 **រៀនបន្ថែម:** /day${currentDay} | 💬 **ជំនួយ:** @Chendasum`,
+            timestamp: new Date().toISOString()
+        };
     }
 
-    getDayInstructions(day) {
-        const instructions = {
-            1: `🌊 Money Flow Assessment\n• វាយតម្លៃស្ថានភាពហិរញ្ញវត្ថុបច្ចុប្បន្ន\n• កំណត់គោលដៅ 7 ថ្ងៃ\n• ចាប់ផ្តើម tracking ចំណូល-ចំណាយ`,
-            2: `🔍 Money Leak Detection\n• រកកន្លែងលុយបាត់បង់\n• វិភាគចំណាយមិនចាំបាច់\n• បង្កើតផែនការកាត់បន្ថយ`,
-            3: `⚖️ System Evaluation\n• ពិនិត្យប្រព័ន្ធហិរញ្ញវត្ថុទាំងមូល\n• វាយតម្លៃធនាគារ និងសេវា\n• បង្កើនប្រសិទ្ធភាព`,
-            4: `🗺️ Financial Roadmap\n• បង្កើតផែនទីហិរញ្ញវត្ថុ\n• កំណត់អាទិភាព\n• រៀបចំយុទ្ធសាស្រ្ត`,
-            5: `⚡ Survival vs Growth\n• ភាពខុសគ្នារវាង Survival និង Growth\n• ជ្រើសរើសយុទ្ធសាស្រ្តសមស្រប\n• ផែនការរយៈពេលវែង`,
-            6: `🎯 Action Plan\n• បង្កើតផែនការអនុវត្តជាក់ស្តែង\n• កំណត់កាលបរិច្ឆេទ\n• ចាប់ផ្តើមអនុវត្ត`,
-            7: `🏆 Graduation & Next Steps\n• សន្និដ្ឋានលទ្ធផល\n• អបអរសាទរជោគជ័យ\n• ផែនការបន្តការអភិវឌ្ឍ`
+    getEnhancedCoachingFallback(dayNumber, userProgress) {
+        const completedDays = this.countCompletedDays(userProgress);
+        const progressPercent = dayNumber > 0 ? Math.round((completedDays / dayNumber) * 100) : 0;
+        
+        const messages = {
+            1: { focus: "ចាប់ផ្តើម Money Flow", tip: "កត់ត្រាចំណូល-ចំណាយ", action: "វាយតម្លៃស្ថានភាពបច្ចុប្បន្ន" },
+            2: { focus: "រកឃើញ Money Leaks", tip: "ពិនិត្យ subscriptions", action: "រកកន្លែងលុយបាត់បង់" },
+            3: { focus: "វាយតម្លៃប្រព័ន្ធ", tip: "ពិនិត្យតុល្យភាពធនាគារ", action: "បង្កើនប្រសិទ្ធភាពហិរញ្ញវត្ថុ" },
+            4: { focus: "បង្កើតផែនទី", tip: "បង្កើតថវិកាខែ", action: "រៀបចំយុទ្ធសាស្រ្តហិរញ្ញវត្ថុ" },
+            5: { focus: "យល់ពី Survival vs Growth", tip: "កំណត់គោលដៅរយៈពេលវែង", action: "ជ្រើសរើសយុទ្ធសាស្រ្តសមស្រប" },
+            6: { focus: "បង្កើត Action Plan", tip: "ចាប់ផ្តើមអនុវត្តផែនការ", action: "អនុវត្តកម្មវិធីជាក់ស្តែង" },
+            7: { focus: "Integration និងអបអរសាទរ", tip: "អបអរសាទរនិងបន្តទម្លាប់ល្អ", action: "បញ្ចប់និងផែនការអនាគត" }
         };
         
-        return instructions[day] || `📚 បន្តរៀន និងអនុវត្ត`;
-    }
-
-    generateIntelligentNextSteps(decision, userContext) {
-        const day = userContext.currentDay || 1;
-        const baseSteps = [
-            `ប្រើ /day${day} ដើម្បីចាប់ផ្តើមមេរៀនថ្ងៃនេះ`,
-            `ពិនិត្យ /progress សម្រាប់វឌ្ឍនភាព`,
-            `ទាក់ទង @Chendasum សម្រាប់ជំនួយបន្ថែម`
-        ];
-
-        // Add intelligent suggestions based on decision
-        if (decision.urgency_level === 'high') {
-            baseSteps.unshift(`ដោះស្រាយបញ្ហាបន្ទាន់ដោយប្រើ /emergency`);
-        }
-
-        if (decision.primary_action === 'provide_financial_guidance') {
-            baseSteps.splice(1, 0, `អនុវត្តដំបូន្មានហិរញ្ញវត្ថុដែលបានផ្តល់`);
-        }
-
-        return baseSteps;
-    }
-
-    learnFromInteraction(userInput, userContext, decision, response) {
-        const userId = userContext.userId || 'anonymous';
+        const dayInfo = messages[dayNumber] || { focus: "បន្តការងារល្អ", tip: "អនុវត្តអ្វីដែលបានរៀន", action: "ធ្វើដំណើរបន្ត" };
         
-        // Update user patterns
-        const currentPatterns = this.intelligence.get(`user_patterns_${userId}`) || {
-            interactions: 0,
-            preferences: {},
-            progress: {},
-            successful_responses: 0
+        return {
+            success: true,
+            source: 'enhanced_fallback',
+            response: `🎯 **AI Coach ថ្ងៃទី ${dayNumber}:**
+
+🌟 **ការលើកទឹកចិត្ត:**
+${completedDays === 0 ? 'ស្វាគមន៍ដល់ដំណើរថ្មី! អ្នកកំពុងធ្វើជំហានសំខាន់' :
+  completedDays < dayNumber ? `អ្នកបានបញ្ចប់ ${completedDays} ថ្ងៃ! បន្តទៅមុខ 💪` :
+  'អស្ចារ្យ! អ្នកកំពុងធ្វើបានល្អណាស់! 🏆'}
+
+📈 **វឌ្ឍនភាព:** ${progressPercent}% បានបញ្ចប់
+
+🎯 **ការផ្តោតថ្ងៃនេះ:**
+${dayInfo.focus}
+
+💡 **គន្លឹះពិសេស:**
+${dayInfo.tip}
+
+🚀 **សកម្មភាពធំ:**
+${dayInfo.action}
+
+🔥 **កម្រិតថាមពល:**
+${progressPercent >= 80 ? 'ឆេះឆេះ! អ្នកជាអ្នកឈ្នះ! 🔥' :
+  progressPercent >= 50 ? 'ល្អណាស់! បន្តទៅមុខ! ⚡' :
+  'ចាប់ផ្តើមល្អហើយ! ទទួលបានកម្លាំង! 💪'}
+
+📚 **ជំហានបន្ទាប់:**
+• /day${dayNumber} - ចាប់ផ្តើមមេរៀនថ្ងៃនេះ
+• /progress - ពិនិត្យវឌ្ឍនភាពលម្អិត
+• @Chendasum - ជំនួយផ្ទាល់`,
+            timestamp: new Date().toISOString()
         };
-
-        currentPatterns.interactions++;
-        currentPatterns.last_interaction = new Date().toISOString();
-        
-        // Learn from successful interactions
-        if (response.success) {
-            currentPatterns.successful_responses++;
-        }
-
-        this.intelligence.set(`user_patterns_${userId}`, currentPatterns);
-        
-        // Global learning
-        if (this.learningMode) {
-            console.log(`🧠 Learning: User ${userId} - Intent: ${decision.primary_action}`);
-        }
     }
 
-    activateEmergencyIntelligence() {
-        console.log('🚨 Activating Emergency Intelligence Mode');
-        this.brainInitialized = true;
-        this.intelligence.set('emergency_mode', true);
+    getEnhancedLeaksFallback(expenses, income) {
+        const totalExpenses = Object.values(expenses).reduce((sum, amount) => sum + amount, 0);
+        const savingsRate = income > 0 ? ((income - totalExpenses) / income * 100).toFixed(1) : 0;
         
-        // Load minimal but functional intelligence
-        this.intelligence.set('cambodia_financial_data', {
-            emergency_advice: 'ទាក់ទងធនាគារ ABA (023 225 333) ឬ ACLEDA (023 994 444) សម្រាប់ជំនួយបន្ទាន់'
-        });
-    }
+        // Find highest expense categories
+        const sortedExpenses = Object.entries(expenses)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 3);
+        
+        return {
+            success: true,
+            source: 'enhanced_fallback',
+            response: `🔍 **Money Leak Detection Analysis:**
 
-    async simulateModuleExecution(moduleName, userContext) {
-        // Simulate module execution when actual module isn't available
-        const simulations = {
-            'daily': `ថ្ងៃទី ${userContext.currentDay || 1} សកម្មភាពត្រូវបានចាប់ផ្តើម`,
-            'progress-tracker': `វឌ្ឍនភាព: ${Math.floor(Math.random() * 100)}% បានបញ្ចប់`,
-            'financial-analysis': `ការវិភាគហិរញ្ញវត្ថុសម្រាប់ថ្ងៃនេះ`,
-            'recommendation-engine': `ការណែនាំត្រូវបានបង្កើត`
+💰 **ទិន្នន័យសរុប:**
+• ចំណូល: ${income.toLocaleString()} USD
+• ចំណាយសរុប: ${totalExpenses.toLocaleString()} USD
+• អត្រាសន្សំ: ${savingsRate}%
+
+🚨 **ចំណាយធំបំផុត:**
+${sortedExpenses.map(([category, amount], index) => 
+    `${index + 1}. ${this.translateCategory(category)}: ${amount.toLocaleString()}`
+).join('\n')}
+
+💡 **Money Leaks ទូទៅ:**
+• Netflix/Spotify មិនប្រើ ($8-15/month)
+• ម្ហូប delivery ញឹកញាប់ ($5-10/day)
+• កាហ្វេ ប្រចាំថ្ងៃ ($2-3/day = $60-90/month)
+• Impulse buying តាម social media
+
+🇰🇭 **ដំបូន្មានកម្ពុជា:**
+• ប្រើ ABA Pay/ACLEDA Mobile សម្រាប់ tracking
+• ការទិញនៅផ្សារខ្មែរថោកជាង supermarket
+• ប្រើ PassApp/Grab smart សម្រាប់ transport
+
+🎯 **ឱកាសសន្សំ:**
+• កាត់បន្ថយចំណាយធំបំផុត 20%
+• Cancel subscriptions មិនប្រើ
+• Plan ម្ហូបមុន (meal prep)
+
+📱 **កម្មវិធីជំនួយ:**
+• Wing Money - tracking ចំណាយ
+• Smart Axiata - data package សន្សំ
+• ACLEDA Mobile - វិភាគចំណាយ
+
+📚 **ជំហានបន្ទាប់:** /day2 Money Leak Detection | 💬 **ជំនួយ:** @Chendasum`,
+            timestamp: new Date().toISOString()
         };
-        
-        return simulations[moduleName] || `Module ${moduleName} executed`;
     }
 
+    // Status and debugging
     getStatus() {
         return {
-            brain_initialized: this.brainInitialized,
-            claude_available: this.intelligence.get('claude_available'),
-            intelligence_level: 'high',
-            modules_loaded: this.systemCore.get('active_modules').size,
-            commands_available: this.systemCore.get('available_commands').size,
-            learning_mode: this.learningMode,
-            model: 'claude-sonnet-4-20250514',
-            core_type: 'integrated_intelligence'
+            initialized: this.isInitialized,
+            claude_available: this.claudeAvailable,
+            model: process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514",
+            features: [
+                'enhanced_formatting',
+                'khmer_responses', 
+                'cambodia_context',
+                'smart_fallbacks',
+                'financial_analysis',
+                'coaching_system',
+                'money_leak_detection'
+            ],
+            version: 'enhanced_v2.0'
         };
     }
 
-    // Public interface for your program
-    async processUserInput(input, userContext = {}) {
-        if (!this.brainInitialized) {
-            await this.initializeBrain();
+    // Test method for debugging
+    async testConnection() {
+        if (!this.claudeAvailable) {
+            return {
+                success: false,
+                message: 'Claude API not available - using fallback mode',
+                fallback_working: true
+            };
         }
-        
-        return await this.think(input, userContext);
+
+        try {
+            const testResponse = await this.handleUserQuestion("តេស្ត", { currentDay: 1 });
+            return {
+                success: true,
+                message: 'Claude connection working perfectly',
+                response_preview: testResponse.response.substring(0, 100) + '...',
+                source: testResponse.source
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Claude test failed',
+                error: error.message,
+                fallback_working: true
+            };
+        }
     }
 }
 
-module.exports = new ClaudeBrainCore();
+module.exports = new EnhancedClaudeAIService();
