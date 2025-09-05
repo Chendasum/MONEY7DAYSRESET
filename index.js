@@ -825,7 +825,8 @@ bot.onText(/^\/day$/i, async (msg) => {
       return;
     }
 
-    const progress = (await Progress.findOne({ user_id: msg.from.id })) || {};
+    const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+    const userProgress = progress || {};
 
     const introMessage = `✨ 7-Day Money Flow Reset™ ✨
 
