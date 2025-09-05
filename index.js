@@ -76,66 +76,6 @@ const db = drizzle(pool, { schema: { users, progress } });
 
 console.log("✅ PostgreSQL setup completed - ready for Railway deployment");
 
-// Add this after your database connection setup
-async function createTables() {
-  try {
-    // This will create tables if they don't exist
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        telegram_id BIGINT UNIQUE NOT NULL,
-        username TEXT,
-        first_name TEXT,
-        last_name TEXT,
-        phone_number TEXT,
-        email TEXT,
-        joined_at TIMESTAMP DEFAULT NOW(),
-        is_paid BOOLEAN DEFAULT FALSE,
-        payment_date TIMESTAMP,
-        transaction_id TEXT,
-        is_vip BOOLEAN DEFAULT FALSE,
-        tier TEXT DEFAULT 'free',
-        tier_price INTEGER DEFAULT 0,
-        last_active TIMESTAMP DEFAULT NOW(),
-        timezone TEXT DEFAULT 'Asia/Phnom_Penh',
-        testimonials JSONB,
-        testimonial_requests JSONB,
-        upsell_attempts JSONB,
-        conversion_history JSONB
-      )
-    `);
-    
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS progress (
-        id SERIAL PRIMARY KEY,
-        user_id BIGINT UNIQUE NOT NULL,
-        current_day INTEGER DEFAULT 0,
-        ready_for_day_1 BOOLEAN DEFAULT FALSE,
-        day_0_completed BOOLEAN DEFAULT FALSE,
-        day_1_completed BOOLEAN DEFAULT FALSE,
-        day_2_completed BOOLEAN DEFAULT FALSE,
-        day_3_completed BOOLEAN DEFAULT FALSE,
-        day_4_completed BOOLEAN DEFAULT FALSE,
-        day_5_completed BOOLEAN DEFAULT FALSE,
-        day_6_completed BOOLEAN DEFAULT FALSE,
-        day_7_completed BOOLEAN DEFAULT FALSE,
-        program_completed BOOLEAN DEFAULT FALSE,
-        program_completed_at TIMESTAMP,
-        responses JSONB,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    
-    console.log("✅ Database tables created/verified");
-  } catch (error) {
-    console.error("❌ Table creation error:", error);
-  }
-}
-
-// Call this function on startup
-createTables();
-
 // Enhanced message sending function with better chunking for Khmer content
 async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
   try {
@@ -678,35 +618,18 @@ Ready to manage the system or test user experience?`;
 
       await bot.sendMessage(msg.chat.id, welcomeMessage);
       
-// Register user in database and trigger marketing automation
-try {
-  // Check if user exists
-  const [existingUser] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
-  
-  let user;
-  if (!existingUser) {
-    // Create new user
-    await db.insert(users).values({
-      telegram_id: msg.from.id,
-      first_name: msg.from.first_name,
-      last_name: msg.from.last_name,
-      username: msg.from.username,
-      joined_at: new Date()
-    });
-    user = { telegram_id: msg.from.id, is_paid: false }; // For the marketing logic below
-  } else {
-    
-    // Update existing user
-    await db.update(users)
-      .set({
-        first_name: msg.from.first_name,
-        last_name: msg.from.last_name,
-        username: msg.from.username,
-        last_active: new Date()
-      })
-      .where(eq(users.telegram_id, msg.from.id));
-    user = existingUser;
-  }
+      // Register user in database and trigger marketing automation
+      try {
+        const user = await User.findOneAndUpdate(
+          { telegram_id: msg.from.id },
+          {
+            first_name: msg.from.first_name,
+            last_name: msg.from.last_name,
+            username: msg.from.username,
+            joined_at: new Date()
+          },
+          { upsert: true }
+        );
         
         // Trigger automated marketing sequence for unpaid users
         if (!user || !user.is_paid) {
@@ -803,7 +726,7 @@ bot.onText(/\/pricing/i, async (msg) => {
     
     // Trigger automated marketing sequence for unpaid users viewing pricing
     try {
-      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const user = await User.findOne({ telegram_id: msg.from.id });
       if (!user || !user.is_paid) {
         console.log(`🚀 Pricing viewed - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
         conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
@@ -876,7 +799,7 @@ bot.onText(/\/payment/i, async (msg) => {
 bot.onText(/^\/day$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const chatId = msg.chat.id;
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
@@ -885,8 +808,7 @@ bot.onText(/^\/day$/i, async (msg) => {
       return;
     }
 
-    const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-    const userProgress = progress || {};
+    const progress = (await Progress.findOne({ user_id: msg.from.id })) || {};
 
     const introMessage = `✨ 7-Day Money Flow Reset™ ✨
 
@@ -933,7 +855,7 @@ bot.onText(/^\/day$/i, async (msg) => {
 bot.onText(/\/vip_program_info/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
     if (!user || !isPaid) {
@@ -993,7 +915,7 @@ bot.onText(/\/vip_program_info/i, async (msg) => {
 bot.onText(/\/vip$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
     if (!user || !isPaid) {
@@ -1035,7 +957,7 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
     return;
   }
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!user || !isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលប្រើមាតិកាបន្ថែម។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
@@ -1177,21 +1099,19 @@ const adminCommands_safe = {
       return;
     }
     
-try {
-  // Update the user's payment status
-  await db.update(users)
-    .set({
-      is_paid: true,
-      payment_date: new Date(),
-      tier: 'essential'
-    })
-    .where(eq(users.telegram_id, userId));
-  
-  // Get the updated user info
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  
-  if (user) {
-    await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.first_name} (${userId})`);
+    try {
+      const user = await User.findOneAndUpdate(
+        { telegram_id: userId },
+        { 
+          is_paid: true,
+          payment_date: new Date(),
+          tier: 'essential'
+        },
+        { new: true }
+      );
+      
+      if (user) {
+        await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.first_name} (${userId})`);
         
         // Notify user
         try {
@@ -1449,7 +1369,7 @@ bot.onText(/\/preview$/i, async (msg) => {
     
     // Trigger automated marketing sequence for users viewing preview content
     try {
-      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const user = await User.findOne({ telegram_id: msg.from.id });
       if (!user || !user.is_paid) {
         console.log(`🚀 Preview viewed - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
         conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
@@ -1635,7 +1555,7 @@ C) គ្មាន
     
     // Trigger automated marketing sequence for users taking financial quiz
     try {
-      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const user = await User.findOne({ telegram_id: msg.from.id });
       if (!user || !user.is_paid) {
         console.log(`🚀 Financial quiz started - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
         conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
@@ -1811,7 +1731,7 @@ bot.onText(/\/income_analysis/i, async (msg) => {
 bot.onText(/\/badges/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!user || !isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីមើល badges។ ប្រើ /pricing ដើម្បីមើលព័ត៌ណី។");
@@ -1821,8 +1741,7 @@ bot.onText(/\/badges/i, async (msg) => {
     if (badgesCommands && badgesCommands.showBadges) {
       await badgesCommands.showBadges(msg, bot);
     } else {
-      const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-      const userProgress = progress || {};
+      const progress = await Progress.findOne({ user_id: msg.from.id }) || {};
       let badgesMessage = `🏆 សមិទ្ធផលរបស់អ្នក (Badges)
 
 🎖️ Badges ដែលទទួលបាន:
@@ -1870,7 +1789,7 @@ bot.onText(/\/badges/i, async (msg) => {
 bot.onText(/\/progress/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!user || !isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីមើលការរីកចម្រើន។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
@@ -1880,8 +1799,7 @@ bot.onText(/\/progress/i, async (msg) => {
     if (badgesCommands && badgesCommands.showProgress) {
       await badgesCommands.showProgress(msg, bot);
     } else {
-      const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-      const userProgress = progress || {};
+      const progress = await Progress.findOne({ user_id: msg.from.id }) || {};
       
       let progressMessage = `📈 ការរីកចម្រើនរបស់អ្នក
 
@@ -1961,7 +1879,7 @@ ${randomQuote}
 bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user && (user.is_paid === true || user.is_paid === 't');
     const isPremiumOrVip = user && (user.tier === "premium" || user.tier === "vip");
     const isVip = user && user.tier === "vip";
@@ -2111,13 +2029,14 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     const userId = msg.from.id;
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+    const user = await User.findOne({ telegram_id: userId });
+
     if (!user) {
       await bot.sendMessage(msg.chat.id, "អ្នកមិនទាន់ចុះឈ្មោះ។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
-    const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-    const userProgress = progress || {};
+
+    const progress = await Progress.findOne({ user_id: userId });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
     let statusMessage = `📊 ស្ថានភាពគណនីរបស់អ្នក:
@@ -2183,7 +2102,7 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
 bot.onText(/\/whoami/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const adminId = parseInt(process.env.ADMIN_CHAT_ID);
     const secondaryAdminId = 484389665;
     const isAdmin = msg.from.id === adminId || msg.from.id === secondaryAdminId;
@@ -2245,7 +2164,7 @@ bot.on("message", async (msg) => {
 
   if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
     try {
-      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const user = await User.findOne({ telegram_id: msg.from.id });
       const isPaid = user?.is_paid === true || user?.is_paid === "t";
 
       if (!user || !isPaid) {
@@ -2304,14 +2223,12 @@ ID: ${user.telegram_id}
   const text = msg.text.toLowerCase();
   const userId = msg.from.id;
 
-// Update last active
-try {
-  await db.update(users)
-    .set({ last_active: new Date() })
-    .where(eq(users.telegram_id, userId));
-} catch (error) {
-  console.error("Error updating lastActive timestamp:", error);
-}
+  // Update last active
+  try {
+    await User.findOneAndUpdate({ telegram_id: userId }, { last_active: new Date() }, { new: true });
+  } catch (error) {
+    console.error("Error updating lastActive timestamp:", error);
+  }
 
   // Check if it's a financial quiz response
   if (financialQuiz && financialQuiz.processQuizResponse) {
@@ -2324,17 +2241,17 @@ try {
     }
   }
   
-// Check if it's a free tools response
-if (freeTools && freeTools.processToolResponse) {
-  try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-    if (await freeTools.processToolResponse(msg, bot, user)) {
-      return;
+  // Check if it's a free tools response
+  if (freeTools && freeTools.processToolResponse) {
+    try {
+      const user = await User.findOne({ telegram_id: userId });
+      if (await freeTools.processToolResponse(msg, bot, user)) {
+        return;
+      }
+    } catch (error) {
+      console.error("Error processing tools response:", error);
     }
-  } catch (error) {
-    console.error("Error processing tools response:", error);
   }
-}
   
   // Handle specific text commands
   if (text === "ready for day 1") {
@@ -2354,7 +2271,7 @@ if (freeTools && freeTools.processToolResponse) {
 // Handler functions
 async function handleReadyForDay1(msg) {
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -2362,22 +2279,11 @@ async function handleReadyForDay1(msg) {
       return;
     }
     
-// Check if progress record exists
-const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-
-if (existingProgress) {
-  // Update existing progress
-  await db.update(progress)
-    .set({ ready_for_day_1: true, current_day: 1 })
-    .where(eq(progress.user_id, msg.from.id));
-} else {
-  // Create new progress record
-  await db.insert(progress).values({
-    user_id: msg.from.id,
-    ready_for_day_1: true,
-    current_day: 1
-  });
-}
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      { ready_for_day_1: true, current_day: 1 },
+      { upsert: true }
+    );
     
     await bot.sendMessage(msg.chat.id, `🎉 ល្អហើយ! អ្នកត្រៀមរួចហើយ!
 
@@ -2399,25 +2305,17 @@ async function handleDayComplete(msg) {
   const dayNumber = parseInt(dayMatch[1]);
   const nextDay = dayNumber + 1;
   
-try {
-  // Check if progress record exists
-  const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-
-  if (existingProgress) {
-    // Update existing progress
-    await db.update(progress)
-      .set({ current_day: nextDay <= 7 ? nextDay : 7 })
-      .where(eq(progress.user_id, msg.from.id));
-  } else {
-    // Create new progress record
-    await db.insert(progress).values({
-      user_id: msg.from.id,
-      current_day: nextDay <= 7 ? nextDay : 7
-    });
+  try {
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      {
+        current_day: nextDay <= 7 ? nextDay : 7
+      },
+      { upsert: true }
+    );
+  } catch (dbError) {
+    console.log("Progress update failed:", dbError.message);
   }
-} catch (dbError) {
-  console.log("Progress update failed:", dbError.message);
-}
   
   const completeReaction = emojiReactions?.lessonCompleteReaction 
     ? emojiReactions.lessonCompleteReaction(dayNumber)
@@ -2489,22 +2387,11 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
     
     await sendLongMessage(bot, msg.chat.id, programCelebration, {}, MESSAGE_CHUNK_SIZE);
     
-// Check if progress record exists
-const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-
-if (existingProgress) {
-  // Update existing progress
-  await db.update(progress)
-    .set({ program_completed: true, program_completed_at: new Date() })
-    .where(eq(progress.user_id, msg.from.id));
-} else {
-  // Create new progress record
-  await db.insert(progress).values({
-    user_id: msg.from.id,
-    program_completed: true,
-    program_completed_at: new Date()
-  });
-}
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      { program_completed: true, program_completed_at: new Date() },
+      { upsert: true }
+    );
     
     // Offer VIP program after completion
     if (vipCommands && vipCommands.offer) {
@@ -2535,7 +2422,7 @@ Type "VIP APPLY" to get started!`);
 
 async function handleCapitalClarity(msg) {
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -2700,16 +2587,17 @@ app.post("/webhook/payment", async (req, res) => {
         await paymentCommands.confirmPayment(bot, userId, transactionId);
       } else {
         console.log(`Payment confirmed for user ${userId}: ${amount}`);
-        
-// Fallback payment confirmation
-try {
-  await db.update(users)
-    .set({
-      is_paid: true,
-      payment_date: new Date(),
-      tier: 'essential'
-    })
-    .where(eq(users.telegram_id, userId));
+        // Fallback payment confirmation
+        try {
+          await User.findOneAndUpdate(
+            { telegram_id: userId },
+            { 
+              is_paid: true,
+              payment_date: new Date(),
+              tier: 'essential'
+            },
+            { new: true }
+          );
           
           await bot.sendMessage(userId, `🎉 ការទូទាត់របស់អ្នកត្រូវបានបញ្ជាក់!
 
@@ -2915,7 +2803,7 @@ const HOST = "0.0.0.0"; // Railway requires 0.0.0.0
 bot.onText(/\/book_session/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -2967,7 +2855,7 @@ bot.onText(/\/book_session/i, async (msg) => {
 bot.onText(/\/book_capital_assessment/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -3009,7 +2897,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
   try {
     console.log(`🔍 Looking up user ${msg.from.id} in database...`);
     // FIXED: Use correct PostgreSQL field names
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     console.log(`📊 User lookup result:`, {
       found: !!user,
       id: user?.telegram_id,
@@ -3040,32 +2928,23 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       const dayContent = getDailyContent(parseInt(match[1]));
       await sendLongMessage(bot, msg.chat.id, dayContent);
       
-// Update progress with safe field names
-try {
-  const dayNum = parseInt(match[1]);
-  
-  // Get current progress
-  const [currentProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-  
-  const newCurrentDay = Math.max(dayNum, currentProgress?.current_day || 0);
-  
-  if (currentProgress) {
-    // Update existing progress
-    await db.update(progress)
-      .set({ current_day: newCurrentDay })
-      .where(eq(progress.user_id, msg.from.id));
-  } else {
-    // Create new progress record
-    await db.insert(progress).values({
-      user_id: msg.from.id,
-      current_day: newCurrentDay
-    });
-  }
-  
-  console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
-} catch (dbError) {
-  console.log("Progress update skipped (fallback mode):", dbError.message);
-}
+      // Update progress with safe field names
+      try {
+        const dayNum = parseInt(match[1]);
+        const currentProgress = await Progress.findOne({ user_id: msg.from.id });
+        
+        await Progress.findOneAndUpdate(
+          { user_id: msg.from.id },
+          {
+            current_day: Math.max(dayNum, currentProgress?.current_day || 0)
+          },
+          { upsert: true }
+        );
+        console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
+      } catch (dbError) {
+        console.log("Progress update skipped (fallback mode):", dbError.message);
+      }
+    }
 
     // ADD MISSING AUTOMATION: Auto next-day reminders (24h delay)
     const dayNum = parseInt(match[1]);
@@ -3087,7 +2966,7 @@ try {
     // ADD MISSING AUTOMATION: Day 3 upsell automation (1h delay)
     if (dayNum === 3) {
       setTimeout(async () => {
-        const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+        const user = await User.findOne({ telegram_id: msg.from.id });
         if (!user || user.tier === "premium" || user.tier === "vip") return;
 
         const upsellMessage = `🔥 ${msg.from.first_name || "មិត្ត"}, អ្នកកំពុងធ្វើបានល្អ!
@@ -3106,27 +2985,33 @@ Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
       }, 3600000); // 1 hour delay
     }
 
-// ADD MISSING AUTOMATION: 30-day follow-up automation (after Day 7)
-try {
-  if (dayNum === 7) {
-    setTimeout(async () => {
-      const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
+    // ADD MISSING AUTOMATION: 30-day follow-up automation (after Day 7)
+    if (dayNum === 7) {
+      setTimeout(async () => {
+        const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
+
 បាន 30 ថ្ងៃហើយចាប់តាំងពីអ្នកបានបញ្ចប់ 7-Day Money Flow Reset™!
+
 🤔 តើអ្នកសន្សំបានប៉ុន្មាន?
+
 ចូលរួមការស្ទង់មតិរហ័ស (២ នាទី):
 ✅ ចែករំលលទ្ធផលរបស់អ្នក
 ✅ ទទួលបានការណែនាំបន្ថែម
 ✅ ជួយកម្មវិធីកាន់តែប្រសើរ
+
 សរសេរលទ្ធផលរបស់អ្នកមកឱ្យខ្ញុំ! 📊
+
 ឧទាហរណ៍: "ខ្ញុំកែប្រែទម្លាប់ការចំណាយបានហើយ!"`;
-      await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
-    }, 2592000000); // 30 days delay
+
+        await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
+      }, 2592000000); // 30 days delay
+    }
+  } catch (error) {
+    console.error("Error in daily command:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
   }
-} catch (error) {
-  console.error("Error in daily command:", error);
-  await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-}
-      
+});
+
 // ADD MISSING FUNCTIONALITY: Advanced Day Completion Handler
 async function handleDayComplete(msg) {
   const dayMatch = msg.text.toUpperCase().match(/DAY\s*(\d+)\s*COMPLETE/);
@@ -3135,26 +3020,18 @@ async function handleDayComplete(msg) {
   const dayNumber = parseInt(dayMatch[1]);
   const nextDay = dayNumber + 1;
 
-// Update progress with static field names to avoid SQL syntax errors
-try {
-  // Check if progress record exists
-  const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-
-  if (existingProgress) {
-    // Update existing progress
-    await db.update(progress)
-      .set({ current_day: nextDay <= 7 ? nextDay : 7 })
-      .where(eq(progress.user_id, msg.from.id));
-  } else {
-    // Create new progress record
-    await db.insert(progress).values({
-      user_id: msg.from.id,
-      current_day: nextDay <= 7 ? nextDay : 7
-    });
+  // Update progress with static field names to avoid SQL syntax errors
+  try {
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      {
+        current_day: nextDay <= 7 ? nextDay : 7
+      },
+      { upsert: true }
+    );
+  } catch (dbError) {
+    console.log("Progress update failed:", dbError.message);
   }
-} catch (dbError) {
-  console.log("Progress update failed:", dbError.message);
-}
 
   // Day completion celebration
   const completeReaction = `🎉 បានល្អណាស់! អ្នកបានបញ្ចប់ Day ${dayNumber}!`;
@@ -3181,8 +3058,8 @@ ${dayNumber < 7 ? `🚀 ត្រៀមរួចសម្រាប់ Day ${next
   // Badge achievement system
   setTimeout(async () => {
     try {
-      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
-      const [userProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+      const user = await User.findOne({ telegram_id: msg.from.id });
+      const progress = await Progress.findOne({ user_id: msg.from.id });
 
       if (user && progress) {
         const completedDays = [];
@@ -3275,29 +3152,20 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
 
     await sendLongMessage(bot, msg.chat.id, programCelebration, {}, MESSAGE_CHUNK_SIZE);
 
-// Update program completion status
-// Check if progress record exists
-const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+    // Update program completion status
+    await Progress.findOneAndUpdate(
+      { user_id: msg.from.id },
+      {
+        program_completed: true,
+        program_completed_at: new Date()
+      },
+      { upsert: true }
+    );
 
-if (existingProgress) {
-  // Update existing progress
-  await db.update(progress)
-    .set({
-      program_completed: true,
-      program_completed_at: new Date()
-    })
-    .where(eq(progress.user_id, msg.from.id));
-} else {
-  // Create new progress record
-  await db.insert(progress).values({
-    user_id: msg.from.id,
-    program_completed: true,
-    program_completed_at: new Date()
-  });
-}
-} catch (error) {
-  console.error("Error in program completion handler:", error);
-  await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  } catch (error) {
+    console.error("Error in program completion handler:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
 }
 
 // ADD MISSING TEXT MESSAGE HANDLERS
@@ -3326,7 +3194,7 @@ bot.on("message", async (msg) => {
     console.log(`🔥 "READY FOR DAY 1" detected from user ${msg.from.id}: "${msg.text}"`);
     
     try {
-      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const user = await User.findOne({ telegram_id: msg.from.id });
       console.log(`🔍 User lookup for ${msg.from.id}:`, user ? {
         found: true,
         paid: user.is_paid,
@@ -3340,24 +3208,12 @@ bot.on("message", async (msg) => {
         return;
       }
 
-console.log(`✅ Updating ready_for_day_1 for user ${msg.from.id}`);
-
-// Check if progress record exists
-const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
-
-if (existingProgress) {
-  // Update existing progress
-  await db.update(progress)
-    .set({ ready_for_day_1: true, current_day: 1 })
-    .where(eq(progress.user_id, msg.from.id));
-} else {
-  // Create new progress record
-  await db.insert(progress).values({
-    user_id: msg.from.id,
-    ready_for_day_1: true,
-    current_day: 1
-  });
-}
+      console.log(`✅ Updating ready_for_day_1 for user ${msg.from.id}`);
+      await Progress.findOneAndUpdate(
+        { user_id: msg.from.id },
+        { ready_for_day_1: true, current_day: 1 },
+        { upsert: true }
+      );
 
       const readyMessage = `🎉 ល្អណាស់! អ្នកត្រៀមរួចសម្រាប់ការដំណើរ!
 
@@ -3701,9 +3557,9 @@ bot.onText(/\/admin_performance_test$/i, async (msg) => {
   const testStartTime = Date.now();
   await bot.sendMessage(msg.chat.id, "🔄 Running system performance test...");
 
-try {
-  const [dbTest] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
-  const dbTime = Date.now() - testStartTime;
+  try {
+    const dbTest = await User.findOne({ telegram_id: msg.from.id });
+    const dbTime = Date.now() - testStartTime;
 
     const testResults = `✅ System Performance Test
 
@@ -3736,8 +3592,9 @@ ${dbTime < 50 ? '🏆 Excellent' : dbTime < 100 ? '✅ Good' : '⚠️ Needs att
 bot.onText(/\/wisdom$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
+
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+    const user = await User.findOne({ telegram_id: userId });
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
@@ -3786,12 +3643,14 @@ bot.onText(/\/wisdom$/i, async (msg) => {
 bot.onText(/\/quote_categories$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
+
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+    const user = await User.findOne({ telegram_id: userId });
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
     }
+
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!isPaid) {
       await bot.sendMessage(chatId, "🔒 សម្រង់ប្រាជ្ញា សម្រាប់តែសមាជិកដែលបានទូទាត់ប៉ុណ្ណោះ។");
@@ -3822,13 +3681,13 @@ bot.onText(/\/quote_financial$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  const isPaid = user?.is_paid === true || user?.is_paid === 't';
-  if (!isPaid) {
-    await bot.sendMessage(chatId, "🔒 សម្រង់ហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក។");
+      return;
+    }
 
     const financialQuotes = [
       `💰 សម្រង់ហិរញ្ញវត្ថុ
@@ -3868,13 +3727,13 @@ bot.onText(/\/quote_motivation$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  const isPaid = user?.is_paid === true || user?.is_paid === 't';
-  if (!isPaid) {
-    await bot.sendMessage(chatId, "🔒 សម្រង់លើកទឹកចិត្ត សម្រាប់តែសមាជិក។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់លើកទឹកចិត្ត សម្រាប់តែសមាជិក។");
+      return;
+    }
 
     const motivationQuotes = [
       `🔥 សម្រង់លើកទឹកចិត្ត
@@ -3914,13 +3773,13 @@ bot.onText(/\/quote_success$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  const isPaid = user?.is_paid === true || user?.is_paid === 't';
-  if (!isPaid) {
-    await bot.sendMessage(chatId, "🔒 សម្រង់ជោគជ័យ សម្រាប់តែសមាជិក។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ជោគជ័យ សម្រាប់តែសមាជិក។");
+      return;
+    }
 
     const successQuotes = [
       `🏆 សម្រង់ជោគជ័យ
@@ -3960,13 +3819,13 @@ bot.onText(/\/quote_traditional$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  const isPaid = user?.is_paid === true || user?.is_paid === 't';
-  if (!isPaid) {
-    await bot.sendMessage(chatId, "🔒 សម្រង់ប្រពេណី សម្រាប់តែសមាជិក។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    if (!isPaid) {
+      await bot.sendMessage(chatId, "🔒 សម្រង់ប្រពេណី សម្រាប់តែសមាជិក។");
+      return;
+    }
 
     const traditionalQuotes = [
       `🏛️ សម្រង់ប្រពេណីខ្មែរ
@@ -4010,12 +3869,12 @@ bot.onText(/\/book_vip$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  if (!user || !(user.is_paid === true || user.is_paid === 't')) {
-    await bot.sendMessage(chatId, "🔒 ការកក់ VIP សម្រាប់តែសមាជិកដែលបានទូទាត់។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+      await bot.sendMessage(chatId, "🔒 ការកក់ VIP សម្រាប់តែសមាជិកដែលបានទូទាត់។");
+      return;
+    }
 
     const bookingMenu = `📅 VIP BOOKING SYSTEM
 
@@ -4049,12 +3908,12 @@ bot.onText(/\/book_consultation$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  if (!user || !(user.is_paid === true || user.is_paid === 't')) {
-    await bot.sendMessage(chatId, "🔒 ការកក់ការពិគ្រោះ សម្រាប់តែសមាជិក។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+      await bot.sendMessage(chatId, "🔒 ការកក់ការពិគ្រោះ សម្រាប់តែសមាជិក។");
+      return;
+    }
 
     const consultationBooking = `📞 VIP CONSULTATION BOOKING
 
@@ -4091,12 +3950,12 @@ bot.onText(/\/book_financial_review$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  if (!user || !(user.is_paid === true || user.is_paid === 't')) {
-    await bot.sendMessage(chatId, "🔒 ការកក់ការពិនិត្យហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក VIP។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+      await bot.sendMessage(chatId, "🔒 ការកក់ការពិនិត្យហិរញ្ញវត្ថុ សម្រាប់តែសមាជិក VIP។");
+      return;
+    }
 
     const financialReview = `📊 VIP FINANCIAL REVIEW BOOKING
 
@@ -4140,12 +3999,12 @@ bot.onText(/\/milestones$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  if (!user) {
-    await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
 
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!isPaid) {
@@ -4153,15 +4012,15 @@ try {
       return;
     }
 
-let progress;
-try {
-  const [progressResult] = await db.select().from(progress).where(eq(progress.user_id, userId));
-  progress = progressResult;
-} catch (error) {
-  console.log("Progress lookup failed, using defaults");
-  progress = null;
-}
-const currentDay = progress?.current_day || 1;
+    let progress;
+    try {
+      progress = await Progress.findOne({ user_id: userId });
+    } catch (error) {
+      console.log("Progress lookup failed, using defaults");
+      progress = null;
+    }
+
+    const currentDay = progress?.current_day || 1;
 
     const milestonesMessage = `🏆 កម្រិតសមិទ្ធិភាព
 
@@ -4201,12 +4060,12 @@ bot.onText(/\/streak$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  if (!user) {
-    await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
 
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!isPaid) {
@@ -4214,15 +4073,15 @@ try {
       return;
     }
 
-let progress;
-try {
-  const [progressResult] = await db.select().from(progress).where(eq(progress.user_id, userId));
-  progress = progressResult;
-} catch (error) {
-  progress = null;
-}
-const currentDay = progress?.current_day || 1;
-const consecutiveDays = currentDay - 1;
+    let progress;
+    try {
+      progress = await Progress.findOne({ user_id: userId });
+    } catch (error) {
+      progress = null;
+    }
+
+    const currentDay = progress?.current_day || 1;
+    const consecutiveDays = currentDay - 1;
 
     const streakMessage = `🔥 ជួរការសិក្សា (Learning Streak)
 
@@ -4262,12 +4121,12 @@ bot.onText(/\/leaderboard$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-try {
-  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
-  if (!user) {
-    await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
-    return;
-  }
+  try {
+    const user = await User.findOne({ telegram_id: userId });
+    if (!user) {
+      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
 
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!isPaid) {
@@ -4363,7 +4222,7 @@ Use /marketing_facebook, /marketing_email, /marketing_website for specific conte
 bot.onText(/\/admin_?contact$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -4402,7 +4261,7 @@ bot.onText(/\/admin_?contact$/i, async (msg) => {
 bot.onText(/\/priority_?support$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -4441,7 +4300,7 @@ bot.onText(/\/priority_?support$/i, async (msg) => {
 bot.onText(/\/advanced_?analytics$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -4449,7 +4308,7 @@ bot.onText(/\/advanced_?analytics$/i, async (msg) => {
       return;
     }
 
-    const [userProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+    const progress = await Progress.findOne({ user_id: msg.from.id });
     const currentDay = progress?.current_day || 1;
     const completionRate = Math.round((currentDay / 7) * 100);
 
@@ -4566,7 +4425,7 @@ bot.onText(/\/book_?capital_?assessment$/i, async (msg) => {
 bot.onText(/\/book_?business_?review$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -4620,7 +4479,7 @@ bot.onText(/\/book_?business_?review$/i, async (msg) => {
 bot.onText(/\/book_?investment_?evaluation$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -4683,7 +4542,7 @@ bot.onText(/\/book_?investment_?evaluation$/i, async (msg) => {
 bot.onText(/\/book_?custom_?session$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    const user = await User.findOne({ telegram_id: msg.from.id });
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -4737,3 +4596,604 @@ bot.onText(/\/book_?custom_?session$/i, async (msg) => {
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមទាក់ទង @Chendasum");
   }
 });
+
+// 🤖 CLAUDE AI COMMANDS - Add this section at the end of your index.js
+// (After all your existing commands, before the server setup)
+
+console.log("🤖 Loading Claude AI commands...");
+
+// /ask command - AI chat assistance
+bot.onText(/^\/ask/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const question = msg.text.replace('/ask', '').trim();
+
+    if (!question) {
+        await bot.sendMessage(chatId, 
+            `🤖 Claude AI Assistant:\n\n` +
+            `💬 /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ\n` +
+            `🎯 /coach - ការណែនាំផ្ទាល់ខ្លួន\n` +
+            `🔍 /find_leaks - រកមើល Money Leaks\n` +
+            `🆘 /ai_help - ជំនួយពេញលេញ\n\n` +
+            `ឧទាហរណ៍: /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?`
+        );
+        return;
+    }
+
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        
+        // Get user context (you can enhance this with real user data later)
+        const userContext = {
+            name: msg.from.first_name || 'User',
+            tier: 'essential', // You can get this from your database
+            currentDay: 1      // You can get this from your progress table
+        };
+        
+        const response = await aiService.handleUserQuestion(question, userContext);
+        
+        // Use your existing sendLongMessage function for long responses
+        if (response.response.length > MESSAGE_CHUNK_SIZE) {
+            await sendLongMessage(bot, chatId, `🤖 Claude AI:\n\n${response.response}`);
+        } else {
+            await bot.sendMessage(chatId, `🤖 Claude AI:\n\n${response.response}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Claude AI ask error:', error);
+        await bot.sendMessage(chatId, "❌ Claude AI មានបញ្ហា។ សូមសាកម្តងទៀត។");
+    }
+});
+
+// /coach command - AI personalized coaching
+bot.onText(/^\/coach/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        
+        // Get user progress (you can enhance this with real data from your progress table)
+        const userProgress = {
+            currentDay: 1,
+            completedDays: 0,
+            challenges: [],
+            goals: ['គ្រប់គ្រងលុយកាន់តែប្រសើរ']
+        };
+        
+        const response = await aiService.getPersonalizedCoaching(userProgress, 1);
+        
+        if (response.response.length > MESSAGE_CHUNK_SIZE) {
+            await sendLongMessage(bot, chatId, `🎯 AI Coach:\n\n${response.response}`);
+        } else {
+            await bot.sendMessage(chatId, `🎯 AI Coach:\n\n${response.response}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Claude AI coach error:', error);
+        await bot.sendMessage(chatId, "❌ AI Coach មានបញ្ហា។ សូមសាកម្តងទៀត។");
+    }
+});
+
+// /find_leaks command - AI money leak detection
+bot.onText(/^\/find_leaks/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    try {
+        await bot.sendChatAction(chatId, 'typing');
+        
+        // Sample expense data (you can get real data from your database)
+        const expenses = {
+            food: 300,
+            transport: 100,
+            entertainment: 150,
+            subscriptions: 50,
+            utilities: 200,
+            other: 100
+        };
+        const income = 1000;
+        
+        const response = await aiService.detectMoneyLeaks(expenses, income);
+        
+        if (response.response.length > MESSAGE_CHUNK_SIZE) {
+            await sendLongMessage(bot, chatId, `🔍 Money Leak Detective:\n\n${response.response}`);
+        } else {
+            await bot.sendMessage(chatId, `🔍 Money Leak Detective:\n\n${response.response}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Money leak detection error:', error);
+        await bot.sendMessage(chatId, "❌ Money Leak Detection មានបញ្ហា។ សូមសាកម្តងទៀត។");
+    }
+});
+
+// /ai_help command - Claude AI help menu
+bot.onText(/^\/ai_help/, async (msg) => {
+    const chatId = msg.chat.id;
+    
+    const helpMessage = `🤖 Claude AI Assistant ជំនួយ
+
+🎯 **ពាក្យបញ្ជា AI:**
+• /ask [សំណួរ] - សួរអ្វីក៏បាន អំពីលុយ
+• /coach - ការណែនាំផ្ទាល់ខ្លួន
+• /find_leaks - រកមើល Money Leaks
+• /ai_help - មើលមេនុនេះ
+
+💡 **ឧទាហរណ៍សំណួរ:**
+• "តើខ្ញុំគួរសន្សំយ៉ាងណា?"
+• "ចំណាយអ្វីខ្លះដែលអាចកាត់បន្ថយ?"
+• "តើធ្វើយ៉ាងណាដើម្បីបង្កើនចំណូល?"
+• "រកមើល subscription ដែលខ្ញុំភ្លេច"
+
+🔮 **Claude AI - ពិសេសបំផុត:**
+• ឆ្លាតវៃ និងយល់ពីបរិបទ
+• ការវិភាគហិរញ្ញវត្ថុផ្ទាល់ខ្លួន
+• ការណែនាំតាមស្ថានការណ៍ពិត
+• ជំនួយជាភាសាខ្មែរពេញលេញ
+
+🎓 **Tips សម្រាប់ការប្រើប្រាស់:**
+• សួរជាកសាងរឿង - ទទួលចម្លើយល្អ
+• Claude AI អាចជួយបាន 24/7
+• ចម្លើយទាន់ពេលវេលា ជាភាសាខ្មែរ
+• សាកសួរជាច្រើន - Claude មិនថប់!
+
+🚀 ចាប់ផ្តើម: /ask តើខ្ញុំអាចសន្សំបានយ៉ាងណា?
+
+🔧 Status: ${aiAvailable ? '✅ Claude AI Online' : '⚠️ Fallback Mode'}`;
+
+    await bot.sendMessage(chatId, helpMessage);
+});
+
+// /ai_status command - AI system status (Admin only)
+bot.onText(/^\/ai_status/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    try {
+        // Simple admin check (you can enhance this with your AccessControl service)
+        const adminIds = [process.env.ADMIN_ID, 123456789]; // Add your admin IDs
+        if (!adminIds.includes(userId)) {
+            await bot.sendMessage(chatId, "🔒 ត្រូវការសិទ្ធិអ្នកគ្រប់គ្រង។");
+            return;
+        }
+
+        const status = aiService.getStatus();
+        const testResult = await aiService.testConnection();
+
+        const statusMessage = `🤖 Claude AI System Status
+
+✅ **Service Info:**
+• AI Available: ${status.ai_available}
+• Service: ${status.service}
+• Model: ${status.model || 'N/A'}
+• Mode: ${status.fallback_mode ? 'Fallback' : 'Active'}
+
+🧪 **Connection Test:**
+• Success: ${testResult.success}
+• Message: ${testResult.message}
+
+📊 **Capabilities:**
+• Question Answering: ${aiAvailable ? '✅' : '❌'}
+• Financial Analysis: ${aiAvailable ? '✅' : '❌'}
+• Coaching: ${aiAvailable ? '✅' : '❌'}
+• Money Leak Detection: ${aiAvailable ? '✅' : '❌'}
+
+⏰ Last Check: ${status.last_check}
+
+🔧 **Environment:**
+• API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing'}
+• Node ENV: ${process.env.NODE_ENV || 'development'}`;
+
+        await bot.sendMessage(chatId, statusMessage);
+
+    } catch (error) {
+        console.error('Error in /ai_status command:', error);
+        await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការពិនិត្យស្ថានភាព AI។");
+    }
+});
+
+// OPTIONAL: Smart auto-responses (responds automatically to financial questions)
+bot.on('message', async (msg) => {
+    // Only for regular text messages (not commands) and private chats
+    if (!msg.text || msg.text.startsWith('/') || msg.chat.type !== 'private') return;
+    
+    const text = msg.text.toLowerCase();
+    const financialKeywords = [
+        'លុយ', 'ប្រាក់', 'សន្សំ', 'ចំណាយ', 'ចំណូល', 'ជំនួយ', 'help', 
+        'money', 'save', 'spend', 'income', 'មិនដឹង', 'confused', 'បញ្ហា', 'problem',
+        'ព្រួយបារម្ភ', 'worry', 'debt', 'បំណុល', 'investment', 'វិនិយោគ'
+    ];
+    
+    const hasFinancialKeyword = financialKeywords.some(keyword => text.includes(keyword));
+    
+    // Only respond to messages with financial keywords and sufficient length
+    if (hasFinancialKeyword && text.length > 10 && aiAvailable) {
+        try {
+            await bot.sendChatAction(msg.chat.id, 'typing');
+            
+            const userContext = {
+                name: msg.from.first_name || 'User',
+                tier: 'essential',
+                currentDay: 1
+            };
+            
+            const response = await aiService.handleUserQuestion(msg.text, userContext);
+            
+            if (response.success) {
+                const smartResponse = `💡 Claude AI ជំនួយ:\n\n${response.response}\n\n💬 ចង់សួរបន្ថែម? ប្រើ /ask [សំណួរ]`;
+                
+                if (smartResponse.length > MESSAGE_CHUNK_SIZE) {
+                    await sendLongMessage(bot, msg.chat.id, smartResponse);
+                } else {
+                    await bot.sendMessage(msg.chat.id, smartResponse);
+                }
+            }
+        } catch (error) {
+            // Fail silently for auto-responses to avoid spam
+            console.error('Smart response error:', error);
+        }
+    }
+});
+
+// 🔧 DEBUG CLAUDE AI INTEGRATION
+// Add this debugging section to your index.js to identify the issue
+
+// Add this test command to debug Claude AI
+bot.onText(/^\/ai_debug/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    // Simple admin check (replace with your admin ID)
+    const adminIds = [123456789, 987654321]; // Add your Telegram user ID here
+    if (!adminIds.includes(userId)) {
+        await bot.sendMessage(chatId, "🔒 Admin only command");
+        return;
+    }
+
+    try {
+        const debugInfo = `🔧 **Claude AI Debug Information**
+
+🔑 **Environment Variables:**
+• ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? '✅ Set (' + process.env.ANTHROPIC_API_KEY.substring(0, 10) + '...)' : '❌ Missing'}
+• CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✅ Set (' + process.env.CLAUDE_API_KEY.substring(0, 10) + '...)' : '❌ Missing'}
+• NODE_ENV: ${process.env.NODE_ENV || 'not set'}
+
+🤖 **AI Service Status:**
+• aiAvailable: ${aiAvailable}
+• aiService exists: ${!!aiService}
+• Service type: ${aiService?.getStatus?.()?.service || 'unknown'}
+
+📦 **Package Check:**
+• @anthropic-ai/sdk installed: ${(() => {
+    try {
+        require('@anthropic-ai/sdk');
+        return '✅ Yes';
+    } catch (e) {
+        return '❌ No: ' + e.message;
+    }
+})()}
+
+🧪 **Testing Claude Connection...**`;
+
+        await bot.sendMessage(chatId, debugInfo);
+
+        // Test Claude connection
+        try {
+            await bot.sendMessage(chatId, "🔄 Testing Claude API connection...");
+            
+            const testResult = await aiService.testConnection();
+            
+            await bot.sendMessage(chatId, `🧪 **Connection Test Result:**
+• Success: ${testResult.success}
+• Message: ${testResult.message}
+• Response: ${testResult.response || 'N/A'}`);
+
+        } catch (testError) {
+            await bot.sendMessage(chatId, `❌ **Connection Test Failed:**
+Error: ${testError.message}
+Stack: ${testError.stack?.substring(0, 500) || 'N/A'}`);
+        }
+
+        // Test manual Claude call
+        try {
+            await bot.sendMessage(chatId, "🔄 Testing manual Claude call...");
+            
+            if (aiAvailable && aiService.handleUserQuestion) {
+                const manualTest = await aiService.handleUserQuestion("Test question", { name: "Debug" });
+                await bot.sendMessage(chatId, `🧪 **Manual Test Result:**
+• Success: ${manualTest.success}
+• Response: ${manualTest.response.substring(0, 200)}...
+• Source: ${manualTest.source}`);
+            } else {
+                await bot.sendMessage(chatId, "❌ AI service not available for manual test");
+            }
+
+        } catch (manualError) {
+            await bot.sendMessage(chatId, `❌ **Manual Test Failed:**
+Error: ${manualError.message}`);
+        }
+
+    } catch (error) {
+        await bot.sendMessage(chatId, `❌ Debug command failed: ${error.message}`);
+    }
+});
+
+bot.onText(/^\/ai_debug/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    // Simple admin check (replace with your admin ID)
+    const adminIds = [123456789, 987654321]; // Add your Telegram user ID here
+    if (!adminIds.includes(userId)) {
+        await bot.sendMessage(chatId, "🔒 Admin only command");
+        return;
+    }
+
+    try {
+        const debugInfo = `🔧 **Claude AI Debug Information**
+
+🔑 **Environment Variables:**
+• ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? '✅ Set (' + process.env.ANTHROPIC_API_KEY.substring(0, 10) + '...)' : '❌ Missing'}
+• CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✅ Set (' + process.env.CLAUDE_API_KEY.substring(0, 10) + '...)' : '❌ Missing'}
+• NODE_ENV: ${process.env.NODE_ENV || 'not set'}
+
+🤖 **AI Service Status:**
+• aiAvailable: ${aiAvailable}
+• aiService exists: ${!!aiService}
+• Service type: ${aiService?.getStatus?.()?.service || 'unknown'}
+
+📦 **Package Check:**
+• @anthropic-ai/sdk installed: ${(() => {
+    try {
+        require('@anthropic-ai/sdk');
+        return '✅ Yes';
+    } catch (e) {
+        return '❌ No: ' + e.message;
+    }
+})()}
+
+🧪 **Testing Claude Connection...**`;
+
+        await bot.sendMessage(chatId, debugInfo);
+
+        // Test Claude connection
+        try {
+            await bot.sendMessage(chatId, "🔄 Testing Claude API connection...");
+            
+            const testResult = await aiService.testConnection();
+            
+            await bot.sendMessage(chatId, `🧪 **Connection Test Result:**
+• Success: ${testResult.success}
+• Message: ${testResult.message}
+• Response: ${testResult.response || 'N/A'}`);
+
+        } catch (testError) {
+            await bot.sendMessage(chatId, `❌ **Connection Test Failed:**
+Error: ${testError.message}
+Stack: ${testError.stack?.substring(0, 500) || 'N/A'}`);
+        }
+
+        // Test manual Claude call
+        try {
+            await bot.sendMessage(chatId, "🔄 Testing manual Claude call...");
+            
+            if (aiAvailable && aiService.handleUserQuestion) {
+                const manualTest = await aiService.handleUserQuestion("Test question", { name: "Debug" });
+                await bot.sendMessage(chatId, `🧪 **Manual Test Result:**
+• Success: ${manualTest.success}
+• Response: ${manualTest.response.substring(0, 200)}...
+• Source: ${manualTest.source}`);
+            } else {
+                await bot.sendMessage(chatId, "❌ AI service not available for manual test");
+            }
+
+        } catch (manualError) {
+            await bot.sendMessage(chatId, `❌ **Manual Test Failed:**
+Error: ${manualError.message}`);
+        }
+
+    } catch (error) {
+        await bot.sendMessage(chatId, `❌ Debug command failed: ${error.message}`);
+    }
+});
+
+// 🛠️ FIXED CLAUDE AI SERVICE - Replace your current aiService with this
+// This version has better error handling and debugging
+
+console.log("🔧 Loading improved Claude AI service...");
+
+let anthropicClient = null;
+
+// Try to initialize Anthropic client
+try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    console.log("🔑 API Key status:", apiKey ? `Set (${apiKey.substring(0, 10)}...)` : 'Missing');
+    
+    if (apiKey) {
+        anthropicClient = new Anthropic({
+            apiKey: apiKey,
+        });
+        console.log("✅ Anthropic client initialized");
+    } else {
+        console.log("❌ No API key found");
+    }
+    
+} catch (initError) {
+    console.error("❌ Anthropic initialization failed:", initError.message);
+}
+
+// Improved AI Service with better error handling
+aiService = {
+    async handleUserQuestion(question, userContext = {}) {
+        console.log("🤖 handleUserQuestion called:", { question, context: userContext });
+        
+        if (!anthropicClient) {
+            console.log("❌ No Anthropic client available");
+            return {
+                success: false,
+                response: "🤖 Claude AI មិនអាចប្រើបានឥឡូវនេះ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។",
+                source: 'no_client',
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        try {
+            console.log("🔄 Sending request to Claude...");
+            
+            const prompt = `You are a financial coach for the 7-Day Money Flow Reset program in Cambodia.
+
+User: ${userContext.name || 'User'} (Tier: ${userContext.tier || 'essential'}, Day: ${userContext.currentDay || 1})
+Question: "${question}"
+
+Provide helpful financial advice in Khmer language. Be:
+- Encouraging and supportive
+- Practical and actionable  
+- Specific to Cambodia (USD/KHR, ABA/ACLEDA banks)
+- Related to the 7-Day Money Flow program when relevant
+
+Respond in clear Khmer with specific, actionable advice. Maximum 300 words.`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-5-sonnet-20241022",
+                max_tokens: 800,
+                messages: [{
+                    role: "user", 
+                    content: prompt
+                }]
+            });
+
+            console.log("✅ Claude response received");
+
+            return {
+                success: true,
+                response: message.content[0].text,
+                source: 'claude',
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error('❌ Claude API error:', error);
+            
+            // Detailed error logging
+            if (error.status) {
+                console.error('Status:', error.status);
+                console.error('Message:', error.message);
+            }
+            
+            return {
+                success: false,
+                response: `🤖 Claude AI មានបញ្ហា: ${error.message}. សូមទាក់ទង @Chendasum សម្រាប់ជំនួយ។`,
+                source: 'error',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
+        }
+    },
+
+    async getPersonalizedCoaching(userProgress, dayNumber) {
+        console.log("🎯 getPersonalizedCoaching called:", { userProgress, dayNumber });
+        
+        if (!anthropicClient) {
+            return {
+                success: true,
+                response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI កំពុងបច្ចុប្បន្នភាព...`,
+                source: 'fallback',
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        try {
+            const prompt = `Provide personalized coaching for Day ${dayNumber} of 7-Day Money Flow Reset.
+
+User Progress:
+- Completed Days: ${userProgress.completedDays || 0}
+- Current Day: ${dayNumber}
+- Goals: ${userProgress.goals?.join(', ') || 'Financial improvement'}
+
+Create encouraging coaching message in Khmer with:
+1. Acknowledgment of progress
+2. Day ${dayNumber} specific guidance
+3. Motivation to continue
+4. Practical next steps
+
+Maximum 250 words in Khmer.`;
+
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-5-sonnet-20241022", 
+                max_tokens: 700,
+                messages: [{
+                    role: "user",
+                    content: prompt
+                }]
+            });
+
+            return {
+                success: true,
+                response: message.content[0].text,
+                source: 'claude',
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            console.error('❌ Claude coaching error:', error);
+            return {
+                success: true,
+                response: `💪 ថ្ងៃទី ${dayNumber}: អ្នកកំពុងធ្វើបានល្អ! បន្តដំណើរហិរញ្ញវត្ថុរបស់អ្នក។\n\n🤖 Claude AI មានបញ្ហាបន្តិច។ សូមទាក់ទង @Chendasum`,
+                source: 'fallback',
+                timestamp: new Date().toISOString()
+            };
+        }
+    },
+
+    async testConnection() {
+        if (!anthropicClient) {
+            return {
+                success: false,
+                message: 'Anthropic client not initialized'
+            };
+        }
+
+        try {
+            const message = await anthropicClient.messages.create({
+                model: "claude-3-5-sonnet-20241022",
+                max_tokens: 100,
+                messages: [{
+                    role: "user",
+                    content: "Test connection. Respond with: CONNECTION_OK"
+                }]
+            });
+
+            const response = message.content[0].text;
+            return {
+                success: true,
+                message: 'Claude AI connection successful',
+                response: response
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Claude AI connection failed: ' + error.message,
+                error: error
+            };
+        }
+    },
+
+    getStatus() {
+        return {
+            ai_available: !!anthropicClient,
+            service: 'Claude AI',
+            model: 'claude-3-5-sonnet-20241022',
+            fallback_mode: !anthropicClient,
+            client_status: anthropicClient ? 'initialized' : 'not_initialized',
+            last_check: new Date().toISOString()
+        };
+    }
+};
+
+// Update aiAvailable status
+aiAvailable = !!anthropicClient;
+
+console.log(`🎯 Improved Claude AI Service loaded - Status: ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
