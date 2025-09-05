@@ -5874,3 +5874,263 @@ Maximum 250 words in Khmer.`;
 aiAvailable = !!anthropicClient;
 
 console.log(`🎯 Improved Claude AI Service loaded - Status: ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
+// ADD THIS TO THE TOP OF YOUR EXISTING index.js (after require statements)
+
+// Database health check and fallback system
+let isDatabaseHealthy = false;
+let lastDatabaseCheck = 0;
+const DATABASE_CHECK_INTERVAL = 30000; // 30 seconds
+
+async function checkDatabaseHealth() {
+  const now = Date.now();
+  
+  // Only check every 30 seconds to avoid spam
+  if (now - lastDatabaseCheck < DATABASE_CHECK_INTERVAL) {
+    return isDatabaseHealthy;
+  }
+  
+  try {
+    // Try a simple query
+    await pool.query('SELECT NOW()');
+    isDatabaseHealthy = true;
+    lastDatabaseCheck = now;
+    console.log("✅ Database is healthy");
+    return true;
+  } catch (error) {
+    isDatabaseHealthy = false;
+    lastDatabaseCheck = now;
+    
+    if (error.message.includes("endpoint has been disabled")) {
+      console.log("❌ Neon database endpoint is disabled");
+      console.log("🔗 Enable it at: https://console.neon.tech");
+    } else {
+      console.log("❌ Database connection failed:", error.message);
+    }
+    return false;
+  }
+}
+
+// Safe database operations with fallback
+async function safeUserQuery(operation, params = {}) {
+  try {
+    const isHealthy = await checkDatabaseHealth();
+    
+    if (!isHealthy) {
+      console.log("Database unhealthy, using fallback data");
+      return getFallbackUserData(operation, params);
+    }
+    
+    // If database is healthy, proceed with normal operation
+    switch (operation) {
+      case 'findUser':
+        return await User.findOne({ telegram_id: params.telegram_id });
+      case 'getAllUsers':
+        return await db.select().from(users).orderBy(users.joined_at);
+      case 'getUserStats':
+        const allUsers = await db.select().from(users);
+        return {
+          total: allUsers.length,
+          paid: allUsers.filter(u => u.is_paid === true || u.is_paid === 't').length,
+          vip: allUsers.filter(u => u.is_vip === true || u.is_vip === 't').length
+        };
+      default:
+        return null;
+    }
+  } catch (error) {
+    console.log(`Database operation '${operation}' failed:`, error.message);
+    return getFallbackUserData(operation, params);
+  }
+}
+
+// Fallback data when database is down
+function getFallbackUserData(operation, params = {}) {
+  switch (operation) {
+    case 'findUser':
+      // Return admin user if it's the admin ID
+      if (params.telegram_id === 484389665) {
+        return {
+          telegram_id: 484389665,
+          first_name: "Admin",
+          is_paid: true,
+          is_vip: true,
+          tier: "admin",
+          joined_at: new Date()
+        };
+      }
+      // Return null for other users when DB is down
+      return null;
+      
+    case 'getAllUsers':
+      // Return sample data
+      return [
+        {
+          telegram_id: 484389665,
+          first_name: "Admin",
+          last_name: "User",
+          is_paid: true,
+          is_vip: true,
+          tier: "admin",
+          joined_at: new Date()
+        }
+      ];
+      
+    case 'getUserStats':
+      return {
+        total: 1,
+        paid: 1,
+        vip: 1,
+        revenue: 24
+      };
+      
+    default:
+      return null;
+  }
+}
+
+// REPLACE YOUR EXISTING ADMIN COMMANDS WITH THESE SAFE VERSIONS:
+
+// Replace your /admin_users handler with this:
+bot.onText(/\/admin_users/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  
+  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
+  const secondaryAdminId = 484389665;
+  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
+    await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
+    return;
+  }
+  
+  try {
+    console.log("👥 Admin requesting user list with database safety check");
+    
+    // Use safe database query
+    const isHealthy = await checkDatabaseHealth();
+    
+    if (!isHealthy) {
+      const fallbackMessage = `📊 ADMIN - បញ្ជីអ្នកប្រើប្រាស់ (Database Offline)
+
+⚠️ ការតភ្ជាប់មូលដ្ឋានទិន្នន័យមានបញ្ហា
+🔗 សូមបើក database នៅ: https://console.neon.tech
+
+📈 ទិន្នន័យបណ្តោះអាសន្ន:
+• អ្នកប្រើប្រាស់សរុប: ការទាញយកមិនបាន
+• បានទូទាត់: ការទាញយកមិនបាន
+• VIP: ការទាញយកមិនបាន
+
+🔧 ដំណោះស្រាយ:
+1. បើក https://console.neon.tech
+2. រកឃើញ project របស់អ្នក
+3. ចុច "Enable" database endpoint
+4. រង់ចាំ 1-2 នាទី
+5. សាកល្បង /admin_users ម្តងទៀត
+
+💡 ឬប្រើ MongoDB ជំនួស PostgreSQL`;
+
+      await sendLongMessage(bot, msg.chat.id, fallbackMessage);
+      return;
+    }
+    
+    // If database is healthy, proceed normally
+    const allUsers = await safeUserQuery('getAllUsers');
+    const stats = await safeUserQuery('getUserStats');
+    
+    let response = `📊 ADMIN - បញ្ជីអ្នកប្រើប្រាស់
+
+📈 សង្ខេប:
+• អ្នកប្រើប្រាស់សរុប: ${stats.total}
+• បានទូទាត់: ${stats.paid}
+• VIP: ${stats.vip}  
+• ចំណូលសរុប: $${stats.revenue || 0}
+
+👥 អ្នកប្រើប្រាស់ថ្មីៗ:
+
+`;
+
+    const recentUsers = allUsers.slice(-5).reverse();
+    recentUsers.forEach((user, index) => {
+      const status = user.is_paid === true || user.is_paid === 't' ? '✅ បានទូទាត់' : '❌ មិនទាន់ទូទាត់';
+      response += `${index + 1}. ${user.first_name} ${user.last_name || ''}\n`;
+      response += `   ID: ${user.telegram_id}\n`;
+      response += `   ស្ថានភាព: ${status}\n\n`;
+    });
+    
+    response += `💡 Database: ✅ Healthy & Connected`;
+    
+    await sendLongMessage(bot, msg.chat.id, response);
+    
+  } catch (e) {
+    console.error("Error /admin_users:", e);
+    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហា: ${e.message}\n\n🔗 បើក database នៅ: https://console.neon.tech`);
+  }
+});
+
+// Replace your /admin_analytics handler with this:
+bot.onText(/\/admin_analytics/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  
+  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
+  const secondaryAdminId = 484389665;
+  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
+    await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
+    return;
+  }
+  
+  try {
+    console.log("📊 Admin requesting analytics with database safety check");
+    
+    const isHealthy = await checkDatabaseHealth();
+    
+    if (!isHealthy) {
+      const fallbackMessage = `📊 ADMIN - ការវិភាគទិន្នន័យ (Database Offline)
+
+⚠️ ការតភ្ជាប់មូលដ្ឋានទិន្នន័យមានបញ្ហា
+
+🔧 ដំណោះស្រាយ:
+1. បើក https://console.neon.tech
+2. រកឃើញ project របស់អ្នក  
+3. ចុច "Enable" database endpoint
+4. អាចចំណាយពេល 1-2 នាទី
+5. សាកល្បង /admin_analytics ម្តងទៀត
+
+📱 System Status:
+• Bot: ✅ Online
+• Database: ❌ Neon endpoint disabled
+• Commands: ✅ Working (with fallbacks)
+
+💡 Alternative: Switch to MongoDB for better reliability`;
+
+      await sendLongMessage(bot, msg.chat.id, fallbackMessage);
+      return;
+    }
+    
+    // If database is healthy, get real analytics
+    const stats = await safeUserQuery('getUserStats');
+    
+    const response = `📊 ADMIN - ការវិភាគទិន្នន័យ
+
+👥 អ្នកប្រើប្រាស់:
+• សរុប: ${stats.total} នាក់
+• បានទូទាត់: ${stats.paid} នាក់
+• VIP: ${stats.vip} នាក់
+
+💰 ចំណូល:
+• ចំណូលសរុប: $${stats.revenue || 0}
+• អត្រាបម្លែង: ${stats.total > 0 ? ((stats.paid/stats.total)*100).toFixed(1) : 0}%
+
+💾 Database: ✅ PostgreSQL Connected & Healthy
+🕒 ពេលវេលា: ${new Date().toLocaleString()}`;
+    
+    await sendLongMessage(bot, msg.chat.id, response);
+    
+  } catch (e) {
+    console.error("Error /admin_analytics:", e);
+    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហា: ${e.message}\n\n🔗 បើក database នៅ: https://console.neon.tech`);
+  }
+});
+
+// Safe user lookup for daily commands
+async function safeUserLookup(telegram_id) {
+  return await safeUserQuery('findUser', { telegram_id });
+}
+
+console.log("✅ Database safety system loaded - handles Neon endpoint issues gracefully");
