@@ -2982,23 +2982,32 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       const dayContent = getDailyContent(parseInt(match[1]));
       await sendLongMessage(bot, msg.chat.id, dayContent);
       
-      // Update progress with safe field names
-      try {
-        const dayNum = parseInt(match[1]);
-        const currentProgress = await Progress.findOne({ user_id: msg.from.id });
-        
-        await Progress.findOneAndUpdate(
-          { user_id: msg.from.id },
-          {
-            current_day: Math.max(dayNum, currentProgress?.current_day || 0)
-          },
-          { upsert: true }
-        );
-        console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
-      } catch (dbError) {
-        console.log("Progress update skipped (fallback mode):", dbError.message);
-      }
-    }
+// Update progress with safe field names
+try {
+  const dayNum = parseInt(match[1]);
+  
+  // Get current progress
+  const [currentProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+  
+  const newCurrentDay = Math.max(dayNum, currentProgress?.current_day || 0);
+  
+  if (currentProgress) {
+    // Update existing progress
+    await db.update(progress)
+      .set({ current_day: newCurrentDay })
+      .where(eq(progress.user_id, msg.from.id));
+  } else {
+    // Create new progress record
+    await db.insert(progress).values({
+      user_id: msg.from.id,
+      current_day: newCurrentDay
+    });
+  }
+  
+  console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
+} catch (dbError) {
+  console.log("Progress update skipped (fallback mode):", dbError.message);
+}
 
     // ADD MISSING AUTOMATION: Auto next-day reminders (24h delay)
     const dayNum = parseInt(match[1]);
