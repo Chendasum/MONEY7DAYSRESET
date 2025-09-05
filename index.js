@@ -726,7 +726,7 @@ bot.onText(/\/pricing/i, async (msg) => {
     
     // Trigger automated marketing sequence for unpaid users viewing pricing
     try {
-      const user = await User.findOne({ telegram_id: msg.from.id });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
       if (!user || !user.is_paid) {
         console.log(`🚀 Pricing viewed - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
         conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
@@ -799,7 +799,7 @@ bot.onText(/\/payment/i, async (msg) => {
 bot.onText(/^\/day$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const chatId = msg.chat.id;
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
@@ -855,7 +855,7 @@ bot.onText(/^\/day$/i, async (msg) => {
 bot.onText(/\/vip_program_info/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
     if (!user || !isPaid) {
@@ -915,7 +915,7 @@ bot.onText(/\/vip_program_info/i, async (msg) => {
 bot.onText(/\/vip$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
     if (!user || !isPaid) {
@@ -957,7 +957,7 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
     return;
   }
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!user || !isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលប្រើមាតិកាបន្ថែម។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
@@ -1369,7 +1369,7 @@ bot.onText(/\/preview$/i, async (msg) => {
     
     // Trigger automated marketing sequence for users viewing preview content
     try {
-      const user = await User.findOne({ telegram_id: msg.from.id });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
       if (!user || !user.is_paid) {
         console.log(`🚀 Preview viewed - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
         conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
@@ -1555,7 +1555,7 @@ C) គ្មាន
     
     // Trigger automated marketing sequence for users taking financial quiz
     try {
-      const user = await User.findOne({ telegram_id: msg.from.id });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
       if (!user || !user.is_paid) {
         console.log(`🚀 Financial quiz started - Starting automated follow-up sequence for unpaid user: ${msg.from.id}`);
         conversionOptimizer.scheduleFollowUpSequence(bot, msg.chat.id, msg.from.id);
@@ -1731,7 +1731,7 @@ bot.onText(/\/income_analysis/i, async (msg) => {
 bot.onText(/\/badges/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!user || !isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីមើល badges។ ប្រើ /pricing ដើម្បីមើលព័ត៌ណី។");
@@ -1789,7 +1789,7 @@ bot.onText(/\/badges/i, async (msg) => {
 bot.onText(/\/progress/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!user || !isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីមើលការរីកចម្រើន។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
@@ -1879,7 +1879,7 @@ ${randomQuote}
 bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user && (user.is_paid === true || user.is_paid === 't');
     const isPremiumOrVip = user && (user.tier === "premium" || user.tier === "vip");
     const isVip = user && user.tier === "vip";
@@ -2102,7 +2102,7 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
 bot.onText(/\/whoami/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const adminId = parseInt(process.env.ADMIN_CHAT_ID);
     const secondaryAdminId = 484389665;
     const isAdmin = msg.from.id === adminId || msg.from.id === secondaryAdminId;
@@ -2164,7 +2164,7 @@ bot.on("message", async (msg) => {
 
   if (msg.text && msg.text.toUpperCase() === "VIP APPLY") {
     try {
-      const user = await User.findOne({ telegram_id: msg.from.id });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
       const isPaid = user?.is_paid === true || user?.is_paid === "t";
 
       if (!user || !isPaid) {
@@ -2271,7 +2271,7 @@ ID: ${user.telegram_id}
 // Handler functions
 async function handleReadyForDay1(msg) {
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -2422,7 +2422,7 @@ Type "VIP APPLY" to get started!`);
 
 async function handleCapitalClarity(msg) {
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -2803,7 +2803,7 @@ const HOST = "0.0.0.0"; // Railway requires 0.0.0.0
 bot.onText(/\/book_session/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -2855,7 +2855,7 @@ bot.onText(/\/book_session/i, async (msg) => {
 bot.onText(/\/book_capital_assessment/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -2897,7 +2897,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
   try {
     console.log(`🔍 Looking up user ${msg.from.id} in database...`);
     // FIXED: Use correct PostgreSQL field names
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     console.log(`📊 User lookup result:`, {
       found: !!user,
       id: user?.telegram_id,
@@ -2966,7 +2966,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
     // ADD MISSING AUTOMATION: Day 3 upsell automation (1h delay)
     if (dayNum === 3) {
       setTimeout(async () => {
-        const user = await User.findOne({ telegram_id: msg.from.id });
+        const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
         if (!user || user.tier === "premium" || user.tier === "vip") return;
 
         const upsellMessage = `🔥 ${msg.from.first_name || "មិត្ត"}, អ្នកកំពុងធ្វើបានល្អ!
@@ -3058,8 +3058,8 @@ ${dayNumber < 7 ? `🚀 ត្រៀមរួចសម្រាប់ Day ${next
   // Badge achievement system
   setTimeout(async () => {
     try {
-      const user = await User.findOne({ telegram_id: msg.from.id });
-      const progress = await Progress.findOne({ user_id: msg.from.id });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const [userProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
 
       if (user && progress) {
         const completedDays = [];
@@ -3194,7 +3194,7 @@ bot.on("message", async (msg) => {
     console.log(`🔥 "READY FOR DAY 1" detected from user ${msg.from.id}: "${msg.text}"`);
     
     try {
-      const user = await User.findOne({ telegram_id: msg.from.id });
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
       console.log(`🔍 User lookup for ${msg.from.id}:`, user ? {
         found: true,
         paid: user.is_paid,
@@ -4222,7 +4222,7 @@ Use /marketing_facebook, /marketing_email, /marketing_website for specific conte
 bot.onText(/\/admin_?contact$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -4261,7 +4261,7 @@ bot.onText(/\/admin_?contact$/i, async (msg) => {
 bot.onText(/\/priority_?support$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -4300,7 +4300,7 @@ bot.onText(/\/priority_?support$/i, async (msg) => {
 bot.onText(/\/advanced_?analytics$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     
     if (!user || !isPaid) {
@@ -4308,7 +4308,7 @@ bot.onText(/\/advanced_?analytics$/i, async (msg) => {
       return;
     }
 
-    const progress = await Progress.findOne({ user_id: msg.from.id });
+    const [userProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
     const currentDay = progress?.current_day || 1;
     const completionRate = Math.round((currentDay / 7) * 100);
 
@@ -4425,7 +4425,7 @@ bot.onText(/\/book_?capital_?assessment$/i, async (msg) => {
 bot.onText(/\/book_?business_?review$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -4479,7 +4479,7 @@ bot.onText(/\/book_?business_?review$/i, async (msg) => {
 bot.onText(/\/book_?investment_?evaluation$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
@@ -4542,7 +4542,7 @@ bot.onText(/\/book_?investment_?evaluation$/i, async (msg) => {
 bot.onText(/\/book_?custom_?session$/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const user = await User.findOne({ telegram_id: msg.from.id });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     const isVip = user?.is_vip === true || user?.is_vip === 't';
 
