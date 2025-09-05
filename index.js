@@ -3123,7 +3123,7 @@ ${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្�
       }, 3000);
     }
 
-    // Update user's last active timestamp
+// Update user's last active timestamp
     try {
       await db.update(users)
         .set({ last_active: new Date() })
@@ -3134,7 +3134,7 @@ ${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្�
     }
 
     // 🎯 AUTOMATION: Next-day reminders and upsells
-    const dayNum = parseInt(match[1]);
+    // Note: dayNum already declared above, no need to redeclare
 
     // Auto next-day reminders (24h delay)
     if (dayNum < 7) {
