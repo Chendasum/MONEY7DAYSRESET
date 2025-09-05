@@ -469,6 +469,47 @@ bot.onText(/\/financial_quiz/i, async (msg) => {
   }
 });
 
+// Route /faq command
+bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (accessControl && accessControl.getFAQ) {
+      await accessControl.getFAQ(msg, bot, dbContext);
+    } else {
+      // Fallback FAQ
+      const faqMessage = `❓ សំណួរញឹកញាប់ (FAQ)
+
+📱 ពាក្យបញ្ជាសំខាន់:
+• /start - ចាប់ផ្តើម
+• /pricing - មើលតម្លៃ
+• /payment - ការទូទាត់
+• /help - ជំនួយ
+• /faq - សំណួរញឹកញាប់
+
+💰 អំពីតម្លៃ:
+• តម្លៃ: $24 USD (Essential)
+• ទូទាត់តាម: ABA, ACLEDA, Wing
+• បញ្ជាក់ការទូទាត់: 1-2 ម៉ោង
+
+📚 អំពីកម្មវិធី:
+• រយៈពេល: 7 ថ្ងៃ
+• ភាសា: ខ្មែរ 100%
+• ចំណាយពេល: 15-20 នាទី/ថ្ងៃ
+
+🔧 បច្ចេកទេស:
+• ប្រើ: Telegram app
+• ទិន្នន័យ: រក្សាទុកសុវត្ថិភាព
+• ជំនួយ: 24/7
+
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, faqMessage);
+    }
+  } catch (error) {
+    console.error("Error in /faq:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
 // Route extended content
 bot.onText(/\/extended(\d+)/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
