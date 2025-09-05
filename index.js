@@ -207,7 +207,7 @@ const tierManager = safeRequire("./services/tier-manager", "Tier Manager");
 const upsellAutomation = safeRequire("./services/upsell-automation", "Upsell Automation");
 const botHealthMonitor = safeRequire("./services/bot-health-monitor", "Bot Health Monitor");
 const khmerQuotes = safeRequire("./services/khmer-quotes", "Khmer Quotes");
-const aiIntegration = safeRequire("./services/aiintegration", "AI Integration");
+const aiIntegration = safeRequire("./services/aiIntegration", "AI Integration");
 
 console.log("📦 Loading utility modules...");
 
