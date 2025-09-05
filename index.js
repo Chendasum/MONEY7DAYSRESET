@@ -78,28 +78,17 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// FIXED: Test database connection
+// SIMPLE: Test database connection using basic pool query
 async function testDatabaseConnection() {
   try {
-    // Use proper Drizzle query instead of execute
-    const result = await db.$count(users);
+    const result = await pool.query('SELECT 1 as test');
     console.log("✅ Database connection successful");
     return true;
   } catch (error) {
     console.error("❌ Database connection failed:", error.message);
-    
-    // Try alternative connection test
-    try {
-      await pool.query('SELECT 1 as test');
-      console.log("✅ Database pool connection successful");
-      return true;
-    } catch (poolError) {
-      console.error("❌ Pool connection also failed:", poolError.message);
-      return false;
-    }
+    return false;
   }
 }
-
 // FIXED: Create tables using proper SQL
 async function createTablesIfNotExists() {
   try {
