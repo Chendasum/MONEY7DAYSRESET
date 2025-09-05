@@ -2264,17 +2264,17 @@ try {
     }
   }
   
-  // Check if it's a free tools response
-  if (freeTools && freeTools.processToolResponse) {
-    try {
-      const user = await User.findOne({ telegram_id: userId });
-      if (await freeTools.processToolResponse(msg, bot, user)) {
-        return;
-      }
-    } catch (error) {
-      console.error("Error processing tools response:", error);
+// Check if it's a free tools response
+if (freeTools && freeTools.processToolResponse) {
+  try {
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+    if (await freeTools.processToolResponse(msg, bot, user)) {
+      return;
     }
+  } catch (error) {
+    console.error("Error processing tools response:", error);
   }
+}
   
   // Handle specific text commands
   if (text === "ready for day 1") {
