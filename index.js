@@ -2608,17 +2608,16 @@ app.post("/webhook/payment", async (req, res) => {
         await paymentCommands.confirmPayment(bot, userId, transactionId);
       } else {
         console.log(`Payment confirmed for user ${userId}: ${amount}`);
-        // Fallback payment confirmation
-        try {
-          await User.findOneAndUpdate(
-            { telegram_id: userId },
-            { 
-              is_paid: true,
-              payment_date: new Date(),
-              tier: 'essential'
-            },
-            { new: true }
-          );
+        
+// Fallback payment confirmation
+try {
+  await db.update(users)
+    .set({
+      is_paid: true,
+      payment_date: new Date(),
+      tier: 'essential'
+    })
+    .where(eq(users.telegram_id, userId));
           
           await bot.sendMessage(userId, `🎉 ការទូទាត់របស់អ្នកត្រូវបានបញ្ជាក់!
 
