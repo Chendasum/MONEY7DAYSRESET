@@ -2327,12 +2327,14 @@ ID: ${user.telegram_id}
   const text = msg.text.toLowerCase();
   const userId = msg.from.id;
 
-  // Update last active
-  try {
-    await User.findOneAndUpdate({ telegram_id: userId }, { last_active: new Date() }, { new: true });
-  } catch (error) {
-    console.error("Error updating lastActive timestamp:", error);
-  }
+// Update last active
+try {
+  await db.update(users)
+    .set({ last_active: new Date() })
+    .where(eq(users.telegram_id, userId));
+} catch (error) {
+  console.error("Error updating lastActive timestamp:", error);
+}
 
   // Check if it's a financial quiz response
   if (financialQuiz && financialQuiz.processQuizResponse) {
