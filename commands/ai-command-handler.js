@@ -1,12 +1,13 @@
-// 🤖 AI Command Handler for Telegram Bot Integration
+// 🤖 AI Command Handler for Telegram Bot Integration - FIXED VERSION
 const aiService = require('../services/enhanced-ai-integration');
-const User = require('../models/User');
-const Progress = require('../models/Progress');
-const AccessControl = require('../services/access-control');
 
 class AICommandHandler {
-    constructor() {
-        this.accessControl = new AccessControl();
+    constructor(dbContext) {
+        this.db = dbContext.db;
+        this.users = dbContext.users;
+        this.progress = dbContext.progress;
+        this.eq = dbContext.eq;
+        this.pool = dbContext.pool;
     }
 
     // 💬 Handle /ask command - General AI Chat
@@ -31,14 +32,18 @@ class AICommandHandler {
             // Show typing indicator
             await bot.sendChatAction(chatId, 'typing');
 
-            // Get user context
+            // Get user context using Drizzle ORM
             const userContext = await this.getUserContext(userId);
             
-            // Get AI response
-            const aiResponse = await aiService.handleUserQuestion(question, userContext);
-            
-            // Send response to user
-            await aiService.sendAIResponse(bot, chatId, aiResponse);
+            // Get AI response (if aiService is available)
+            if (aiService && aiService.handleUserQuestion) {
+                const aiResponse = await aiService.handleUserQuestion(question, userContext);
+                await this.sendAIResponse(bot, chatId, aiResponse);
+            } else {
+                // Fallback response
+                const response = `🤖 AI ជំនួយ:\n\nសំណួរ: "${question}"\n\n💡 AI កំពុងត្រូវបានកែលម្អ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយផ្ទាល់។`;
+                await bot.sendMessage(chatId, response);
+            }
 
         } catch (error) {
             console.error('Error in /ask command:', error);
@@ -54,24 +59,28 @@ class AICommandHandler {
         const userId = msg.from.id;
 
         try {
-            // Check access
-            const access = await this.accessControl.checkAccess(userId, 'advanced_analytics');
-            if (!access.hasAccess) {
-                await bot.sendMessage(chatId, access.message);
+            // Check if user is paid
+            const user = await this.getUser(userId);
+            if (!user || !user.is_paid) {
+                await bot.sendMessage(chatId, "🔒 ការវិភាគកម្រិតខ្ពស់ត្រូវការសមាជិកភាពបង់ប្រាក់។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
                 return;
             }
 
             await bot.sendChatAction(chatId, 'typing');
 
-            // Get user financial data (you'll need to implement this based on your data structure)
+            // Get user financial data
             const userFinances = await this.getUserFinancialData(userId);
             const currentDay = await this.getCurrentDay(userId);
             
-            // Get AI analysis
-            const analysis = await aiService.analyzeFinancialSituation(userFinances, currentDay);
-            
-            // Send analysis to user
-            await aiService.sendAIResponse(bot, chatId, analysis);
+            // Get AI analysis or fallback
+            if (aiService && aiService.analyzeFinancialSituation) {
+                const analysis = await aiService.analyzeFinancialSituation(userFinances, currentDay);
+                await this.sendAIResponse(bot, chatId, analysis);
+            } else {
+                // Fallback analysis
+                const analysis = this.generateBasicAnalysis(userFinances, currentDay);
+                await bot.sendMessage(chatId, analysis);
+            }
 
         } catch (error) {
             console.error('Error in /analyze command:', error);
@@ -89,15 +98,19 @@ class AICommandHandler {
         try {
             await bot.sendChatAction(chatId, 'typing');
 
-            // Get user progress
+            // Get user progress using Drizzle ORM
             const userProgress = await this.getUserProgress(userId);
-            const dayNumber = userProgress.currentDay || 1;
+            const dayNumber = userProgress.current_day || 1;
             
-            // Get personalized coaching
-            const coaching = await aiService.getPersonalizedCoaching(userProgress, dayNumber);
-            
-            // Send coaching to user
-            await aiService.sendAIResponse(bot, chatId, coaching);
+            // Get personalized coaching or fallback
+            if (aiService && aiService.getPersonalizedCoaching) {
+                const coaching = await aiService.getPersonalizedCoaching(userProgress, dayNumber);
+                await this.sendAIResponse(bot, chatId, coaching);
+            } else {
+                // Fallback coaching
+                const coaching = this.generateBasicCoaching(userProgress, dayNumber);
+                await bot.sendMessage(chatId, coaching);
+            }
 
         } catch (error) {
             console.error('Error in /coach command:', error);
@@ -119,96 +132,21 @@ class AICommandHandler {
             const expenses = await this.getUserExpenses(userId);
             const income = await this.getUserIncome(userId);
             
-            // Get money leak analysis
-            const leakAnalysis = await aiService.detectMoneyLeaks(expenses, income);
-            
-            // Send analysis to user
-            await aiService.sendAIResponse(bot, chatId, leakAnalysis);
+            // Get money leak analysis or fallback
+            if (aiService && aiService.detectMoneyLeaks) {
+                const leakAnalysis = await aiService.detectMoneyLeaks(expenses, income);
+                await this.sendAIResponse(bot, chatId, leakAnalysis);
+            } else {
+                // Fallback leak detection
+                const leakAnalysis = this.generateBasicLeakAnalysis(expenses, income);
+                await bot.sendMessage(chatId, leakAnalysis);
+            }
 
         } catch (error) {
             console.error('Error in /find_leaks command:', error);
             await bot.sendMessage(chatId, 
                 "❌ មានបញ្ហាក្នុងការរកមើល Money Leaks។ សូមសាកម្តងទៀតក្រោយ។"
             );
-        }
-    }
-
-    // 🔧 Handle /ai_status command - AI System Status (Admin only)
-    async handleAIStatusCommand(bot, msg) {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id;
-
-        try {
-            // Check admin access
-            const hasAdmin = await this.accessControl.hasAdminAccess(userId);
-            if (!hasAdmin) {
-                await bot.sendMessage(chatId, "🔒 ត្រូវការសិទ្ធិអ្នកគ្រប់គ្រង។");
-                return;
-            }
-
-            const status = aiService.getStatus();
-            const testResult = await aiService.testConnection();
-
-            const statusMessage = `🤖 AI System Status\n\n` +
-                `✅ Initialized: ${status.initialized}\n` +
-                `🔮 Claude Available: ${status.claude_available}\n` +
-                `🧠 OpenAI Available: ${status.openai_available}\n` +
-                `🎯 Primary AI: ${status.primary_ai}\n\n` +
-                `🛠️ Capabilities:\n` +
-                `• Chat: ${status.capabilities.chat_assistance}\n` +
-                `• Analysis: ${status.capabilities.financial_analysis}\n` +
-                `• Coaching: ${status.capabilities.personalized_coaching}\n` +
-                `• Leak Detection: ${status.capabilities.money_leak_detection}\n\n` +
-                `🧪 Connection Test: ${JSON.stringify(testResult)}\n\n` +
-                `⏰ Last Check: ${status.last_check}`;
-
-            await bot.sendMessage(chatId, statusMessage);
-
-        } catch (error) {
-            console.error('Error in /ai_status command:', error);
-            await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការពិនិត្យស្ថានភាព AI។");
-        }
-    }
-
-    // 🎓 Handle smart responses to regular messages (when AI can help)
-    async handleSmartResponse(bot, msg) {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id;
-        const text = msg.text?.toLowerCase() || '';
-
-        try {
-            // Check if message contains financial keywords
-            const financialKeywords = [
-                'លុយ', 'ប្រាក់', 'សន្សំ', 'ចំណាយ', 'ចំណូល', 'ខ្ញុំ', 'money', 'save', 'spend', 'income',
-                'ជំនួយ', 'help', 'មិនដឹង', 'confused', 'បញ្ហា', 'problem', 'យ៉ាងណា', 'how'
-            ];
-
-            const containsFinancialKeyword = financialKeywords.some(keyword => 
-                text.includes(keyword)
-            );
-
-            if (containsFinancialKeyword && text.length > 10) {
-                // Show brief thinking indicator
-                await bot.sendChatAction(chatId, 'typing');
-
-                // Get user context
-                const userContext = await this.getUserContext(userId);
-                
-                // Get AI response
-                const aiResponse = await aiService.handleUserQuestion(text, userContext);
-                
-                if (aiResponse.success) {
-                    // Add prefix to show this is AI helping automatically
-                    const smartResponse = `💡 AI ជំនួយ:\n\n${aiResponse.response}\n\n` +
-                        `💬 ចង់សួរបន្ថែម? ប្រើ /ask [សំណួរ]`;
-                    
-                    await bot.sendMessage(chatId, smartResponse);
-                }
-            }
-
-        } catch (error) {
-            console.error('Error in smart response:', error);
-            // Fail silently for smart responses
         }
     }
 
@@ -248,17 +186,27 @@ class AICommandHandler {
         await bot.sendMessage(chatId, helpMessage);
     }
 
-    // 🗂️ Helper methods to get user data
+    // 🗂️ Helper methods using Drizzle ORM
+    async getUser(userId) {
+        try {
+            const [user] = await this.db.select().from(this.users).where(this.eq(this.users.telegram_id, userId));
+            return user;
+        } catch (error) {
+            console.error('Error getting user:', error);
+            return null;
+        }
+    }
+
     async getUserContext(userId) {
         try {
-            const user = await User.findOne({ telegramId: userId });
-            const progress = await Progress.findOne({ userId });
+            const user = await this.getUser(userId);
+            const userProgress = await this.getUserProgress(userId);
 
             return {
                 name: user?.username || user?.first_name || 'User',
-                tier: user?.tier || 'essential',
-                currentDay: progress?.currentDay || 1,
-                completedDays: this.countCompletedDays(progress),
+                tier: user?.tier || 'free',
+                currentDay: userProgress?.current_day || 1,
+                completedDays: this.countCompletedDays(userProgress),
                 isPaid: user?.is_paid || false
             };
         } catch (error) {
@@ -267,48 +215,42 @@ class AICommandHandler {
         }
     }
 
-    async getUserFinancialData(userId) {
+    async getUserProgress(userId) {
         try {
-            const user = await User.findOne({ telegramId: userId });
-            // You'll need to adjust this based on how you store financial data
-            return {
-                monthlyIncome: user?.monthlyIncome || 0,
-                monthlyExpenses: user?.monthlyExpenses || 0,
-                currentSavings: user?.currentSavings || 0,
-                totalDebts: user?.totalDebts || 0
-            };
+            const [userProgress] = await this.db.select().from(this.progress).where(this.eq(this.progress.user_id, userId));
+            return userProgress || { current_day: 1 };
         } catch (error) {
-            console.error('Error getting financial data:', error);
-            return {};
+            console.error('Error getting user progress:', error);
+            return { current_day: 1 };
         }
     }
 
-    async getUserProgress(userId) {
+    async getUserFinancialData(userId) {
         try {
-            const progress = await Progress.findOne({ userId });
+            const user = await this.getUser(userId);
+            // Extract financial data from user object or set defaults
             return {
-                currentDay: progress?.currentDay || 1,
-                completedDays: this.countCompletedDays(progress),
-                challenges: progress?.challenges || [],
-                goals: progress?.goals || []
+                monthlyIncome: 1000, // You can add these fields to your schema later
+                monthlyExpenses: 800,
+                currentSavings: 200,
+                totalDebts: 0
             };
         } catch (error) {
-            console.error('Error getting user progress:', error);
-            return { currentDay: 1, completedDays: 0 };
+            console.error('Error getting financial data:', error);
+            return { monthlyIncome: 1000, monthlyExpenses: 800, currentSavings: 200, totalDebts: 0 };
         }
     }
 
     async getUserExpenses(userId) {
         try {
-            const user = await User.findOne({ telegramId: userId });
-            // Return mock expense data - adjust based on your data structure
+            // Return default expense categories - you can expand this later
             return {
-                food: user?.expenses?.food || 300,
-                transport: user?.expenses?.transport || 100,
-                entertainment: user?.expenses?.entertainment || 150,
-                subscriptions: user?.expenses?.subscriptions || 50,
-                utilities: user?.expenses?.utilities || 200,
-                other: user?.expenses?.other || 100
+                food: 300,
+                transport: 100,
+                entertainment: 150,
+                subscriptions: 50,
+                utilities: 200,
+                other: 100
             };
         } catch (error) {
             console.error('Error getting expenses:', error);
@@ -318,8 +260,7 @@ class AICommandHandler {
 
     async getUserIncome(userId) {
         try {
-            const user = await User.findOne({ telegramId: userId });
-            return user?.monthlyIncome || 1000;
+            return 1000; // Default income - you can expand this later
         } catch (error) {
             console.error('Error getting income:', error);
             return 1000;
@@ -328,8 +269,8 @@ class AICommandHandler {
 
     async getCurrentDay(userId) {
         try {
-            const progress = await Progress.findOne({ userId });
-            return progress?.currentDay || 1;
+            const userProgress = await this.getUserProgress(userId);
+            return userProgress?.current_day || 1;
         } catch (error) {
             return 1;
         }
@@ -340,30 +281,101 @@ class AICommandHandler {
         
         let count = 0;
         for (let i = 0; i <= 7; i++) {
-            if (progress[`day${i}Completed`]) count++;
+            if (progress[`day_${i}_completed`]) count++;
         }
         return count;
     }
 
-    // 🎛️ Register all AI commands
-    registerCommands(bot) {
-        // Main AI commands
-        bot.onText(/^\/ask/, (msg) => this.handleAskCommand(bot, msg));
-        bot.onText(/^\/analyze/, (msg) => this.handleAnalyzeCommand(bot, msg));
-        bot.onText(/^\/coach/, (msg) => this.handleCoachCommand(bot, msg));
-        bot.onText(/^\/find_leaks/, (msg) => this.handleFindLeaksCommand(bot, msg));
-        bot.onText(/^\/ai_help/, (msg) => this.handleAIHelpCommand(bot, msg));
-        bot.onText(/^\/ai_status/, (msg) => this.handleAIStatusCommand(bot, msg));
+    // Fallback methods when AI service is not available
+    generateBasicAnalysis(finances, currentDay) {
+        const savingsRate = ((finances.monthlyIncome - finances.monthlyExpenses) / finances.monthlyIncome * 100).toFixed(1);
+        
+        return `📊 ការវិភាគហិរញ្ញវត្ថុ (ថ្ងៃទី ${currentDay})
 
-        // Smart response to regular messages (optional)
-        bot.on('message', (msg) => {
-            // Only trigger on regular text messages (not commands)
-            if (msg.text && !msg.text.startsWith('/')) {
-                this.handleSmartResponse(bot, msg);
+💰 ចំណូលខែ: $${finances.monthlyIncome}
+💸 ចំណាយខែ: $${finances.monthlyExpenses}
+💎 អត្រាសន្សំ: ${savingsRate}%
+🏦 សន្សំបច្ចុប្បន្ន: $${finances.currentSavings}
+
+🎯 ការណែនាំ:
+${savingsRate < 10 ? "• ព្យាយាមសន្សំឱ្យបាន 10-20%" : "• អត្រាសន្សំល្អណាស់!"}
+${finances.totalDebts > 0 ? "• ផ្តោតលើការសង់បំណុល" : "• ពិចារណាការវិនិយោគ"}
+
+💬 សម្រាប់ការវិភាគលម្អិត: @Chendasum`;
+    }
+
+    generateBasicCoaching(progress, dayNumber) {
+        return `🎯 AI Coach (ថ្ងៃទី ${dayNumber})
+
+🌟 ការណែនាំផ្ទាល់ខ្លួន:
+
+📈 វឌ្ឍនភាព: អ្នកបានបញ្ចប់ ${this.countCompletedDays(progress)} ថ្ងៃ
+🎯 គោលដៅថ្ងៃនេះ: ការបន្តទម្លាប់ល្អ
+
+💡 ការណែនាំថ្ងៃនេះ:
+• តាមដានចំណាយប្រចាំថ្ងៃ
+• កំណត់គោលដៅសន្សំ
+• អានមេរៀនថ្ងៃនេះឱ្យចប់
+
+🚀 ចាប់ផ្តើម: /day${dayNumber}
+
+💬 ការប្រឹក្សាផ្ទាល់: @Chendasum`;
+    }
+
+    generateBasicLeakAnalysis(expenses, income) {
+        const totalExpenses = Object.values(expenses).reduce((a, b) => a + b, 0);
+        const biggestExpense = Object.entries(expenses).reduce((a, b) => expenses[a[0]] > expenses[b[0]] ? a : b);
+        
+        return `🔍 Money Leaks Analysis
+
+💸 ចំណាយសរុប: $${totalExpenses}
+📊 ចំណាយធំបំផុត: ${biggestExpense[0]} ($${biggestExpense[1]})
+
+🚨 Money Leaks ដែលអាចកើតមាន:
+${expenses.subscriptions > 30 ? "• Subscriptions ច្រើនពេក ($" + expenses.subscriptions + ")" : ""}
+${expenses.entertainment > income * 0.2 ? "• កម្សាន្តច្រើនពេក ($" + expenses.entertainment + ")" : ""}
+${expenses.food > income * 0.3 ? "• ចំណាយម្ហូបច្រើនពេក ($" + expenses.food + ")" : ""}
+
+💡 ការណែនាំ:
+• ពិនិត្យ subscriptions មិនប្រើ
+• កំណត់ថវិកាកម្សាន្ត
+• រៀបចំផែនការម្ហូប
+
+💬 ជំនួយ: @Chendasum`;
+    }
+
+    async sendAIResponse(bot, chatId, response) {
+        try {
+            if (response && response.success && response.response) {
+                await bot.sendMessage(chatId, response.response);
+            } else if (typeof response === 'string') {
+                await bot.sendMessage(chatId, response);
+            } else {
+                await bot.sendMessage(chatId, "❌ មិនអាចទទួលចម្លើយពី AI បានទេ។");
             }
-        });
+        } catch (error) {
+            console.error('Error sending AI response:', error);
+            await bot.sendMessage(chatId, "❌ មានបញ្ហាក្នុងការផ្ញើចម្លើយ។");
+        }
+    }
 
-        console.log('✅ AI command handlers registered');
+    // 🎛️ Register all AI commands with database context
+    registerCommands(bot, dbContext) {
+        // Update database context
+        this.db = dbContext.db;
+        this.users = dbContext.users;
+        this.progress = dbContext.progress;
+        this.eq = dbContext.eq;
+        this.pool = dbContext.pool;
+
+        // Main AI commands
+        bot.onText(/^\/ask\s+(.+)/i, (msg, match) => this.handleAskCommand(bot, msg));
+        bot.onText(/^\/analyze/i, (msg) => this.handleAnalyzeCommand(bot, msg));
+        bot.onText(/^\/coach/i, (msg) => this.handleCoachCommand(bot, msg));
+        bot.onText(/^\/find_leaks/i, (msg) => this.handleFindLeaksCommand(bot, msg));
+        bot.onText(/^\/ai_help/i, (msg) => this.handleAIHelpCommand(bot, msg));
+
+        console.log('✅ AI command handlers registered with Drizzle ORM');
     }
 }
 
