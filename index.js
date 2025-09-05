@@ -3123,7 +3123,7 @@ ${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្�
       }, 3000);
     }
 
-// Update user's last active timestamp
+    // Update user's last active timestamp
     try {
       await db.update(users)
         .set({ last_active: new Date() })
@@ -3134,8 +3134,6 @@ ${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្�
     }
 
     // 🎯 AUTOMATION: Next-day reminders and upsells
-    // Note: dayNum already declared above, no need to redeclare
-
     // Auto next-day reminders (24h delay)
     if (dayNum < 7) {
       setTimeout(async () => {
@@ -3181,12 +3179,6 @@ Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
         }
       }, 3600000); // 1 hour delay
     }
-
-  } catch (error) {
-    console.error("❌ Error in daily command:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
-});
 
     // 30-day follow-up automation (after Day 7)
     if (dayNum === 7) {
