@@ -35,6 +35,7 @@ const users = pgTable('users', {
   testimonial_requests: jsonb('testimonial_requests'),
   upsell_attempts: jsonb('upsell_attempts'),
   conversion_history: jsonb('conversion_history'),
+  extended_progress: jsonb('extended_progress'),
 });
 
 const progress = pgTable('progress', {
@@ -74,7 +75,7 @@ async function initDatabase() {
     await pool.query('SELECT 1 as test');
     console.log("✅ Database connection successful");
     
-    // Create tables
+    // Create tables with extended_progress field
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -96,7 +97,8 @@ async function initDatabase() {
         testimonials JSONB,
         testimonial_requests JSONB,
         upsell_attempts JSONB,
-        conversion_history JSONB
+        conversion_history JSONB,
+        extended_progress JSONB
       )
     `);
     
@@ -121,6 +123,15 @@ async function initDatabase() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    
+    // Add extended_progress column if it doesn't exist
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS extended_progress JSONB
+      `);
+    } catch (error) {
+      // Column might already exist, that's fine
+    }
     
     console.log("✅ Database tables verified/created");
   } catch (error) {
@@ -166,7 +177,7 @@ const adminConversion = safeRequire("./commands/admin-conversion", "Admin Conver
 const adminDatabase = safeRequire("./commands/admin-database", "Admin Database");
 const adminPerformance = safeRequire("./commands/admin-performance", "Admin Performance");
 const adminTestimonials = safeRequire("./commands/admin-testimonials", "Admin Testimonials");
-const aiCommandHandler = safeRequire("./commands/ai-command-handler", "AI Command Handler");
+const AICommandHandler = safeRequire("./commands/ai-command-handler", "AI Command Handler");
 
 console.log("📦 Loading all service modules...");
 
@@ -237,6 +248,17 @@ function isDuplicateMessage(msg) {
 
 // Database context for all modules
 const dbContext = { db, users, progress, eq, pool };
+
+// Initialize AI Command Handler with database context
+let aiHandler = null;
+if (AICommandHandler) {
+  try {
+    aiHandler = new AICommandHandler(dbContext);
+    console.log("✅ AI Command Handler initialized with database context");
+  } catch (error) {
+    console.log("⚠️ AI Command Handler initialization failed:", error.message);
+  }
+}
 
 console.log("🔌 Setting up command routing...");
 
@@ -356,6 +378,13 @@ bot.onText(/\/help/i, async (msg) => {
 - /pricing - មើលតម្លៃ
 - /payment - ការទូទាត់
 - /help - ជំនួយ
+- /ai_help - ជំនួយ AI
+
+🤖 AI Commands:
+- /ask [សំណួរ] - សួរ AI
+- /analyze - វិភាគហិរញ្ញវត្ថុ
+- /coach - ការណែនាំផ្ទាល់ខ្លួន
+- /find_leaks - រកមើល Money Leaks
 
 💬 ជំនួយ: @Chendasum`;
       await bot.sendMessage(msg.chat.id, helpMessage);
@@ -515,7 +544,7 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (extendedContent && extendedContent.handleExtendedDay) {
-      await extendedContent.handleExtendedDay(msg, bot, parseInt(match[1]), dbContext);
+      await extendedContent.handleExtendedDay(msg, bot, parseInt(match[1]));
     } else {
       await bot.sendMessage(msg.chat.id, `📚 Extended Day ${match[1]} - កំពុងត្រូវបានអភិវឌ្ឍ។`);
     }
@@ -525,12 +554,12 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
   }
 });
 
-// Route AI commands
+// AI COMMAND ROUTES - Updated to use the new AI handler
 bot.onText(/\/ask\s+(.+)/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    if (aiCommandHandler && aiCommandHandler.handleQuestion) {
-      await aiCommandHandler.handleQuestion(msg, match[1], bot, dbContext);
+    if (aiHandler) {
+      await aiHandler.handleAskCommand(bot, msg);
     } else {
       // Fallback AI response
       const question = match[1];
@@ -555,11 +584,25 @@ bot.onText(/\/ask\s+(.+)/i, async (msg, match) => {
   }
 });
 
+bot.onText(/\/analyze/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (aiHandler) {
+      await aiHandler.handleAnalyzeCommand(bot, msg);
+    } else {
+      await bot.sendMessage(msg.chat.id, "📊 Financial Analysis - កំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum");
+    }
+  } catch (error) {
+    console.error("Error in /analyze:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
 bot.onText(/\/coach/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    if (aiCommandHandler && aiCommandHandler.getPersonalizedCoaching) {
-      await aiCommandHandler.getPersonalizedCoaching(msg, bot, dbContext);
+    if (aiHandler) {
+      await aiHandler.handleCoachCommand(bot, msg);
     } else {
       const coachMessage = `🎯 AI Coach - ការណែនាំផ្ទាល់ខ្លួន
 
@@ -583,14 +626,33 @@ bot.onText(/\/coach/i, async (msg) => {
   }
 });
 
+bot.onText(/\/find_leaks/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (aiHandler) {
+      await aiHandler.handleFindLeaksCommand(bot, msg);
+    } else {
+      await bot.sendMessage(msg.chat.id, "🔍 Money Leak Detection - កំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum");
+    }
+  } catch (error) {
+    console.error("Error in /find_leaks:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
 bot.onText(/\/ai_help/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
-    const helpMessage = `🤖 Claude AI ជំនួយ
+    if (aiHandler) {
+      await aiHandler.handleAIHelpCommand(bot, msg);
+    } else {
+      const helpMessage = `🤖 Claude AI ជំនួយ
 
 🎯 ពាក្យបញ្ជា AI:
 • /ask [សំណួរ] - សួរ Claude AI អ្វីក៏បាន
+• /analyze - វិភាគហិរញ្ញវត្ថុ
 • /coach - ការណែនាំផ្ទាល់ខ្លួន
+• /find_leaks - រកមើល Money Leaks
 • /ai_help - មើលមេនុនេះ
 
 💡 ឧទាហរណ៍សំណួរ:
@@ -607,7 +669,8 @@ bot.onText(/\/ai_help/i, async (msg) => {
 🚀 ចាប់ផ្តើម: /ask តើខ្ញុំអាចសន្សំបានយ៉ាងណា?
 
 💬 ជំនួយ: @Chendasum`;
-    await bot.sendMessage(msg.chat.id, helpMessage);
+      await bot.sendMessage(msg.chat.id, helpMessage);
+    }
   } catch (error) {
     console.error("Error in /ai_help:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
@@ -672,6 +735,8 @@ app.get("/", (req, res) => {
     financialQuiz ? 'financial-quiz' : null,
     freeTools ? 'free-tools' : null,
     previewCommands ? 'preview' : null,
+    extendedContent ? 'extended-content' : null,
+    aiHandler ? 'ai-handler' : null,
     scheduler ? 'scheduler' : null,
     analytics ? 'analytics' : null,
     celebrations ? 'celebrations' : null,
@@ -679,12 +744,13 @@ app.get("/", (req, res) => {
   ].filter(Boolean);
 
   res.json({
-    status: "7-Day Money Flow Bot - Complete Orchestrator",
-    version: "3.0-complete",
-    mode: "All modules routing",
+    status: "7-Day Money Flow Bot - Complete Orchestrator with AI",
+    version: "3.1-ai-integrated",
+    mode: "All modules routing with AI support",
     modules_loaded: loadedModules.length,
     loaded_modules: loadedModules,
-    architecture: "Complete orchestrator with fallbacks"
+    ai_status: aiHandler ? "active" : "fallback",
+    architecture: "Complete orchestrator with AI integration and fallbacks"
   });
 });
 
@@ -693,7 +759,8 @@ app.get("/health", (req, res) => {
     status: "healthy",
     database: "connected",
     bot: "active",
-    modules: "loaded"
+    modules: "loaded",
+    ai: aiHandler ? "active" : "fallback"
   });
 });
 
@@ -743,9 +810,10 @@ async function startServer() {
   
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`🚀 Complete orchestrator running on port ${PORT}`);
+    console.log(`🚀 Complete orchestrator with AI running on port ${PORT}`);
     console.log("📁 All modules loaded with fallback system");
     console.log("🔌 Commands routed to external modules or fallbacks");
+    console.log(`🤖 AI Integration: ${aiHandler ? 'Active' : 'Fallback Mode'}`);
   });
 }
 
