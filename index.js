@@ -78,22 +78,33 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// ADD THIS: Test database connection
+// FIXED: Test database connection
 async function testDatabaseConnection() {
   try {
-    const result = await db.execute('SELECT 1 as test');
+    // Use proper Drizzle query instead of execute
+    const result = await db.$count(users);
     console.log("✅ Database connection successful");
     return true;
   } catch (error) {
     console.error("❌ Database connection failed:", error.message);
-    return false;
+    
+    // Try alternative connection test
+    try {
+      await pool.query('SELECT 1 as test');
+      console.log("✅ Database pool connection successful");
+      return true;
+    } catch (poolError) {
+      console.error("❌ Pool connection also failed:", poolError.message);
+      return false;
+    }
   }
 }
 
-// ADD THIS: Auto-create tables if they don't exist
+// FIXED: Create tables using proper SQL
 async function createTablesIfNotExists() {
   try {
-    await db.execute(`
+    // Use pool.query instead of db.execute
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         telegram_id BIGINT UNIQUE NOT NULL,
@@ -118,7 +129,7 @@ async function createTablesIfNotExists() {
       )
     `);
     
-    await db.execute(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS progress (
         id SERIAL PRIMARY KEY,
         user_id BIGINT UNIQUE NOT NULL,
