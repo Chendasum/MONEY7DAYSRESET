@@ -140,7 +140,20 @@ async function createTablesIfNotExists() {
       )
     `);
     
-    console.log("✅ Database tables verified/created");
+    // 🔥 ADD THIS: Update existing progress table with missing columns
+    console.log("🔧 Adding missing day completion columns...");
+    await pool.query(`
+      ALTER TABLE progress 
+      ADD COLUMN IF NOT EXISTS day_1_completed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS day_2_completed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS day_3_completed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS day_4_completed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS day_5_completed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS day_6_completed BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS day_7_completed BOOLEAN DEFAULT FALSE
+    `);
+    
+    console.log("✅ Database tables verified/created with all day completion columns");
   } catch (error) {
     console.error("❌ Error creating tables:", error.message);
   }
