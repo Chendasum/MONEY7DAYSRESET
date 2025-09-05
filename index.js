@@ -3006,7 +3006,7 @@ bot.onText(/\/book_capital_assessment/i, async (msg) => {
   }
 });
 
-// Handle /day[1-7] commands: Delivers daily lesson content - FULLY FIXED
+// Handle /day[1-7] commands: Delivers daily lesson content with completion system
 bot.onText(/\/day([1-7])/i, async (msg, match) => {
   console.log(`🎯 /day${match[1]} command received from user ${msg.from.id}`);
   if (isDuplicateMessage(msg)) return;
@@ -3051,9 +3051,11 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
     }
     
     const userCurrentDay = currentProgress?.current_day || 0;
+    const dayCompletedField = `day_${dayNum}_completed`;
+    const isDayCompleted = currentProgress?.[dayCompletedField] || false;
     
-    // 🎯 PROGRESSION LOGIC: Only allow current day or next day
-    if (dayNum > userCurrentDay + 1) {
+    // 🎯 PROGRESSION LOGIC: Only allow current day or next day, unless already completed
+    if (dayNum > userCurrentDay + 1 && !isDayCompleted) {
       await bot.sendMessage(msg.chat.id, 
         `📚 សូមបញ្ចប់ថ្ងៃទី ${userCurrentDay + 1} ជាមុនសិន!\n\n` +
         `🎯 ថ្ងៃបច្ចុប្បន្នរបស់អ្នក: ${userCurrentDay + 1}\n` +
@@ -3071,55 +3073,37 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       await sendLongMessage(bot, msg.chat.id, dayContent);
     }
 
-    // 🎯 CRITICAL FIX: Update progress after content delivery
-    try {
-      const newCurrentDay = Math.max(dayNum + 1, userCurrentDay + 1);
-      const dayCompletedField = `day_${dayNum}_completed`;
-      
-      if (currentProgress) {
-        // Update existing progress
-        await db.update(progress)
-          .set({ 
-            current_day: newCurrentDay,
-            [dayCompletedField]: true,
-            updated_at: new Date()
-          })
-          .where(eq(progress.user_id, msg.from.id));
-        
-        console.log(`✅ Progress updated for user ${msg.from.id}: day ${dayNum} → current_day ${newCurrentDay}`);
-      } else {
-        // Create new progress record
-        const newProgress = {
-          user_id: msg.from.id,
-          current_day: newCurrentDay,
-          [dayCompletedField]: true,
-          created_at: new Date(),
-          updated_at: new Date()
-        };
-        
-        await db.insert(progress).values(newProgress);
-        console.log(`✅ New progress created for user ${msg.from.id}: day ${dayNum} completed`);
-      }
-      
-      // 🎉 Send completion confirmation
+    // 🔐 COMPLETION LOCK SYSTEM: Only show completion instructions, don't auto-advance
+    if (!isDayCompleted) {
       setTimeout(async () => {
-        const completionMessage = `✅ ថ្ងៃទី ${dayNum} បានបញ្ចប់!
+        const completionInstructions = `📝 ដើម្បីបញ្ចប់ថ្ងៃទី ${dayNum}:
 
-📈 ការរីកចម្រើន: ${dayNum}/7 ថ្ងៃ
+🎯 សរសេរ: "DAY ${dayNum} COMPLETE" 
+
+⚠️ ត្រូវតែសរសេរពាក្យនេះដើម្បីចាប់ផ្តើមថ្ងៃបន្ទាប់បាន!
+
+💡 ការបញ្ចប់មានន័យថា:
+✅ អ្នកបានអានមេរៀនពេញលេញ
+✅ អ្នកបានយល់ដឹងអំពីមាតិកា
+✅ អ្នកត្រៀមខ្លួនរួចសម្រាប់ថ្ងៃបន្ទាប់
+
+📖 សរសេរ "DAY ${dayNum} COMPLETE" ដើម្បីបន្ត!`;
+        
+        await bot.sendMessage(msg.chat.id, completionInstructions);
+      }, 5000);
+    } else {
+      // Day already completed, show progress
+      setTimeout(async () => {
+        const alreadyCompletedMessage = `✅ ថ្ងៃទី ${dayNum} បានបញ្ចប់រួចហើយ!
+
+📈 ការរីកចម្រើន: ${Math.min(userCurrentDay, 7)}/7 ថ្ងៃ
 💪 អ្នកកំពុងធ្វើបានល្អ!
 
-${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្ងៃទី ${dayNum + 1}: /day${dayNum + 1}` : '🎊 អបអរសាទរ! បានបញ្ចប់កម្មវិធីពេញលេញ!'}`;
+${dayNum < 7 && userCurrentDay > dayNum ? `🚀 បន្តទៅថ្ងៃទី ${Math.min(userCurrentDay + 1, 7)}: /day${Math.min(userCurrentDay + 1, 7)}` : 
+  dayNum === 7 ? '🎊 អបអរសាទរ! បានបញ្ចប់កម្មវិធីពេញលេញ!' : 
+  `🔄 អ្នកអាចអានម្តងទៀត ឬបន្តទៅថ្ងៃបន្ទាប់`}`;
         
-        await bot.sendMessage(msg.chat.id, completionMessage);
-      }, 3000);
-      
-    } catch (dbError) {
-      console.log("⚠️ Progress update failed:", dbError.message);
-      // Continue anyway - don't block the lesson content
-      
-      // Still send a completion message even if database fails
-      setTimeout(async () => {
-        await bot.sendMessage(msg.chat.id, `✅ ថ្ងៃទី ${dayNum} បានបញ្ចប់! បន្តទៅថ្ងៃបន្ទាប់៖ /day${dayNum + 1}`);
+        await bot.sendMessage(msg.chat.id, alreadyCompletedMessage);
       }, 3000);
     }
 
@@ -3130,85 +3114,141 @@ ${dayNum < 7 ? `🚀 ត្រៀមខ្លួនសម្រាប់ថ្�
         .where(eq(users.telegram_id, msg.from.id));
     } catch (updateError) {
       console.log("⚠️ Failed to update last_active:", updateError.message);
-      // Continue anyway - this is not critical
-    }
-
-    // 🎯 AUTOMATION: Next-day reminders and upsells
-    // Auto next-day reminders (24h delay)
-    if (dayNum < 7) {
-      setTimeout(async () => {
-        try {
-          const nextDay = dayNum + 1;
-          const nextDayMessage = `🌅 ថ្ងៃល្អ ${msg.from.first_name || "មិត្ត"}!
-
-🎯 DAY ${nextDay} បានមកដល់! ត្រៀមខ្លួនសម្រាប់មេរៀនថ្មី!
-
-ចុច /day${nextDay} ដើម្បីចាប់ផ្តើម។
-
-រយៈពេល: ត្រឹមតែ 15-20 នាទីប៉ុណ្ណោះ! 💪`;
-
-          await sendLongMessage(bot, msg.chat.id, nextDayMessage, {}, MESSAGE_CHUNK_SIZE);
-        } catch (reminderError) {
-          console.log(`⚠️ Day ${nextDay} reminder failed:`, reminderError.message);
-        }
-      }, 86400000); // 24 hour delay
-    }
-
-    // Day 3 upsell automation (1h delay)
-    if (dayNum === 3) {
-      setTimeout(async () => {
-        try {
-          const [currentUser] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
-          if (!currentUser || currentUser.tier === "premium" || currentUser.tier === "vip") return;
-
-          const upsellMessage = `🔥 ${msg.from.first_name || "មិត្ត"}, អ្នកកំពុងធ្វើបានល្អ!
-
-បានដឹងទេថា Premium members ទទួលបាន:
-🎯 ការណែនាំផ្ទាល់ខ្លួន
-📊 ឧបករណ៍តាមដាន Financial
-💰 ការចូលដំណើរការ Investment
-🏆 VIP community access
-
-Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
-
-ចុច /pricing សម្រាប់ព័ត៌មានបន្ថែម`;
-
-          await sendLongMessage(bot, msg.chat.id, upsellMessage, {}, MESSAGE_CHUNK_SIZE);
-        } catch (upsellError) {
-          console.log("⚠️ Day 3 upsell failed:", upsellError.message);
-        }
-      }, 3600000); // 1 hour delay
-    }
-
-    // 30-day follow-up automation (after Day 7)
-    if (dayNum === 7) {
-      setTimeout(async () => {
-        try {
-          const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
-
-បាន 30 ថ្ងៃហើយចាប់តាំងពីអ្នកបានបញ្ចប់ 7-Day Money Flow Reset™!
-
-🤔 តើអ្នកសន្សំបានប៉ុន្មាន?
-
-ចូលរួមការស្ទង់មតិរហ័ស (២ នាទី):
-✅ ចែករំលែកលទ្ធផលរបស់អ្នក
-✅ ទទួលបានការណែនាំបន្ថែម
-✅ ជួយកម្មវិធីកាន់តែប្រសើរ
-
-សរសេរលទ្ធផលរបស់អ្នកមកឱ្យខ្ញុំ! 📊
-
-ឧទាហរណ៍: "ខ្ញុំកែប្រែទម្លាប់ការចំណាយបានហើយ!"`;
-
-          await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
-        } catch (followUpError) {
-          console.log("⚠️ 30-day follow-up failed:", followUpError.message);
-        }
-      }, 2592000000); // 30 days delay
     }
 
   } catch (error) {
     console.error("❌ Error in daily command:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
+// 🔐 DAY COMPLETION HANDLER: Handle "DAY X COMPLETE" messages
+bot.on("message", async (msg) => {
+  if (!msg.text || msg.text.startsWith('/')) return;
+  
+  const text = msg.text.toUpperCase().trim();
+  const dayCompleteMatch = text.match(/^DAY\s*(\d+)\s*COMPLETE$/);
+  
+  if (dayCompleteMatch) {
+    const dayNumber = parseInt(dayCompleteMatch[1]);
+    
+    if (dayNumber < 1 || dayNumber > 7) {
+      await bot.sendMessage(msg.chat.id, "❌ សូមបញ្ជាក់ថ្ងៃពី 1 ដល់ 7 ប៉ុណ្ណោះ។");
+      return;
+    }
+    
+    try {
+      // Check user payment status
+      const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+      const isPaid = user?.is_paid === true || user?.is_paid === 't';
+      
+      if (!user || !isPaid) {
+        await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។");
+        return;
+      }
+
+      // Get current progress
+      let currentProgress;
+      try {
+        [currentProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+      } catch (progressError) {
+        currentProgress = null;
+      }
+      
+      const userCurrentDay = currentProgress?.current_day || 0;
+      
+      // Validate that user can complete this day
+      if (dayNumber > userCurrentDay + 1) {
+        await bot.sendMessage(msg.chat.id, 
+          `❌ អ្នកមិនអាចបញ្ចប់ថ្ងៃទី ${dayNumber} នៅឡើយទេ!\n\n` +
+          `📚 សូមបញ្ចប់ថ្ងៃទី ${userCurrentDay + 1} ជាមុនសិន។\n` +
+          `📖 ចុច /day${userCurrentDay + 1} ដើម្បីចាប់ផ្តើម។`
+        );
+        return;
+      }
+
+      // Update progress with completion
+      try {
+        const newCurrentDay = Math.max(dayNumber + 1, userCurrentDay);
+        const dayCompletedField = `day_${dayNumber}_completed`;
+        
+        if (currentProgress) {
+          // Update existing progress
+          await db.update(progress)
+            .set({ 
+              current_day: newCurrentDay,
+              [dayCompletedField]: true,
+              updated_at: new Date()
+            })
+            .where(eq(progress.user_id, msg.from.id));
+        } else {
+          // Create new progress record
+          const newProgress = {
+            user_id: msg.from.id,
+            current_day: newCurrentDay,
+            [dayCompletedField]: true,
+            created_at: new Date(),
+            updated_at: new Date()
+          };
+          
+          await db.insert(progress).values(newProgress);
+        }
+        
+        console.log(`✅ Day ${dayNumber} completed for user ${msg.from.id}`);
+        
+        // Send completion celebration
+        const completionMessage = `🎉 អបអរសាទរ! ថ្ងៃទី ${dayNumber} បានបញ្ចប់!
+
+📈 ការរីកចម្រើន: ${dayNumber}/7 ថ្ងៃ
+💪 អ្នកកំពុងធ្វើបានល្អណាស់!
+
+${dayNumber < 7 ? 
+  `🚀 ត្រៀមខ្លួនសម្រាប់ថ្ងៃទី ${dayNumber + 1}!\n📖 ចុច /day${dayNumber + 1} ដើម្បីចាប់ផ្តើម` : 
+  '🎊 អបអរសាទរ! អ្នកបានបញ្ចប់កម្មវិធីពេញលេញ!\n\nសរសេរ "PROGRAM COMPLETE" ដើម្បីទទួលលទ្ធផលចុងក្រោយ!'
+}`;
+        
+        await bot.sendMessage(msg.chat.id, completionMessage);
+        
+        // Milestone celebrations
+        if (dayNumber === 3) {
+          setTimeout(async () => {
+            await bot.sendMessage(msg.chat.id, 
+              `🔥 អ្នកទទួលបាន Bronze Badge!\n\n` +
+              `🥉 បានបញ្ចប់ ៣ ថ្ងៃ - កំពុងបង្កើតទម្លាប់ល្អ!\n\n` +
+              `💡 បន្តឱ្យបាន ៧ ថ្ងៃ ដើម្បីទទួលបាន Gold Badge!`
+            );
+          }, 2000);
+        }
+        
+        if (dayNumber === 5) {
+          setTimeout(async () => {
+            await bot.sendMessage(msg.chat.id, 
+              `💪 អ្នកទទួលបាន Silver Badge!\n\n` +
+              `🥈 បានបញ្ចប់ ៥ ថ្ងៃ - ការប្តេជ្ញាចិត្តខ្លាំង!\n\n` +
+              `🏆 នៅសល់តែ ២ ថ្ងៃទៀតដើម្បីជា Champion!`
+            );
+          }, 2000);
+        }
+        
+        if (dayNumber === 7) {
+          setTimeout(async () => {
+            await bot.sendMessage(msg.chat.id, 
+              `🏆 អ្នកទទួលបាន Gold Badge!\n\n` +
+              `🥇 Money Flow Master Champion!\n\n` +
+              `🎉 អ្នកឥឡូវនេះមានចំណេះដឹងពេញលេញអំពីការគ្រប់គ្រងលុយ!`
+            );
+          }, 2000);
+        }
+        
+      } catch (dbError) {
+        console.log("⚠️ Progress update failed:", dbError.message);
+        await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការកត់ត្រាការបញ្ចប់។ សូមសាកម្តងទៀត។");
+      }
+      
+    } catch (error) {
+      console.error("❌ Day completion error:", error);
+      await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+    }
   }
 });
 
