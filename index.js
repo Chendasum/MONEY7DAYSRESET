@@ -4104,15 +4104,15 @@ bot.onText(/\/milestones$/i, async (msg) => {
       return;
     }
 
-    let progress;
-    try {
-      progress = await Progress.findOne({ user_id: userId });
-    } catch (error) {
-      console.log("Progress lookup failed, using defaults");
-      progress = null;
-    }
-
-    const currentDay = progress?.current_day || 1;
+let progress;
+try {
+  const [progressResult] = await db.select().from(progress).where(eq(progress.user_id, userId));
+  progress = progressResult;
+} catch (error) {
+  console.log("Progress lookup failed, using defaults");
+  progress = null;
+}
+const currentDay = progress?.current_day || 1;
 
     const milestonesMessage = `🏆 កម្រិតសមិទ្ធិភាព
 
