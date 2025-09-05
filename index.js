@@ -76,6 +76,66 @@ const db = drizzle(pool, { schema: { users, progress } });
 
 console.log("✅ PostgreSQL setup completed - ready for Railway deployment");
 
+// Add this after your database connection setup
+async function createTables() {
+  try {
+    // This will create tables if they don't exist
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        telegram_id BIGINT UNIQUE NOT NULL,
+        username TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        phone_number TEXT,
+        email TEXT,
+        joined_at TIMESTAMP DEFAULT NOW(),
+        is_paid BOOLEAN DEFAULT FALSE,
+        payment_date TIMESTAMP,
+        transaction_id TEXT,
+        is_vip BOOLEAN DEFAULT FALSE,
+        tier TEXT DEFAULT 'free',
+        tier_price INTEGER DEFAULT 0,
+        last_active TIMESTAMP DEFAULT NOW(),
+        timezone TEXT DEFAULT 'Asia/Phnom_Penh',
+        testimonials JSONB,
+        testimonial_requests JSONB,
+        upsell_attempts JSONB,
+        conversion_history JSONB
+      )
+    `);
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS progress (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE NOT NULL,
+        current_day INTEGER DEFAULT 0,
+        ready_for_day_1 BOOLEAN DEFAULT FALSE,
+        day_0_completed BOOLEAN DEFAULT FALSE,
+        day_1_completed BOOLEAN DEFAULT FALSE,
+        day_2_completed BOOLEAN DEFAULT FALSE,
+        day_3_completed BOOLEAN DEFAULT FALSE,
+        day_4_completed BOOLEAN DEFAULT FALSE,
+        day_5_completed BOOLEAN DEFAULT FALSE,
+        day_6_completed BOOLEAN DEFAULT FALSE,
+        day_7_completed BOOLEAN DEFAULT FALSE,
+        program_completed BOOLEAN DEFAULT FALSE,
+        program_completed_at TIMESTAMP,
+        responses JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    console.log("✅ Database tables created/verified");
+  } catch (error) {
+    console.error("❌ Table creation error:", error);
+  }
+}
+
+// Call this function on startup
+createTables();
+
 // Enhanced message sending function with better chunking for Khmer content
 async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
   try {
