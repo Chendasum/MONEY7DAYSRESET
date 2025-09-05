@@ -525,6 +525,95 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
   }
 });
 
+// Route AI commands
+bot.onText(/\/ask\s+(.+)/i, async (msg, match) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (aiCommandHandler && aiCommandHandler.handleQuestion) {
+      await aiCommandHandler.handleQuestion(msg, match[1], bot, dbContext);
+    } else {
+      // Fallback AI response
+      const question = match[1];
+      const response = `🤖 Claude AI ជំនួយ:
+
+សំណួរ: "${question}"
+
+💡 ការឆ្លើយតប: Claude AI កំពុងត្រូវបានកែលម្អ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយផ្ទាល់។
+
+🎯 អ្នកអាចសួរអំពី:
+• ការគ្រប់គ្រងលុយ
+• ការសន្សំ
+• ការវិនិយោគ
+• បញ្ហាហិរញ្ញវត្ថុ
+
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, response);
+    }
+  } catch (error) {
+    console.error("Error in /ask:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
+bot.onText(/\/coach/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (aiCommandHandler && aiCommandHandler.getPersonalizedCoaching) {
+      await aiCommandHandler.getPersonalizedCoaching(msg, bot, dbContext);
+    } else {
+      const coachMessage = `🎯 AI Coach - ការណែនាំផ្ទាល់ខ្លួន
+
+💪 សូមស្វាគមន៍មកកាន់ AI Coach!
+
+📊 បច្ចុប្បន្ន AI Coach កំពុងត្រូវបានអភិវឌ្ឍ។
+
+🎯 អ្នកអាចប្រើ:
+• /ask [សំណួរ] - សួរ Claude AI
+• /help - ជំនួយទូទៅ
+• @Chendasum - ការប្រឹក្សាផ្ទាល់
+
+💡 ឧទាហរណ៍: /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?
+
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, coachMessage);
+    }
+  } catch (error) {
+    console.error("Error in /coach:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
+bot.onText(/\/ai_help/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const helpMessage = `🤖 Claude AI ជំនួយ
+
+🎯 ពាក្យបញ្ជា AI:
+• /ask [សំណួរ] - សួរ Claude AI អ្វីក៏បាន
+• /coach - ការណែនាំផ្ទាល់ខ្លួន
+• /ai_help - មើលមេនុនេះ
+
+💡 ឧទាហរណ៍សំណួរ:
+• /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?
+• /ask ចំណាយអ្វីខ្លះដែលអាចកាត់បន្ថយ?
+• /ask តើធ្វើយ៉ាងណាដើម្បីបង្កើនចំណូល?
+
+🔮 Claude AI ពិសេសបំផុត:
+• ឆ្លាតវៃ និងយល់ពីបរិបទ
+• ការវិភាគហិរញ្ញវត្ថុផ្ទាល់ខ្លួន
+• ការណែនាំតាមស្ថានការណ៍ពិត
+• ជំនួយជាភាសាខ្មែរពេញលេញ
+
+🚀 ចាប់ផ្តើម: /ask តើខ្ញុំអាចសន្សំបានយ៉ាងណា?
+
+💬 ជំនួយ: @Chendasum`;
+    await bot.sendMessage(msg.chat.id, helpMessage);
+  } catch (error) {
+    console.error("Error in /ai_help:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
 // Route text message handling to appropriate modules
 bot.on("message", async (msg) => {
   if (!msg.text || msg.text.startsWith('/')) return;
