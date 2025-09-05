@@ -2058,7 +2058,8 @@ bot.onText(/\/status|ស្ថានភាព/i, async (msg) => {
       return;
     }
 
-    const progress = await Progress.findOne({ user_id: userId });
+    const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+    const userProgress = progress || {};
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
 
     let statusMessage = `📊 ស្ថានភាពគណនីរបស់អ្នក:
