@@ -4086,12 +4086,12 @@ bot.onText(/\/milestones$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-  try {
-    const user = await User.findOne({ telegram_id: userId });
-    if (!user) {
-      await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
-      return;
-    }
+try {
+  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+  if (!user) {
+    await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
+    return;
+  }
 
     const isPaid = user?.is_paid === true || user?.is_paid === 't';
     if (!isPaid) {
