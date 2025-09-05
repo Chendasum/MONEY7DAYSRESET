@@ -3223,20 +3223,29 @@ VIP Advanced Program ចាប់ផ្តើមខែក្រោយ!
 
     await sendLongMessage(bot, msg.chat.id, programCelebration, {}, MESSAGE_CHUNK_SIZE);
 
-    // Update program completion status
-    await Progress.findOneAndUpdate(
-      { user_id: msg.from.id },
-      {
-        program_completed: true,
-        program_completed_at: new Date()
-      },
-      { upsert: true }
-    );
+// Update program completion status
+// Check if progress record exists
+const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
 
-  } catch (error) {
-    console.error("Error in program completion handler:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
+if (existingProgress) {
+  // Update existing progress
+  await db.update(progress)
+    .set({
+      program_completed: true,
+      program_completed_at: new Date()
+    })
+    .where(eq(progress.user_id, msg.from.id));
+} else {
+  // Create new progress record
+  await db.insert(progress).values({
+    user_id: msg.from.id,
+    program_completed: true,
+    program_completed_at: new Date()
+  });
+}
+} catch (error) {
+  console.error("Error in program completion handler:", error);
+  await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
 }
 
 // ADD MISSING TEXT MESSAGE HANDLERS
