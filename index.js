@@ -2993,15 +2993,17 @@ bot.onText(/\/book_capital_assessment/i, async (msg) => {
   }
 });
 
-// Handle /day[1-7] commands: Delivers daily lesson content - WEBHOOK MODE OPTIMIZED
+// Handle /day[1-7] commands: Delivers daily lesson content - FULLY FIXED
 bot.onText(/\/day([1-7])/i, async (msg, match) => {
   console.log(`🎯 /day${match[1]} command received from user ${msg.from.id}`);
   if (isDuplicateMessage(msg)) return;
   
   try {
     console.log(`🔍 Looking up user ${msg.from.id} in database...`);
-    // FIXED: Use correct PostgreSQL field names
+    
+    // FIXED: Use correct Drizzle syntax
     const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+    
     console.log(`📊 User lookup result:`, {
       found: !!user,
       id: user?.telegram_id,
@@ -3017,14 +3019,21 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       tier: user?.tier,
     });
 
-    // FIXED: Check is_paid properly (PostgreSQL stores as 't'/'f' strings)
-    const isPaid = user?.is_paid === true || user?.is_paid === "t";
+    // Check if user exists and is paid
+    if (!user) {
+      await bot.sendMessage(msg.chat.id, "🔒 សូមចុះឈ្មោះជាមុនសិន។ ប្រើ /start ដើម្បីចាប់ផ្តើម។");
+      return;
+    }
 
-    if (!user || !isPaid) {
+    // Check payment status (PostgreSQL stores boolean as true/false or 't'/'f')
+    const isPaid = user?.is_paid === true || user?.is_paid === 't';
+    
+    if (!isPaid) {
       await bot.sendMessage(msg.chat.id, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
       return;
     }
 
+    // Try to use daily commands module if available
     if (dailyCommands && dailyCommands.handle) {
       await dailyCommands.handle(msg, match, bot);
     } else {
@@ -3032,48 +3041,82 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
       const dayContent = getDailyContent(parseInt(match[1]));
       await sendLongMessage(bot, msg.chat.id, dayContent);
       
-      // Update progress with safe field names
+      // FIXED: Update progress using Drizzle syntax
       try {
         const dayNum = parseInt(match[1]);
-        const currentProgress = await Progress.findOne({ user_id: msg.from.id });
         
-        await Progress.findOneAndUpdate(
-          { user_id: msg.from.id },
-          {
-            current_day: Math.max(dayNum, currentProgress?.current_day || 0)
-          },
-          { upsert: true }
-        );
-        console.log(`Progress updated for user ${msg.from.id}, day ${dayNum}`);
+        // Get current progress using Drizzle
+        const [currentProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+        
+        const newCurrentDay = Math.max(dayNum, currentProgress?.current_day || 0);
+        
+        if (currentProgress) {
+          // Update existing progress
+          await db.update(progress)
+            .set({ 
+              current_day: newCurrentDay,
+              updated_at: new Date()
+            })
+            .where(eq(progress.user_id, msg.from.id));
+        } else {
+          // Create new progress record
+          await db.insert(progress).values({
+            user_id: msg.from.id,
+            current_day: newCurrentDay,
+            created_at: new Date(),
+            updated_at: new Date()
+          });
+        }
+        
+        console.log(`✅ Progress updated for user ${msg.from.id}, day ${dayNum}`);
+        
       } catch (dbError) {
-        console.log("Progress update skipped (fallback mode):", dbError.message);
+        console.log("⚠️ Progress update failed:", dbError.message);
+        // Continue anyway - don't block the lesson content
       }
     }
 
-    // ADD MISSING AUTOMATION: Auto next-day reminders (24h delay)
+    // Update user's last active timestamp
+    try {
+      await db.update(users)
+        .set({ last_active: new Date() })
+        .where(eq(users.telegram_id, msg.from.id));
+    } catch (updateError) {
+      console.log("⚠️ Failed to update last_active:", updateError.message);
+      // Continue anyway - this is not critical
+    }
+
+    // FIXED: Add missing automation with proper try blocks
     const dayNum = parseInt(match[1]);
+
+    // Auto next-day reminders (24h delay)
     if (dayNum < 7) {
       setTimeout(async () => {
-        const nextDay = dayNum + 1;
-        const nextDayMessage = `🌅 ថ្ងៃល្អ ${msg.from.first_name || "មិត្ត"}!
+        try {
+          const nextDay = dayNum + 1;
+          const nextDayMessage = `🌅 ថ្ងៃល្អ ${msg.from.first_name || "មិត្ត"}!
 
 🎯 DAY ${nextDay} បានមកដល់! ត្រៀមខ្លួនសម្រាប់មេរៀនថ្មី!
 
 ចុច /day${nextDay} ដើម្បីចាប់ផ្តើម។
 
-រយៈពេល: ត្រឹមតែ ១៥-២០ នាទីប៉ុណ្ណោះ! 💪`;
+រយៈពេល: ត្រឹមតែ 15-20 នាទីប៉ុណ្ណោះ! 💪`;
 
-        await sendLongMessage(bot, msg.chat.id, nextDayMessage, {}, MESSAGE_CHUNK_SIZE);
+          await sendLongMessage(bot, msg.chat.id, nextDayMessage, {}, MESSAGE_CHUNK_SIZE);
+        } catch (reminderError) {
+          console.log(`⚠️ Day ${nextDay} reminder failed:`, reminderError.message);
+        }
       }, 86400000); // 24 hour delay
     }
 
-    // ADD MISSING AUTOMATION: Day 3 upsell automation (1h delay)
+    // Day 3 upsell automation (1h delay)
     if (dayNum === 3) {
       setTimeout(async () => {
-        const [user] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
-        if (!user || user.tier === "premium" || user.tier === "vip") return;
+        try {
+          const [currentUser] = await db.select().from(users).where(eq(users.telegram_id, msg.from.id));
+          if (!currentUser || currentUser.tier === "premium" || currentUser.tier === "vip") return;
 
-        const upsellMessage = `🔥 ${msg.from.first_name || "មិត្ត"}, អ្នកកំពុងធ្វើបានល្អ!
+          const upsellMessage = `🔥 ${msg.from.first_name || "មិត្ត"}, អ្នកកំពុងធ្វើបានល្អ!
 
 បានដឹងទេថា Premium members ទទួលបាន:
 🎯 ការណែនាំផ្ទាល់ខ្លួន
@@ -3085,21 +3128,25 @@ Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
 
 ចុច /pricing សម្រាប់ព័ត៌មានបន្ថែម`;
 
-        await sendLongMessage(bot, msg.chat.id, upsellMessage, {}, MESSAGE_CHUNK_SIZE);
+          await sendLongMessage(bot, msg.chat.id, upsellMessage, {}, MESSAGE_CHUNK_SIZE);
+        } catch (upsellError) {
+          console.log("⚠️ Day 3 upsell failed:", upsellError.message);
+        }
       }, 3600000); // 1 hour delay
     }
 
-    // ADD MISSING AUTOMATION: 30-day follow-up automation (after Day 7)
+    // 30-day follow-up automation (after Day 7)
     if (dayNum === 7) {
       setTimeout(async () => {
-        const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
+        try {
+          const followUpMessage = `👋 ${msg.from.first_name || "មិត្ត"}!
 
 បាន 30 ថ្ងៃហើយចាប់តាំងពីអ្នកបានបញ្ចប់ 7-Day Money Flow Reset™!
 
 🤔 តើអ្នកសន្សំបានប៉ុន្មាន?
 
 ចូលរួមការស្ទង់មតិរហ័ស (២ នាទី):
-✅ ចែករំលលទ្ធផលរបស់អ្នក
+✅ ចែករំលែកលទ្ធផលរបស់អ្នក
 ✅ ទទួលបានការណែនាំបន្ថែម
 ✅ ជួយកម្មវិធីកាន់តែប្រសើរ
 
@@ -3107,11 +3154,15 @@ Upgrade ទៅ Premium ($97) ឥឡូវនេះ!
 
 ឧទាហរណ៍: "ខ្ញុំកែប្រែទម្លាប់ការចំណាយបានហើយ!"`;
 
-        await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
+          await sendLongMessage(bot, msg.chat.id, followUpMessage, {}, MESSAGE_CHUNK_SIZE);
+        } catch (followUpError) {
+          console.log("⚠️ 30-day follow-up failed:", followUpError.message);
+        }
       }, 2592000000); // 30 days delay
     }
+
   } catch (error) {
-    console.error("Error in daily command:", error);
+    console.error("❌ Error in daily command:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
   }
 });
