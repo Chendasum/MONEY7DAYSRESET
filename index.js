@@ -1,9 +1,10 @@
 require("dotenv").config();
+
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
 
-console.log("🚀 Starting 7-Day Money Flow Bot with PostgreSQL on Railway...");
+console.log("🚀 Starting 7-Day Money Flow Bot with Full Features on Railway...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
 
@@ -12,9 +13,7 @@ process.env.NODE_ICU_DATA = "/usr/share/nodejs/node-icu-data";
 process.env.LANG = "en_US.UTF-8";
 
 // Constants for message handling
-const MESSAGE_CHUNK_SIZE = 4090;
-
-console.log("🔍 Setting up PostgreSQL connection for Railway...");
+const MESSAGE_CHUNK_SIZE = 4090; // Maximum safe message size for Khmer text (near Telegram's 4096 limit)
 
 // Database connection setup for Railway deployment
 const { drizzle } = require('drizzle-orm/node-postgres');
@@ -22,7 +21,9 @@ const { Pool } = require('pg');
 const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
 const { eq } = require('drizzle-orm');
 
-// Database Schema
+console.log("🔍 Setting up database connection for Railway...");
+
+// Database Schema (embedded for Railway deployment)
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
   telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
@@ -73,8 +74,6 @@ const pool = new Pool({
 });
 
 const db = drizzle(pool, { schema: { users, progress } });
-
-console.log("✅ PostgreSQL setup completed - ready for Railway deployment");
 
 // Enhanced message sending function with better chunking for Khmer content
 async function sendLongMessage(bot, chatId, message, options = {}, chunkSize = MESSAGE_CHUNK_SIZE) {
