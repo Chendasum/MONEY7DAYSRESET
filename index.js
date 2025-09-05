@@ -3288,12 +3288,24 @@ bot.on("message", async (msg) => {
         return;
       }
 
-      console.log(`✅ Updating ready_for_day_1 for user ${msg.from.id}`);
-      await Progress.findOneAndUpdate(
-        { user_id: msg.from.id },
-        { ready_for_day_1: true, current_day: 1 },
-        { upsert: true }
-      );
+console.log(`✅ Updating ready_for_day_1 for user ${msg.from.id}`);
+
+// Check if progress record exists
+const [existingProgress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+
+if (existingProgress) {
+  // Update existing progress
+  await db.update(progress)
+    .set({ ready_for_day_1: true, current_day: 1 })
+    .where(eq(progress.user_id, msg.from.id));
+} else {
+  // Create new progress record
+  await db.insert(progress).values({
+    user_id: msg.from.id,
+    ready_for_day_1: true,
+    current_day: 1
+  });
+}
 
       const readyMessage = `🎉 ល្អណាស់! អ្នកត្រៀមរួចសម្រាប់ការដំណើរ!
 
