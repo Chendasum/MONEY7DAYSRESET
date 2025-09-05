@@ -3682,9 +3682,8 @@ ${dbTime < 50 ? '🏆 Excellent' : dbTime < 100 ? '✅ Good' : '⚠️ Needs att
 bot.onText(/\/wisdom$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-
   try {
-    const user = await User.findOne({ telegram_id: userId });
+    const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
     if (!user) {
       await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើម។");
       return;
