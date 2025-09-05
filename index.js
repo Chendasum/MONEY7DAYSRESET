@@ -1,10 +1,10 @@
 require("dotenv").config();
-
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
+const mongoose = require('mongoose');
 
-console.log("🚀 Starting 7-Day Money Flow Bot with Full Features on Railway...");
+console.log("🚀 Starting 7-Day Money Flow Bot with MongoDB on Railway...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("PORT:", process.env.PORT || 5000);
 
@@ -15,67 +15,314 @@ process.env.LANG = "en_US.UTF-8";
 // Constants for message handling
 const MESSAGE_CHUNK_SIZE = 4090; // Maximum safe message size for Khmer text (near Telegram's 4096 limit)
 
-// Database connection setup for Railway deployment
-const { drizzle } = require('drizzle-orm/node-postgres');
-const { Pool } = require('pg');
-const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
-const { eq } = require('drizzle-orm');
+console.log("🔍 Setting up MongoDB connection for Railway...");
 
-console.log("🔍 Setting up database connection for Railway...");
-
-// Database Schema (embedded for Railway deployment)
-const users = pgTable('users', {
-  id: serial('id').primaryKey(),
-  telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
-  username: text('username'),
-  first_name: text('first_name'),
-  last_name: text('last_name'),
-  phone_number: text('phone_number'),
-  email: text('email'),
-  joined_at: timestamp('joined_at').defaultNow(),
-  is_paid: boolean('is_paid').default(false),
-  payment_date: timestamp('payment_date'),
-  transaction_id: text('transaction_id'),
-  is_vip: boolean('is_vip').default(false),
-  tier: text('tier').default('free'),
-  tier_price: integer('tier_price').default(0),
-  last_active: timestamp('last_active').defaultNow(),
-  timezone: text('timezone').default('Asia/Phnom_Penh'),
-  testimonials: jsonb('testimonials'),
-  testimonial_requests: jsonb('testimonial_requests'),
-  upsell_attempts: jsonb('upsell_attempts'),
-  conversion_history: jsonb('conversion_history'),
+// MongoDB Schema Definitions
+const userSchema = new mongoose.Schema({
+  telegram_id: { 
+    type: Number, 
+    required: true, 
+    unique: true,
+    index: true 
+  },
+  username: { type: String, default: null },
+  first_name: { type: String, default: null },
+  last_name: { type: String, default: null },
+  phone_number: { type: String, default: null },
+  email: { type: String, default: null },
+  joined_at: { type: Date, default: Date.now },
+  is_paid: { type: Boolean, default: false },
+  payment_date: { type: Date, default: null },
+  transaction_id: { type: String, default: null },
+  is_vip: { type: Boolean, default: false },
+  tier: { type: String, default: 'free' },
+  tier_price: { type: Number, default: 0 },
+  last_active: { type: Date, default: Date.now },
+  timezone: { type: String, default: 'Asia/Phnom_Penh' },
+  testimonials: { type: mongoose.Schema.Types.Mixed, default: null },
+  testimonial_requests: { type: mongoose.Schema.Types.Mixed, default: null },
+  upsell_attempts: { type: mongoose.Schema.Types.Mixed, default: null },
+  conversion_history: { type: mongoose.Schema.Types.Mixed, default: null }
+}, {
+  timestamps: true, // Automatically adds createdAt and updatedAt
+  collection: 'users'
 });
 
-const progress = pgTable('progress', {
-  id: serial('id').primaryKey(),
-  user_id: bigint('user_id', { mode: 'number' }).notNull().unique(),
-  current_day: integer('current_day').default(0),
-  ready_for_day_1: boolean('ready_for_day_1').default(false),
-  day_0_completed: boolean('day_0_completed').default(false),
-  day_1_completed: boolean('day_1_completed').default(false),
-  day_2_completed: boolean('day_2_completed').default(false),
-  day_3_completed: boolean('day_3_completed').default(false),
-  day_4_completed: boolean('day_4_completed').default(false),
-  day_5_completed: boolean('day_5_completed').default(false),
-  day_6_completed: boolean('day_6_completed').default(false),
-  day_7_completed: boolean('day_7_completed').default(false),
-  program_completed: boolean('program_completed').default(false),
-  program_completed_at: timestamp('program_completed_at'),
-  responses: jsonb('responses'),
-  created_at: timestamp('created_at').defaultNow(),
-  updated_at: timestamp('updated_at').defaultNow(),
+const progressSchema = new mongoose.Schema({
+  user_id: { 
+    type: Number, 
+    required: true, 
+    unique: true,
+    index: true 
+  },
+  current_day: { type: Number, default: 0 },
+  ready_for_day_1: { type: Boolean, default: false },
+  day_0_completed: { type: Boolean, default: false },
+  day_1_completed: { type: Boolean, default: false },
+  day_2_completed: { type: Boolean, default: false },
+  day_3_completed: { type: Boolean, default: false },
+  day_4_completed: { type: Boolean, default: false },
+  day_5_completed: { type: Boolean, default: false },
+  day_6_completed: { type: Boolean, default: false },
+  day_7_completed: { type: Boolean, default: false },
+  program_completed: { type: Boolean, default: false },
+  program_completed_at: { type: Date, default: null },
+  responses: { type: mongoose.Schema.Types.Mixed, default: null }
+}, {
+  timestamps: true, // Automatically adds createdAt and updatedAt
+  collection: 'progress'
 });
 
-// Database Connection Pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+// Create MongoDB Models
+let User, Progress, db;
+
+// MongoDB Connection Function
+async function connectMongoDB() {
+  try {
+    // Check for MongoDB URL in Railway environment variables
+    const mongoUrl = process.env.MONGO_URL || 
+                     process.env.DATABASE_URL || 
+                     process.env.MONGODB_URI ||
+                     process.env.MONGODB_URL;
+    
+    console.log("🔍 Checking MongoDB connection strings...");
+    console.log("MONGO_URL exists:", !!process.env.MONGO_URL);
+    console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    
+    if (!mongoUrl) {
+      throw new Error("❌ No MongoDB URL found in environment variables. Please set MONGO_URL or DATABASE_URL in Railway.");
+    }
+
+    // Validate MongoDB URL format
+    if (!mongoUrl.includes('mongodb://') && !mongoUrl.includes('mongodb+srv://')) {
+      console.log("⚠️ URL doesn't contain mongodb://, might be PostgreSQL URL");
+      throw new Error("❌ Invalid MongoDB URL format. Expected mongodb:// or mongodb+srv://");
+    }
+
+    console.log("🔗 Connecting to MongoDB...");
+    console.log("📍 URL format:", mongoUrl.substring(0, 20) + "...");
+
+    // Connect to MongoDB with Railway-optimized settings
+    await mongoose.connect(mongoUrl, {
+      maxPoolSize: 10, // Railway connection limit
+      serverSelectionTimeoutMS: 5000, // Keep this short for Railway
+      socketTimeoutMS: 45000,
+      family: 4 // Use IPv4, skip trying IPv6
+    });
+
+    console.log("✅ MongoDB connected successfully (Railway internal)");
+    
+    // Create models after connection
+    User = mongoose.model('User', userSchema);
+    Progress = mongoose.model('Progress', progressSchema);
+    
+    // Test the connection with a simple query
+    await User.countDocuments();
+    console.log("✅ MongoDB models created and tested successfully");
+    
+    // Set db reference for compatibility
+    db = mongoose.connection;
+    
+    return true;
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error.message);
+    
+    // Provide helpful debugging info
+    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+      console.log("🔧 Network connection failed. Possible issues:");
+      console.log("   - MongoDB service not running in Railway");
+      console.log("   - Incorrect URL in environment variables");
+      console.log("   - Network connectivity issues");
+    }
+    
+    if (error.message.includes('authentication failed')) {
+      console.log("🔧 Authentication failed. Check username/password in URL");
+    }
+    
+    return false;
+  }
+}
+
+// Mongoose Model Wrapper Classes (for compatibility with existing code)
+class UserModel {
+  static async findOne(condition) {
+    try {
+      if (!User) {
+        console.log("⚠️ User model not initialized, attempting reconnection...");
+        await connectMongoDB();
+      }
+      
+      if (condition.telegram_id || condition.telegramId) {
+        const telegramId = condition.telegram_id || condition.telegramId;
+        const result = await User.findOne({ telegram_id: telegramId });
+        return result;
+      }
+      
+      return await User.findOne(condition);
+    } catch (error) {
+      console.error('❌ MongoDB error in User.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    try {
+      if (!User) {
+        console.log("⚠️ User model not initialized, attempting reconnection...");
+        await connectMongoDB();
+      }
+      
+      const { upsert = false, new: returnNew = true } = options;
+      
+      if (condition.telegram_id || condition.telegramId) {
+        const telegramId = condition.telegram_id || condition.telegramId;
+        
+        // Clean up updates object - remove invalid fields
+        const validUpdates = { ...updates };
+        delete validUpdates.$inc; // Remove MongoDB operators that might cause issues
+        
+        // Always update last_active
+        validUpdates.last_active = new Date();
+        
+        const result = await User.findOneAndUpdate(
+          { telegram_id: telegramId },
+          validUpdates,
+          { upsert, new: returnNew }
+        );
+        
+        return result;
+      }
+      
+      return await User.findOneAndUpdate(condition, updates, { upsert, new: returnNew });
+    } catch (error) {
+      console.error('❌ MongoDB error in User.findOneAndUpdate:', error.message);
+      return null;
+    }
+  }
+
+  static async find(condition = {}) {
+    try {
+      if (!User) {
+        await connectMongoDB();
+      }
+      return await User.find(condition);
+    } catch (error) {
+      console.error('❌ MongoDB error in User.find:', error.message);
+      return [];
+    }
+  }
+
+  static async countDocuments(condition = {}) {
+    try {
+      if (!User) {
+        await connectMongoDB();
+      }
+      return await User.countDocuments(condition);
+    } catch (error) {
+      console.error('❌ MongoDB error in User.countDocuments:', error.message);
+      return 0;
+    }
+  }
+}
+
+class ProgressModel {
+  static async findOne(condition) {
+    try {
+      if (!Progress) {
+        console.log("⚠️ Progress model not initialized, attempting reconnection...");
+        await connectMongoDB();
+      }
+      
+      if (condition.userId || condition.user_id) {
+        const userId = condition.userId || condition.user_id;
+        const result = await Progress.findOne({ user_id: userId });
+        return result;
+      }
+      
+      return await Progress.findOne(condition);
+    } catch (error) {
+      console.error('❌ MongoDB error in Progress.findOne:', error.message);
+      return null;
+    }
+  }
+
+  static async findOneAndUpdate(condition, updates, options = {}) {
+    try {
+      if (!Progress) {
+        console.log("⚠️ Progress model not initialized, attempting reconnection...");
+        await connectMongoDB();
+      }
+      
+      const { upsert = false, new: returnNew = true } = options;
+      
+      if (condition.userId || condition.user_id) {
+        const userId = condition.userId || condition.user_id;
+        
+        // Clean up updates object
+        const validUpdates = { ...updates };
+        delete validUpdates.$inc;
+        
+        // Always update timestamp
+        validUpdates.updatedAt = new Date();
+        
+        const result = await Progress.findOneAndUpdate(
+          { user_id: userId },
+          validUpdates,
+          { upsert, new: returnNew }
+        );
+        
+        return result;
+      }
+      
+      return await Progress.findOneAndUpdate(condition, updates, { upsert, new: returnNew });
+    } catch (error) {
+      console.error('❌ MongoDB error in Progress.findOneAndUpdate:', error.message);
+      return null;
+    }
+  }
+
+  static async find(condition = {}) {
+    try {
+      if (!Progress) {
+        await connectMongoDB();
+      }
+      return await Progress.find(condition);
+    } catch (error) {
+      console.error('❌ MongoDB error in Progress.find:', error.message);
+      return [];
+    }
+  }
+
+  static async countDocuments(condition = {}) {
+    try {
+      if (!Progress) {
+        await connectMongoDB();
+      }
+      return await Progress.countDocuments(condition);
+    } catch (error) {
+      console.error('❌ MongoDB error in Progress.countDocuments:', error.message);
+      return 0;
+    }
+  }
+}
+
+// Export the models for compatibility with existing code
+const UserCompatible = UserModel;
+const ProgressCompatible = ProgressModel;
+
+// Initialize MongoDB connection immediately
+console.log("🚀 Initializing MongoDB connection...");
+connectMongoDB().then(success => {
+  if (success) {
+    console.log("🎉 MongoDB initialization completed successfully");
+  } else {
+    console.log("⚠️ MongoDB initialization failed, bot will run with limited functionality");
+  }
+}).catch(err => {
+  console.error("💥 MongoDB initialization error:", err.message);
 });
 
-const db = drizzle(pool, { schema: { users, progress } });
-
-console.log("🤖 Initializing Claude AI Integration for Smart Money Flow...");
+console.log("✅ MongoDB setup completed - models and connections ready");
 
 // Import Claude AI services
 let aiService = null;
@@ -5874,263 +6121,3 @@ Maximum 250 words in Khmer.`;
 aiAvailable = !!anthropicClient;
 
 console.log(`🎯 Improved Claude AI Service loaded - Status: ${aiAvailable ? 'ENABLED' : 'DISABLED'}`);
-// ADD THIS TO THE TOP OF YOUR EXISTING index.js (after require statements)
-
-// Database health check and fallback system
-let isDatabaseHealthy = false;
-let lastDatabaseCheck = 0;
-const DATABASE_CHECK_INTERVAL = 30000; // 30 seconds
-
-async function checkDatabaseHealth() {
-  const now = Date.now();
-  
-  // Only check every 30 seconds to avoid spam
-  if (now - lastDatabaseCheck < DATABASE_CHECK_INTERVAL) {
-    return isDatabaseHealthy;
-  }
-  
-  try {
-    // Try a simple query
-    await pool.query('SELECT NOW()');
-    isDatabaseHealthy = true;
-    lastDatabaseCheck = now;
-    console.log("✅ Database is healthy");
-    return true;
-  } catch (error) {
-    isDatabaseHealthy = false;
-    lastDatabaseCheck = now;
-    
-    if (error.message.includes("endpoint has been disabled")) {
-      console.log("❌ Neon database endpoint is disabled");
-      console.log("🔗 Enable it at: https://console.neon.tech");
-    } else {
-      console.log("❌ Database connection failed:", error.message);
-    }
-    return false;
-  }
-}
-
-// Safe database operations with fallback
-async function safeUserQuery(operation, params = {}) {
-  try {
-    const isHealthy = await checkDatabaseHealth();
-    
-    if (!isHealthy) {
-      console.log("Database unhealthy, using fallback data");
-      return getFallbackUserData(operation, params);
-    }
-    
-    // If database is healthy, proceed with normal operation
-    switch (operation) {
-      case 'findUser':
-        return await User.findOne({ telegram_id: params.telegram_id });
-      case 'getAllUsers':
-        return await db.select().from(users).orderBy(users.joined_at);
-      case 'getUserStats':
-        const allUsers = await db.select().from(users);
-        return {
-          total: allUsers.length,
-          paid: allUsers.filter(u => u.is_paid === true || u.is_paid === 't').length,
-          vip: allUsers.filter(u => u.is_vip === true || u.is_vip === 't').length
-        };
-      default:
-        return null;
-    }
-  } catch (error) {
-    console.log(`Database operation '${operation}' failed:`, error.message);
-    return getFallbackUserData(operation, params);
-  }
-}
-
-// Fallback data when database is down
-function getFallbackUserData(operation, params = {}) {
-  switch (operation) {
-    case 'findUser':
-      // Return admin user if it's the admin ID
-      if (params.telegram_id === 484389665) {
-        return {
-          telegram_id: 484389665,
-          first_name: "Admin",
-          is_paid: true,
-          is_vip: true,
-          tier: "admin",
-          joined_at: new Date()
-        };
-      }
-      // Return null for other users when DB is down
-      return null;
-      
-    case 'getAllUsers':
-      // Return sample data
-      return [
-        {
-          telegram_id: 484389665,
-          first_name: "Admin",
-          last_name: "User",
-          is_paid: true,
-          is_vip: true,
-          tier: "admin",
-          joined_at: new Date()
-        }
-      ];
-      
-    case 'getUserStats':
-      return {
-        total: 1,
-        paid: 1,
-        vip: 1,
-        revenue: 24
-      };
-      
-    default:
-      return null;
-  }
-}
-
-// REPLACE YOUR EXISTING ADMIN COMMANDS WITH THESE SAFE VERSIONS:
-
-// Replace your /admin_users handler with this:
-bot.onText(/\/admin_users/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  
-  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-  const secondaryAdminId = 484389665;
-  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
-    return;
-  }
-  
-  try {
-    console.log("👥 Admin requesting user list with database safety check");
-    
-    // Use safe database query
-    const isHealthy = await checkDatabaseHealth();
-    
-    if (!isHealthy) {
-      const fallbackMessage = `📊 ADMIN - បញ្ជីអ្នកប្រើប្រាស់ (Database Offline)
-
-⚠️ ការតភ្ជាប់មូលដ្ឋានទិន្នន័យមានបញ្ហា
-🔗 សូមបើក database នៅ: https://console.neon.tech
-
-📈 ទិន្នន័យបណ្តោះអាសន្ន:
-• អ្នកប្រើប្រាស់សរុប: ការទាញយកមិនបាន
-• បានទូទាត់: ការទាញយកមិនបាន
-• VIP: ការទាញយកមិនបាន
-
-🔧 ដំណោះស្រាយ:
-1. បើក https://console.neon.tech
-2. រកឃើញ project របស់អ្នក
-3. ចុច "Enable" database endpoint
-4. រង់ចាំ 1-2 នាទី
-5. សាកល្បង /admin_users ម្តងទៀត
-
-💡 ឬប្រើ MongoDB ជំនួស PostgreSQL`;
-
-      await sendLongMessage(bot, msg.chat.id, fallbackMessage);
-      return;
-    }
-    
-    // If database is healthy, proceed normally
-    const allUsers = await safeUserQuery('getAllUsers');
-    const stats = await safeUserQuery('getUserStats');
-    
-    let response = `📊 ADMIN - បញ្ជីអ្នកប្រើប្រាស់
-
-📈 សង្ខេប:
-• អ្នកប្រើប្រាស់សរុប: ${stats.total}
-• បានទូទាត់: ${stats.paid}
-• VIP: ${stats.vip}  
-• ចំណូលសរុប: $${stats.revenue || 0}
-
-👥 អ្នកប្រើប្រាស់ថ្មីៗ:
-
-`;
-
-    const recentUsers = allUsers.slice(-5).reverse();
-    recentUsers.forEach((user, index) => {
-      const status = user.is_paid === true || user.is_paid === 't' ? '✅ បានទូទាត់' : '❌ មិនទាន់ទូទាត់';
-      response += `${index + 1}. ${user.first_name} ${user.last_name || ''}\n`;
-      response += `   ID: ${user.telegram_id}\n`;
-      response += `   ស្ថានភាព: ${status}\n\n`;
-    });
-    
-    response += `💡 Database: ✅ Healthy & Connected`;
-    
-    await sendLongMessage(bot, msg.chat.id, response);
-    
-  } catch (e) {
-    console.error("Error /admin_users:", e);
-    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហា: ${e.message}\n\n🔗 បើក database នៅ: https://console.neon.tech`);
-  }
-});
-
-// Replace your /admin_analytics handler with this:
-bot.onText(/\/admin_analytics/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  
-  const adminId = parseInt(process.env.ADMIN_CHAT_ID);
-  const secondaryAdminId = 484389665;
-  if (![adminId, secondaryAdminId].includes(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "🚫 អ្នកមិនមានសិទ្ធិ Admin។");
-    return;
-  }
-  
-  try {
-    console.log("📊 Admin requesting analytics with database safety check");
-    
-    const isHealthy = await checkDatabaseHealth();
-    
-    if (!isHealthy) {
-      const fallbackMessage = `📊 ADMIN - ការវិភាគទិន្នន័យ (Database Offline)
-
-⚠️ ការតភ្ជាប់មូលដ្ឋានទិន្នន័យមានបញ្ហា
-
-🔧 ដំណោះស្រាយ:
-1. បើក https://console.neon.tech
-2. រកឃើញ project របស់អ្នក  
-3. ចុច "Enable" database endpoint
-4. អាចចំណាយពេល 1-2 នាទី
-5. សាកល្បង /admin_analytics ម្តងទៀត
-
-📱 System Status:
-• Bot: ✅ Online
-• Database: ❌ Neon endpoint disabled
-• Commands: ✅ Working (with fallbacks)
-
-💡 Alternative: Switch to MongoDB for better reliability`;
-
-      await sendLongMessage(bot, msg.chat.id, fallbackMessage);
-      return;
-    }
-    
-    // If database is healthy, get real analytics
-    const stats = await safeUserQuery('getUserStats');
-    
-    const response = `📊 ADMIN - ការវិភាគទិន្នន័យ
-
-👥 អ្នកប្រើប្រាស់:
-• សរុប: ${stats.total} នាក់
-• បានទូទាត់: ${stats.paid} នាក់
-• VIP: ${stats.vip} នាក់
-
-💰 ចំណូល:
-• ចំណូលសរុប: $${stats.revenue || 0}
-• អត្រាបម្លែង: ${stats.total > 0 ? ((stats.paid/stats.total)*100).toFixed(1) : 0}%
-
-💾 Database: ✅ PostgreSQL Connected & Healthy
-🕒 ពេលវេលា: ${new Date().toLocaleString()}`;
-    
-    await sendLongMessage(bot, msg.chat.id, response);
-    
-  } catch (e) {
-    console.error("Error /admin_analytics:", e);
-    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហា: ${e.message}\n\n🔗 បើក database នៅ: https://console.neon.tech`);
-  }
-});
-
-// Safe user lookup for daily commands
-async function safeUserLookup(telegram_id) {
-  return await safeUserQuery('findUser', { telegram_id });
-}
-
-console.log("✅ Database safety system loaded - handles Neon endpoint issues gracefully");
