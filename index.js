@@ -1761,7 +1761,8 @@ bot.onText(/\/badges/i, async (msg) => {
     if (badgesCommands && badgesCommands.showBadges) {
       await badgesCommands.showBadges(msg, bot);
     } else {
-      const progress = await Progress.findOne({ user_id: msg.from.id }) || {};
+      const [progress] = await db.select().from(progress).where(eq(progress.user_id, msg.from.id));
+      const userProgress = progress || {};
       let badgesMessage = `🏆 សមិទ្ធផលរបស់អ្នក (Badges)
 
 🎖️ Badges ដែលទទួលបាន:
