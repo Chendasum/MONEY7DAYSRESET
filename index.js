@@ -3995,12 +3995,12 @@ bot.onText(/\/book_consultation$/i, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-  try {
-    const user = await User.findOne({ telegram_id: userId });
-    if (!user || !(user.is_paid === true || user.is_paid === 't')) {
-      await bot.sendMessage(chatId, "🔒 ការកក់ការពិគ្រោះ សម្រាប់តែសមាជិក។");
-      return;
-    }
+try {
+  const [user] = await db.select().from(users).where(eq(users.telegram_id, userId));
+  if (!user || !(user.is_paid === true || user.is_paid === 't')) {
+    await bot.sendMessage(chatId, "🔒 ការកក់ការពិគ្រោះ សម្រាប់តែសមាជិក។");
+    return;
+  }
 
     const consultationBooking = `📞 VIP CONSULTATION BOOKING
 
