@@ -26,38 +26,33 @@ class AICommandHandler {
     }
 
     // 💬 Handle /ask command - General AI Chat
-    async handleAskCommand(bot, msg) {
-        const chatId = msg.chat.id;
-        const userId = msg.from.id;
-        const question = msg.text.replace('/ask', '').trim();
+async handleAskCommand(bot, msg) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const question = msg.text.replace('/ask', '').trim();
 
-        try {
-            // Validate input
-            if (!question) {
-                await bot.sendMessage(chatId, this.getAIHelpMessage());
-                return;
-            }
-
-            // Show typing indicator
-            await bot.sendChatAction(chatId, 'typing');
-
-            // Get user context safely
-            const userContext = await this.getUserContextSafely(userId);
-            
-            // Enhanced question with Cambodia context
-            const enhancedQuestion = question; // Simple pass-through
-            
-            // Get AI response with fallback
-            const aiResponse = await this.getAIResponseSafely('handleUserQuestion', enhancedQuestion, userContext);
-            
-            // Send response
-            await this.sendSmartResponse(bot, chatId, aiResponse, 'general');
-
-        } catch (error) {
-            console.error('Error in /ask command:', error);
-            await this.sendFallbackResponse(bot, chatId, 'ask', question);
+    try {
+        if (!question) {
+            await bot.sendMessage(chatId, this.getAIHelpMessage());
+            return;
         }
+
+        await bot.sendChatAction(chatId, 'typing');
+
+        // Get user context safely
+        const userContext = await this.getUserContextSafely(userId);
+        
+        // Get AI response directly (remove the enhanceQuestionForCambodia call)
+        const aiResponse = await this.getAIResponseSafely('handleUserQuestion', question, userContext);
+        
+        // Send response
+        await this.sendSmartResponse(bot, chatId, aiResponse, 'general');
+
+    } catch (error) {
+        console.error('Error in /ask command:', error);
+        await this.sendFallbackResponse(bot, chatId, 'ask', question);
     }
+}
 
     // 📊 Handle /analyze command - Financial Analysis
     async handleAnalyzeCommand(bot, msg) {
