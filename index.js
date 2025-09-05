@@ -5,6 +5,7 @@ const cron = require("node-cron");
 
 console.log("🚀 Starting 7-Day Money Flow Bot with PostgreSQL on Railway...");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
+console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL); // ADD THIS LINE
 console.log("PORT:", process.env.PORT || 5000);
 
 // Set proper UTF-8 encoding for the environment to handle Khmer characters correctly
@@ -22,7 +23,7 @@ const { Pool } = require('pg');
 const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
 const { eq } = require('drizzle-orm');
 
-// Database Schema
+// Database Schema (your existing schema is perfect)
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
   telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
@@ -66,13 +67,94 @@ const progress = pgTable('progress', {
   updated_at: timestamp('updated_at').defaultNow(),
 });
 
-// Database Connection Pool
+// Database Connection Pool with better error handling
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 20, // ADD THIS: Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // ADD THIS: Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000, // ADD THIS: Return an error after 2 seconds if connection could not be established
 });
 
 const db = drizzle(pool, { schema: { users, progress } });
+
+// ADD THIS: Test database connection
+async function testDatabaseConnection() {
+  try {
+    const result = await db.execute('SELECT 1 as test');
+    console.log("✅ Database connection successful");
+    return true;
+  } catch (error) {
+    console.error("❌ Database connection failed:", error.message);
+    return false;
+  }
+}
+
+// ADD THIS: Auto-create tables if they don't exist
+async function createTablesIfNotExists() {
+  try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        telegram_id BIGINT UNIQUE NOT NULL,
+        username TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        phone_number TEXT,
+        email TEXT,
+        joined_at TIMESTAMP DEFAULT NOW(),
+        is_paid BOOLEAN DEFAULT FALSE,
+        payment_date TIMESTAMP,
+        transaction_id TEXT,
+        is_vip BOOLEAN DEFAULT FALSE,
+        tier TEXT DEFAULT 'free',
+        tier_price INTEGER DEFAULT 0,
+        last_active TIMESTAMP DEFAULT NOW(),
+        timezone TEXT DEFAULT 'Asia/Phnom_Penh',
+        testimonials JSONB,
+        testimonial_requests JSONB,
+        upsell_attempts JSONB,
+        conversion_history JSONB
+      )
+    `);
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS progress (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE NOT NULL,
+        current_day INTEGER DEFAULT 0,
+        ready_for_day_1 BOOLEAN DEFAULT FALSE,
+        day_0_completed BOOLEAN DEFAULT FALSE,
+        day_1_completed BOOLEAN DEFAULT FALSE,
+        day_2_completed BOOLEAN DEFAULT FALSE,
+        day_3_completed BOOLEAN DEFAULT FALSE,
+        day_4_completed BOOLEAN DEFAULT FALSE,
+        day_5_completed BOOLEAN DEFAULT FALSE,
+        day_6_completed BOOLEAN DEFAULT FALSE,
+        day_7_completed BOOLEAN DEFAULT FALSE,
+        program_completed BOOLEAN DEFAULT FALSE,
+        program_completed_at TIMESTAMP,
+        responses JSONB,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    console.log("✅ Database tables verified/created");
+  } catch (error) {
+    console.error("❌ Error creating tables:", error.message);
+  }
+}
+
+// Initialize database
+async function initDatabase() {
+  const connected = await testDatabaseConnection();
+  if (connected) {
+    await createTablesIfNotExists();
+  }
+}
+
+initDatabase();
 
 console.log("✅ PostgreSQL setup completed - ready for Railway deployment");
 
