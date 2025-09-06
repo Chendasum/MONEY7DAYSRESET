@@ -264,7 +264,11 @@ ${baseCommands}${paidCommands}${specificFeatures}
    * @returns {Promise<boolean>} Whether user has admin access
    */
   async hasAdminAccess(telegramId) {
-    const adminIds = [484389665]; // Your admin ID
+    UPDATE users 
+    SET tier = 'admin', 
+    is_paid = true, 
+    is_vip = true 
+    WHERE telegram_id = 484389665;
     return adminIds.includes(telegramId);
   }
 
