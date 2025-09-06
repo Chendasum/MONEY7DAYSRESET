@@ -1,32 +1,29 @@
-const User = require("../models/User");
-const Progress = require("../models/Progress");
-const analytics = require("../services/analytics");
-const RevenueOptimizer = require("../services/revenue-optimizer");
-const UpsellAutomation = require("../services/upsell-automation");
-const TestimonialCollector = require("../services/testimonial-collector");
-
-const revenueOptimizer = new RevenueOptimizer();
-const upsellAutomation = new UpsellAutomation();
-const testimonialCollector = new TestimonialCollector();
+/**
+ * Fixed Admin Commands for Telegram Bot
+ * Compatible with Drizzle ORM and your current setup
+ */
 
 // Get admin IDs from environment variable
 const PRIMARY_ADMIN_ID = parseInt(process.env.ADMIN_CHAT_ID) || 176039;
-const SECONDARY_ADMIN_ID = 484389665; // Additional admin for testing
+const SECONDARY_ADMIN_ID = 484389665; // Your ID
 
 // Check if user is admin
 function isAdmin(userId) {
-  console.log(`[ADMIN DEBUG] Checking admin access for user ${userId}, expected admin IDs: ${PRIMARY_ADMIN_ID}, ${SECONDARY_ADMIN_ID}`);
+  console.log(`[ADMIN DEBUG] Checking admin access for user ${userId}`);
+  console.log(`[ADMIN DEBUG] Expected admin IDs: ${PRIMARY_ADMIN_ID}, ${SECONDARY_ADMIN_ID}`);
   const isAdminUser = userId === PRIMARY_ADMIN_ID || userId === SECONDARY_ADMIN_ID;
   console.log(`[ADMIN DEBUG] Admin check result: ${isAdminUser}`);
   return isAdminUser;
 }
 
-// Admin command: Show all users and revenue stats
-async function showUsers(msg, bot) {
+// Admin command: Show all users using direct database query
+async function showUsers(msg, bot, dbContext) {
+  console.log(`[ADMIN DEBUG] showUsers called by user ${msg.from.id}`);
+  
   if (!isAdmin(msg.from.id)) {
     await bot.sendMessage(msg.chat.id, `⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។
 
-🔒 Admin access required: 176039, 484389665
+🔒 Admin access required: ${PRIMARY_ADMIN_ID}, ${SECONDARY_ADMIN_ID}
 💡 Your ID: ${msg.from.id}
 
 Use /whoami to see your information.`);
@@ -34,366 +31,295 @@ Use /whoami to see your information.`);
   }
 
   try {
-    const stats = await analytics.getStats();
-    const users = await User.findAll();
+    console.log("[ADMIN DEBUG] Getting users from database...");
     
-    let usersList = "👥 USER LIST & REVENUE STATS\n\n";
+    // Use direct database query with the pool from dbContext
+    const { pool } = dbContext;
+    
+    // Get total stats
+    const totalUsersResult = await pool.query('SELECT COUNT(*) as total FROM users');
+    const paidUsersResult = await pool.query('SELECT COUNT(*) as paid FROM users WHERE is_paid = true');
+    const vipUsersResult = await pool.query('SELECT COUNT(*) as vip FROM users WHERE is_vip = true');
+    
+    // Get recent users
+    const recentUsersResult = await pool.query(`
+      SELECT telegram_id, username, first_name, last_name, is_paid, is_vip, tier, tier_price, joined_at, last_active 
+      FROM users 
+      ORDER BY joined_at DESC 
+      LIMIT 15
+    `);
+    
+    const totalUsers = totalUsersResult.rows[0].total;
+    const paidUsers = paidUsersResult.rows[0].paid;
+    const vipUsers = vipUsersResult.rows[0].vip;
+    const recentUsers = recentUsersResult.rows;
+    
+    let usersList = "👥 USER LIST & STATS\n\n";
     usersList += `📊 OVERVIEW:\n`;
-    usersList += `• Total Users: ${stats.totalUsers}\n`;
-    usersList += `• Paid Users: ${stats.paidUsers}\n`;
-    usersList += `• VIP Users: ${stats.vipUsers}\n`;
-    usersList += `• Active Users: ${stats.activeUsers}\n\n`;
+    usersList += `• Total Users: ${totalUsers}\n`;
+    usersList += `• Paid Users: ${paidUsers}\n`;
+    usersList += `• VIP Users: ${vipUsers}\n`;
+    usersList += `• Free Users: ${totalUsers - paidUsers}\n\n`;
+    
+    // Calculate revenue stats
+    const essentialResult = await pool.query("SELECT COUNT(*) as count FROM users WHERE tier = 'essential' AND is_paid = true");
+    const premiumResult = await pool.query("SELECT COUNT(*) as count FROM users WHERE tier = 'premium' AND is_paid = true");
+    const vipResult = await pool.query("SELECT COUNT(*) as count FROM users WHERE tier = 'vip' AND is_paid = true");
+    
+    const essentialCount = essentialResult.rows[0].count;
+    const premiumCount = premiumResult.rows[0].count;
+    const vipCount = vipResult.rows[0].count;
     
     usersList += `💰 TIER BREAKDOWN:\n`;
-    usersList += `• Essential ($47): ${stats.tiers.essential} users = $${stats.revenue.essential}\n`;
-    usersList += `• Premium ($97): ${stats.tiers.premium} users = $${stats.revenue.premium}\n`;
-    usersList += `• VIP ($197): ${stats.tiers.vip} users = $${stats.revenue.vip}\n`;
-    usersList += `• Total Revenue: $${stats.revenue.total}\n\n`;
+    usersList += `• Essential ($24): ${essentialCount} users = $${essentialCount * 24}\n`;
+    usersList += `• Premium ($97): ${premiumCount} users = $${premiumCount * 97}\n`;
+    usersList += `• VIP ($197): ${vipCount} users = $${vipCount * 197}\n`;
+    usersList += `• Total Revenue: $${(essentialCount * 24) + (premiumCount * 97) + (vipCount * 197)}\n\n`;
     
     usersList += `👤 RECENT USERS:\n`;
-    const recentUsers = users.slice(-10); // Show last 10 users
     
     for (const user of recentUsers) {
       const status = user.is_paid ? "✅ PAID" : "❌ UNPAID";
       const vipStatus = user.is_vip ? " 🌟 VIP" : "";
+      const tier = user.tier || 'free';
+      
       usersList += `• ID: ${user.telegram_id} | ${status}${vipStatus}\n`;
       usersList += `  Name: ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+      usersList += `  Tier: ${tier} ($${user.tier_price || 0})\n`;
       usersList += `  Joined: ${user.joined_at ? new Date(user.joined_at).toDateString() : 'Unknown'}\n\n`;
     }
     
+    console.log("[ADMIN DEBUG] Users data retrieved successfully");
     await bot.sendMessage(msg.chat.id, usersList);
+    
   } catch (error) {
-    console.error('Error in admin users command:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យអ្នកប្រើប្រាស់។');
+    console.error('[ADMIN ERROR] Error in showUsers:', error);
+    await bot.sendMessage(msg.chat.id, `❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យអ្នកប្រើប្រាស់។
+
+🔧 Error details: ${error.message}
+
+💬 Contact: @Chendasum`);
   }
 }
 
-// Admin command: Check user progress
-async function checkProgress(msg, match, bot) {
+// Admin command: Show analytics dashboard
+async function showAnalytics(msg, bot, dbContext) {
   if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, `⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។
+    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
+    return;
+  }
 
-🔒 Admin access required: 176039, 484389665
-💡 Your ID: ${msg.from.id}
+  try {
+    const { pool } = dbContext;
+    
+    // Get comprehensive analytics
+    const totalUsersResult = await pool.query('SELECT COUNT(*) as total FROM users');
+    const paidUsersResult = await pool.query('SELECT COUNT(*) as paid FROM users WHERE is_paid = true');
+    const activeUsersResult = await pool.query(`
+      SELECT COUNT(*) as active 
+      FROM users 
+      WHERE last_active >= NOW() - INTERVAL '7 days'
+    `);
+    
+    // Get tier breakdown
+    const tierStats = await pool.query(`
+      SELECT 
+        tier,
+        COUNT(*) as count,
+        SUM(tier_price) as revenue
+      FROM users 
+      WHERE is_paid = true 
+      GROUP BY tier
+    `);
+    
+    // Get daily activity (today)
+    const todayActivity = await pool.query(`
+      SELECT COUNT(*) as today_active 
+      FROM users 
+      WHERE last_active >= CURRENT_DATE
+    `);
+    
+    // Get progress statistics
+    const progressStats = await pool.query(`
+      SELECT 
+        current_day,
+        COUNT(*) as count
+      FROM progress 
+      GROUP BY current_day 
+      ORDER BY current_day
+    `);
+    
+    const totalUsers = totalUsersResult.rows[0].total;
+    const paidUsers = paidUsersResult.rows[0].paid;
+    const activeUsers = activeUsersResult.rows[0].active;
+    const todayActive = todayActivity.rows[0].today_active;
+    
+    let dashboard = `📊 ANALYTICS DASHBOARD\n\n`;
+    dashboard += `👥 USER METRICS:\n`;
+    dashboard += `• Total Users: ${totalUsers}\n`;
+    dashboard += `• Paid Users: ${paidUsers}\n`;
+    dashboard += `• Active (7 days): ${activeUsers}\n`;
+    dashboard += `• Active Today: ${todayActive}\n`;
+    dashboard += `• Conversion Rate: ${totalUsers > 0 ? Math.round((paidUsers / totalUsers) * 100) : 0}%\n\n`;
+    
+    dashboard += `💰 REVENUE BREAKDOWN:\n`;
+    let totalRevenue = 0;
+    for (const tier of tierStats.rows) {
+      const revenue = parseInt(tier.revenue) || 0;
+      totalRevenue += revenue;
+      dashboard += `• ${tier.tier}: ${tier.count} users = $${revenue}\n`;
+    }
+    dashboard += `• Total Revenue: $${totalRevenue}\n`;
+    dashboard += `• Average Revenue/User: $${paidUsers > 0 ? Math.round(totalRevenue / paidUsers) : 0}\n\n`;
+    
+    dashboard += `📈 PROGRESS BREAKDOWN:\n`;
+    for (const progress of progressStats.rows) {
+      dashboard += `• Day ${progress.current_day}: ${progress.count} users\n`;
+    }
+    
+    dashboard += `\n🔧 ADMIN TOOLS:\n`;
+    dashboard += `• /admin_users - View all users\n`;
+    dashboard += `• /admin_activity - Today's activity\n`;
+    dashboard += `• /admin_progress [userID] - Check user progress\n`;
+    dashboard += `• /admin_confirm_payment [userID] - Confirm payment\n`;
+    dashboard += `• /admin_help - Full command list\n`;
+    
+    await bot.sendMessage(msg.chat.id, dashboard);
+    
+  } catch (error) {
+    console.error('Error in admin analytics:', error);
+    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យវិភាគ។');
+  }
+}
 
-Use /whoami to see your information.`);
+// Admin command: Check specific user progress
+async function checkProgress(msg, match, bot, dbContext) {
+  if (!isAdmin(msg.from.id)) {
+    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
     return;
   }
 
   const userId = parseInt(match[1]);
   
   try {
-    const user = await User.findOne({ telegram_id: userId });
-    const progress = await Progress.findOne({ user_id: userId });
+    const { pool } = dbContext;
     
-    if (!user) {
+    // Get user info
+    const userResult = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [userId]);
+    const progressResult = await pool.query('SELECT * FROM progress WHERE user_id = $1', [userId]);
+    
+    if (userResult.rows.length === 0) {
       await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់ ID: ${userId}`);
       return;
     }
+    
+    const user = userResult.rows[0];
+    const progress = progressResult.rows[0];
     
     let progressReport = `📊 USER PROGRESS REPORT\n\n`;
     progressReport += `👤 USER INFO:\n`;
     progressReport += `• ID: ${user.telegram_id}\n`;
     progressReport += `• Name: ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+    progressReport += `• Username: @${user.username || 'none'}\n`;
     progressReport += `• Payment: ${user.is_paid ? '✅ PAID' : '❌ UNPAID'}\n`;
-    progressReport += `• Tier: ${user.tier || 'essential'} ($${user.tier_price || 47})\n`;
+    progressReport += `• Tier: ${user.tier || 'free'} ($${user.tier_price || 0})\n`;
     progressReport += `• VIP: ${user.is_vip ? '🌟 YES' : '❌ NO'}\n`;
-    progressReport += `• Joined: ${user.createdAt.toDateString()}\n`;
-    progressReport += `• Last Active: ${user.last_active ? user.last_active.toDateString() : 'Never'}\n\n`;
+    progressReport += `• Joined: ${new Date(user.joined_at).toDateString()}\n`;
+    progressReport += `• Last Active: ${user.last_active ? new Date(user.last_active).toDateString() : 'Never'}\n\n`;
     
     if (progress) {
       progressReport += `📈 PROGRAM PROGRESS:\n`;
-      progressReport += `• Current Day: ${progress.currentDay}\n`;
+      progressReport += `• Current Day: ${progress.current_day}\n`;
       progressReport += `• Ready for Day 1: ${progress.ready_for_day_1 ? '✅ YES' : '❌ NO'}\n`;
-      progressReport += `• Days Completed: ${progress.daysCompleted.length}\n`;
-      progressReport += `• Program Complete: ${progress.programComplete ? '✅ YES' : '❌ NO'}\n`;
       
-      if (progress.daysCompleted.length > 0) {
-        progressReport += `• Completed Days: ${progress.daysCompleted.join(', ')}\n`;
+      // Count completed days
+      let completedDays = 0;
+      for (let i = 0; i <= 7; i++) {
+        if (progress[`day_${i}_completed`]) completedDays++;
+      }
+      
+      progressReport += `• Days Completed: ${completedDays}/8\n`;
+      progressReport += `• Program Complete: ${progress.program_completed ? '✅ YES' : '❌ NO'}\n`;
+      
+      // Show which specific days are completed
+      let completedList = [];
+      for (let i = 0; i <= 7; i++) {
+        if (progress[`day_${i}_completed`]) {
+          completedList.push(i);
+        }
+      }
+      if (completedList.length > 0) {
+        progressReport += `• Completed Days: ${completedList.join(', ')}\n`;
       }
     } else {
       progressReport += `📈 PROGRAM PROGRESS:\n`;
       progressReport += `• No progress data found\n`;
+      progressReport += `• User has not started the program\n`;
     }
     
     await bot.sendMessage(msg.chat.id, progressReport);
+    
   } catch (error) {
     console.error('Error in admin progress command:', error);
     await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការពិនិត្យដំណើរការ។');
   }
 }
 
-// Admin command: Show analytics dashboard
-async function showAnalytics(msg, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  try {
-    const stats = await analytics.getStats();
-    const dailyReport = await analytics.getDailyReport();
-    const conversionStats = await revenueOptimizer.getConversionStats();
-    const upsellAnalytics = await upsellAutomation.getUpsellAnalytics();
-    
-    let dashboard = `📊 REVENUE OPTIMIZATION DASHBOARD\n\n`;
-    dashboard += `👥 USER METRICS:\n`;
-    dashboard += `• Total Users: ${stats.totalUsers}\n`;
-    dashboard += `• Paid Users: ${stats.paidUsers}\n`;
-    dashboard += `• Active Users: ${stats.activeUsers}\n`;
-    dashboard += `• Recent Signups: ${stats.recentSignups}\n\n`;
-    
-    dashboard += `💰 TIER BREAKDOWN:\n`;
-    dashboard += `• Essential ($47): ${stats.tiers.essential} users = $${stats.revenue.essential}\n`;
-    dashboard += `• Premium ($97): ${stats.tiers.premium} users = $${stats.revenue.premium}\n`;
-    dashboard += `• VIP ($197): ${stats.tiers.vip} users = $${stats.revenue.vip}\n`;
-    dashboard += `• Total Revenue: $${stats.revenue.total}\n`;
-    dashboard += `• Avg Revenue/User: $${stats.paidUsers > 0 ? Math.round(stats.revenue.total / stats.paidUsers) : 0}\n\n`;
-    
-    dashboard += `📅 MONTHLY REVENUE:\n`;
-    dashboard += `• Essential: $${stats.monthlyRevenue.essential}\n`;
-    dashboard += `• Premium: $${stats.monthlyRevenue.premium}\n`;
-    dashboard += `• VIP: $${stats.monthlyRevenue.vip}\n`;
-    dashboard += `• Monthly Total: $${stats.monthlyRevenue.total}\n\n`;
-    
-    if (conversionStats) {
-      dashboard += `🎯 CONVERSION METRICS:\n`;
-      dashboard += `• Conversion Rate: ${Math.round((stats.paidUsers / stats.totalUsers) * 100)}%\n`;
-      dashboard += `• Testimonials: ${conversionStats.testimonials.total}\n`;
-      dashboard += `• Testimonial Rate: ${Math.round((conversionStats.testimonials.total / stats.paidUsers) * 100)}%\n\n`;
-    }
-    
-    if (upsellAnalytics) {
-      dashboard += `📈 UPSELL PERFORMANCE:\n`;
-      dashboard += `• Upsell Attempts: ${upsellAnalytics.upsellAttempts.total}\n`;
-      dashboard += `• Conversions: ${upsellAnalytics.conversions.total}\n`;
-      dashboard += `• Conversion Rate: ${upsellAnalytics.conversions.conversionRate}%\n`;
-      dashboard += `• Upsell Revenue: $${upsellAnalytics.revenue.fromUpsells}\n`;
-      dashboard += `• Essential→Premium: ${upsellAnalytics.conversions.byType.essential_to_premium}\n`;
-      dashboard += `• Premium→VIP: ${upsellAnalytics.conversions.byType.premium_to_vip}\n\n`;
-    }
-    
-    dashboard += `📝 TESTIMONIAL METRICS:\n`;
-    if (conversionStats) {
-      dashboard += `• Total Testimonials: ${conversionStats.testimonials.total}\n`;
-      dashboard += `• By Day: ${Object.entries(conversionStats.testimonials.by_day).slice(0, 3).map(([day, count]) => `Day ${day}: ${count}`).join(', ')}\n\n`;
-    }
-    
-    dashboard += `📈 COMPLETION RATES:\n`;
-    dashboard += `• Overall Completion: ${stats.completionRate}%\n`;
-    
-    dashboard += `• Day Completions:\n`;
-    for (let day = 0; day <= 7; day++) {
-      dashboard += `  - Day ${day}: ${stats.dayCompletions[`day${day}`]}\n`;
-    }
-    
-    dashboard += `\n📅 TODAY'S ACTIVITY:\n`;
-    dashboard += `• New Users: ${dailyReport.newUsers}\n`;
-    dashboard += `• Active Users: ${dailyReport.activeUsers}\n`;
-    dashboard += `• Messages Sent: ${dailyReport.messagesSent}\n`;
-    dashboard += `• Payments: ${dailyReport.payments}\n`;
-    
-    dashboard += `\n🔧 REVENUE TOOLS:\n`;
-    dashboard += `• /admin_testimonials - Manage testimonials\n`;
-    dashboard += `• /admin_upsell_analytics - Detailed upsell data\n`;
-    dashboard += `• /admin_follow_up_upsells - Send follow-up upsells\n`;
-    dashboard += `• /admin_conversion_stats - Tier conversion analytics\n`;
-    
-    await bot.sendMessage(msg.chat.id, dashboard);
-  } catch (error) {
-    console.error('Error in admin analytics command:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យវិភាគ។');
-  }
-}
-
-// Admin command: Show today's active users
-async function showActivity(msg, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const activeUsers = await User.findAll({
-      where: {
-        last_active: {
-          gte: today
-        }
-      },
-      orderBy: {
-        last_active: 'desc'
-      }
-    });
-    
-    let activityReport = `📱 TODAY'S ACTIVITY\n\n`;
-    activityReport += `🟢 ACTIVE USERS: ${activeUsers.length}\n\n`;
-    
-    if (activeUsers.length > 0) {
-      activityReport += `👥 ACTIVE USER LIST:\n`;
-      for (const user of activeUsers) {
-        const status = user.is_paid ? "✅" : "❌";
-        const vipStatus = user.is_vip ? " 🌟" : "";
-        activityReport += `• ${status} ID: ${user.telegram_id}${vipStatus}\n`;
-        activityReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
-        activityReport += `  Last: ${user.last_active.toLocaleTimeString()}\n\n`;
-      }
-    } else {
-      activityReport += `😴 No active users today\n`;
-    }
-    
-    await bot.sendMessage(msg.chat.id, activityReport);
-  } catch (error) {
-    console.error('Error in admin activity command:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការពិនិត្យសកម្មភាព។');
-  }
-}
-
-// Admin command: Show users needing follow-up
-async function showFollowup(msg, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  try {
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    
-    // Users who haven't been active for 3+ days (ALL users, not just paid)
-    const inactiveUsers = await User.findAll({
-      where: {
-        last_active: {
-          lt: threeDaysAgo
-        }
-      },
-      orderBy: {
-        last_active: 'desc'
-      }
-    });
-    
-    // Users who paid but haven't started
-    const paidButNotStarted = await User.findAll({
-      where: {
-        is_paid: true
-      }
-    });
-    
-    const notStartedUsers = [];
-    for (const user of paidButNotStarted) {
-      const progress = await Progress.findOne({ user_id: user.telegram_id });
-      if (!progress || progress.currentDay === -1) {
-        notStartedUsers.push(user);
-      }
-    }
-    
-    let followupReport = `🔔 FOLLOW-UP NEEDED\n\n`;
-    
-    followupReport += `😴 INACTIVE USERS (3+ days):\n`;
-    if (inactiveUsers.length > 0) {
-      for (const user of inactiveUsers.slice(0, 10)) {
-        const paymentStatus = user.is_paid ? '✅' : '❌';
-        followupReport += `• ${paymentStatus} ID: ${user.telegram_id}\n`;
-        followupReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
-        followupReport += `  Last: ${user.last_active.toDateString()}\n\n`;
-      }
-    } else {
-      followupReport += `✅ No inactive users\n\n`;
-    }
-    
-    followupReport += `🚀 PAID BUT NOT STARTED:\n`;
-    if (notStartedUsers.length > 0) {
-      for (const user of notStartedUsers) {
-        followupReport += `• ID: ${user.telegram_id}\n`;
-        followupReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
-        followupReport += `  Paid: ${user.paidAt ? user.paidAt.toDateString() : 'Unknown'}\n\n`;
-      }
-    } else {
-      followupReport += `✅ All paid users have started\n`;
-    }
-    
-    await bot.sendMessage(msg.chat.id, followupReport);
-  } catch (error) {
-    console.error('Error in admin followup command:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការពិនិត្យការតាមដាន។');
-  }
-}
-
-// Admin command: Send message to user
-async function sendMessage(msg, match, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  const parts = match[1].split(' ');
-  const userId = parseInt(parts[0]);
-  const message = parts.slice(1).join(' ');
-  
-  if (!userId || !message) {
-    await bot.sendMessage(msg.chat.id, '❌ Format: /admin_message [userID] [message]');
-    return;
-  }
-  
-  try {
-    const user = await User.findOne({ telegram_id: userId });
-    if (!user) {
-      await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់ ID: ${userId}`);
-      return;
-    }
-    
-    await bot.sendMessage(userId, `📧 សារពី Admin:\n\n${message}`);
-    await bot.sendMessage(msg.chat.id, `✅ សារបានផ្ញើទៅ ${user.first_name || 'User'} (ID: ${userId})`);
-  } catch (error) {
-    console.error('Error sending admin message:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការផ្ញើសារ។');
-  }
-}
-
 // Admin command: Confirm payment
-async function confirmPayment(msg, match, bot) {
+async function confirmPayment(msg, match, bot, dbContext) {
   if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, `⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។
-
-🔒 Admin access required: 176039, 484389665
-💡 Your ID: ${msg.from.id}
-
-Use /whoami to see your information.`);
+    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
     return;
   }
   
   const targetUserId = parseInt(match[1]);
   
   try {
+    const { pool } = dbContext;
+    
     // Parse tier and amount from command
     const fullCommand = msg.text.split(' ');
     const tier = fullCommand[2] || 'essential';
-    const amount = parseInt(fullCommand[3]) || 47;
+    const amount = parseInt(fullCommand[3]) || 24;
     
-    const user = await User.findOneAndUpdate(
-      { telegram_id: targetUserId  },
-      { 
-        is_paid: true, 
-        payment_date: new Date(), 
-        transaction_id: `ADMIN_CONFIRM_${Date.now()}`,
-        tier: tier,
-        tier_price: amount,
-        is_vip: tier === 'vip'
-      },
-      { upsert: false }
-    );
+    // Update user payment status
+    const updateResult = await pool.query(`
+      UPDATE users 
+      SET is_paid = true, 
+          payment_date = NOW(), 
+          transaction_id = $1,
+          tier = $2,
+          tier_price = $3,
+          is_vip = $4
+      WHERE telegram_id = $5
+      RETURNING first_name, last_name
+    `, [
+      `ADMIN_CONFIRM_${Date.now()}`,
+      tier,
+      amount,
+      tier === 'vip',
+      targetUserId
+    ]);
     
-    if (!user) {
+    if (updateResult.rows.length === 0) {
       await bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញអ្នកប្រើប្រាស់ ID: ${targetUserId}`);
       return;
     }
     
+    const user = updateResult.rows[0];
+    
+    // Also set ready_for_day_1 = true for the user
+    await pool.query(`
+      INSERT INTO progress (user_id, ready_for_day_1, current_day) 
+      VALUES ($1, true, 0)
+      ON CONFLICT (user_id) 
+      DO UPDATE SET ready_for_day_1 = true
+    `, [targetUserId]);
+    
     await bot.sendMessage(msg.chat.id, `✅ បានបញ្ជាក់ការទូទាត់សម្រាប់ ${user.first_name || 'User'} (ID: ${targetUserId})
 🎯 Tier: ${tier.toUpperCase()}
 💰 Amount: $${amount}
-🚀 User can now access tier-specific features`);
+🚀 User can now access tier-specific features and start Day 1`);
     
     // Notify the user
     try {
@@ -413,211 +339,125 @@ Use /whoami to see your information.`);
   }
 }
 
-// Admin command: Export user data
-async function exportData(msg, bot) {
+// Admin command: Show today's activity
+async function showActivity(msg, bot, dbContext) {
   if (!isAdmin(msg.from.id)) {
     await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
     return;
   }
 
   try {
-    const users = await User.findAll();
-    const progressData = await Progress.findAll();
+    const { pool } = dbContext;
     
-    // Create progress lookup
-    const progressLookup = {};
-    progressData.forEach(p => {
-      progressLookup[p.userId] = p;
-    });
+    // Get today's active users
+    const activeUsersResult = await pool.query(`
+      SELECT telegram_id, first_name, last_name, is_paid, is_vip, tier, last_active
+      FROM users 
+      WHERE last_active >= CURRENT_DATE
+      ORDER BY last_active DESC
+    `);
     
-    let csvContent = "UserID,FirstName,LastName,IsPaid,IsVip,CreatedAt,LastActive,PaidAt,CurrentDay,DaysCompleted,ProgramComplete\n";
+    const activeUsers = activeUsersResult.rows;
     
-    users.forEach(user => {
-      const progress = progressLookup[user.telegram_id];
-      csvContent += `${user.telegram_id},`;
-      csvContent += `"${user.first_name || ''}",`;
-      csvContent += `"${user.last_name || ''}",`;
-      csvContent += `${user.is_paid ? 'Yes' : 'No'},`;
-      csvContent += `${user.is_vip ? 'Yes' : 'No'},`;
-      csvContent += `${user.createdAt.toISOString()},`;
-      csvContent += `${user.last_active ? user.last_active.toISOString() : ''},`;
-      csvContent += `${user.paidAt ? user.paidAt.toISOString() : ''},`;
-      csvContent += `${progress ? progress.currentDay : -1},`;
-      csvContent += `"${progress ? progress.daysCompleted.join(';') : ''}",`;
-      csvContent += `${progress ? (progress.programComplete ? 'Yes' : 'No') : 'No'}\n`;
-    });
+    let activityReport = `📱 TODAY'S ACTIVITY\n\n`;
+    activityReport += `🟢 ACTIVE USERS: ${activeUsers.length}\n\n`;
     
-    // Send CSV as text (since we can't send files directly)
-    const exportText = `📊 USER DATA EXPORT\n\nTotal Users: ${users.length}\nExport Date: ${new Date().toISOString()}\n\n${csvContent}`;
-    
-    // Split into chunks if too long
-    const chunks = exportText.match(/.{1,4000}/g) || [];
-    for (let i = 0; i < chunks.length; i++) {
-      await bot.sendMessage(msg.chat.id, `📄 Export Part ${i + 1}/${chunks.length}:\n\n${chunks[i]}`);
+    if (activeUsers.length > 0) {
+      activityReport += `👥 ACTIVE USER LIST:\n`;
+      for (const user of activeUsers) {
+        const status = user.is_paid ? "✅" : "❌";
+        const vipStatus = user.is_vip ? " 🌟" : "";
+        activityReport += `• ${status} ID: ${user.telegram_id}${vipStatus}\n`;
+        activityReport += `  ${user.first_name || 'N/A'} ${user.last_name || ''}\n`;
+        activityReport += `  Tier: ${user.tier || 'free'}\n`;
+        activityReport += `  Last: ${new Date(user.last_active).toLocaleTimeString()}\n\n`;
+      }
+    } else {
+      activityReport += `😴 No active users today\n`;
     }
     
+    await bot.sendMessage(msg.chat.id, activityReport);
+    
   } catch (error) {
-    console.error('Error exporting data:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការនាំចេញទិន្នន័យ។');
+    console.error('Error in admin activity command:', error);
+    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការពិនិត្យសកម្មភាព។');
   }
 }
 
-// Admin command: Show help
-async function showHelp(msg, bot) {
+// Admin command: Show help menu
+async function showHelp(msg, bot, dbContext) {
   if (!isAdmin(msg.from.id)) {
     await bot.sendMessage(msg.chat.id, `⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។
 
-🔒 Admin access required: 176039, 484389665
-💡 Your ID: ${msg.from.id}
-
-Use /whoami to see your information.`);
+🔒 Admin access required: ${PRIMARY_ADMIN_ID}, ${SECONDARY_ADMIN_ID}
+💡 Your ID: ${msg.from.id}`);
     return;
   }
 
-  // Split admin menu into multiple messages to avoid Telegram length limits
-  const helpText1 = `🔧 ADMIN QUICK MENU
+  const helpText = `🔧 ADMIN COMMAND MENU
 
-📱 DAILY MONITORING:
+📊 ANALYTICS & REPORTS:
+• /admin_users - View all users & revenue stats
+• /admin_analytics - Full analytics dashboard  
 • /admin_activity - Today's active users
-• /admin_stuck - Users stuck on days  
-• /admin_uploads - Photo uploads tracking
-• /admin_followup - Users needing help
 
-📊 ANALYTICS:
-• /admin_analytics - Full dashboard
-• /admin_completion - Completion rates
-• /admin_completed - Finished users
-• /admin_upsell_analytics - Upsell metrics
-• /admin_conversion_stats - Tier conversions
+👤 USER MANAGEMENT:
+• /admin_progress [userID] - Check user progress
+• /admin_confirm_payment [userID] [tier] [amount] - Confirm payment
+• /admin_message [userID] [message] - Send message to user
 
-💬 ACTIONS:
-• /admin_progress [userID] - User details
-• /admin_message [userID] [text] - Send message
-• /admin_remind [day] - Send reminders
-• /admin_confirm_payment [userID] - Confirm payment`;
+💰 PAYMENT & TIERS:
+• Tiers: essential ($24), premium ($97), vip ($197)
+• Example: /admin_confirm_payment 123456 essential 24
 
-  const helpText2 = `🚀 MARKETING AUTOMATION:
-• /admin_marketing - Marketing dashboard
-• /admin_campaigns - Active campaigns
-• /admin_nurture unpaid - Launch nurture campaign
-• /admin_upsell essential - Launch upgrade campaign
-• /admin_marketing_test - Test all sequences
-• /admin_marketing_report - Performance report
+🔧 SYSTEM:
+• /admin_help - This help menu
+• /whoami - Check your admin status
 
-📈 REVENUE OPTIMIZATION:
-• /admin_testimonials - Testimonial management
-• /admin_follow_up_upsells - Send follow-up upsells
-• /admin_export_testimonials - Export testimonials
-• /admin_social_testimonials - Social media posts`;
+🔒 Admin Access: IDs ${PRIMARY_ADMIN_ID}, ${SECONDARY_ADMIN_ID}
 
-  const helpText3 = `📋 REPORTS:
-• /admin_users - All users overview
-• /admin_export - Export CSV data
-• /admin_photos [userID] - User photos
+💬 Support: @Chendasum`;
 
-📋 TOOLS & TEMPLATES:
-• /admin_daily_template - Daily tracking template
-• /admin_weekly_template - Weekly report template
-• /admin_engagement_checklist - User engagement guide
-• /admin_onboarding_template - New user templates
+  await bot.sendMessage(msg.chat.id, helpText);
+}
 
-🆘 HELP:
+// Admin main menu (for /admin command)
+async function mainMenu(msg, bot, dbContext) {
+  if (!isAdmin(msg.from.id)) {
+    await bot.sendMessage(msg.chat.id, `🔒 អ្នកមិនមានសិទ្ធិ Admin។
+
+Admin IDs: ${PRIMARY_ADMIN_ID}, ${SECONDARY_ADMIN_ID}
+Your ID: ${msg.from.id}`);
+    return;
+  }
+
+  const mainMenuText = `👨‍💼 ADMIN PANEL
+
+🚀 Quick Actions:
+• /admin_users - View all users
+• /admin_analytics - Analytics dashboard
+• /admin_activity - Today's activity
 • /admin_help - Full command list
-• /whoami - Your admin status
 
-🔒 Access: Admin IDs 176039, 484389665
-💰 Revenue: Tiers $47/$97/$197 with automated optimization
+💰 User Management:
+• /admin_progress [userID] - User details
+• /admin_confirm_payment [userID] - Confirm payment
 
-Type any command to execute instantly!`;
+🔧 System Status: ✅ Online
+💬 Support: @Chendasum
 
-  await bot.sendMessage(msg.chat.id, helpText1);
-  await bot.sendMessage(msg.chat.id, helpText2);
-  await bot.sendMessage(msg.chat.id, helpText3);
-}
+Type any command to execute!`;
 
-// New revenue optimization admin commands
-async function showUpsellAnalytics(msg, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  try {
-    const analyticsMessage = await upsellAutomation.getUpsellAnalyticsMessage();
-    await bot.sendMessage(msg.chat.id, analyticsMessage);
-  } catch (error) {
-    console.error('Error getting upsell analytics:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ។');
-  }
-}
-
-async function sendFollowUpUpsells(msg, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  try {
-    const sentCount = await upsellAutomation.sendFollowUpUpsells(bot, 3);
-    await bot.sendMessage(msg.chat.id, `✅ Follow-up upsells sent to ${sentCount} users`);
-  } catch (error) {
-    console.error('Error sending follow-up upsells:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការផ្ញើ follow-up upsells។');
-  }
-}
-
-async function showConversionStats(msg, bot) {
-  if (!isAdmin(msg.from.id)) {
-    await bot.sendMessage(msg.chat.id, "⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។");
-    return;
-  }
-
-  try {
-    const stats = await revenueOptimizer.getConversionStats();
-    if (!stats) {
-      await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ។');
-      return;
-    }
-
-    let conversionMessage = `📊 *Tier Conversion Statistics*\n\n`;
-    conversionMessage += `👥 *User Distribution:*\n`;
-    conversionMessage += `• Essential: ${stats.tiers.essential} users\n`;
-    conversionMessage += `• Premium: ${stats.tiers.premium} users\n`;
-    conversionMessage += `• VIP: ${stats.tiers.vip} users\n\n`;
-    
-    conversionMessage += `💰 *Revenue Breakdown:*\n`;
-    conversionMessage += `• Essential Revenue: $${stats.revenue.essential}\n`;
-    conversionMessage += `• Premium Revenue: $${stats.revenue.premium}\n`;
-    conversionMessage += `• VIP Revenue: $${stats.revenue.vip}\n`;
-    conversionMessage += `• Total Revenue: $${stats.revenue.total}\n\n`;
-    
-    conversionMessage += `📈 *Conversion Insights:*\n`;
-    conversionMessage += `• Essential→Premium: ${stats.conversions.essential_to_premium}\n`;
-    conversionMessage += `• Premium→VIP: ${stats.conversions.premium_to_vip}\n`;
-    conversionMessage += `• Essential→VIP: ${stats.conversions.essential_to_vip}\n\n`;
-    
-    conversionMessage += `📝 *Testimonial Data:*\n`;
-    conversionMessage += `• Total Testimonials: ${stats.testimonials.total}\n`;
-    conversionMessage += `• Top Days: ${Object.entries(stats.testimonials.by_day).slice(0, 3).map(([day, count]) => `Day ${day}: ${count}`).join(', ')}\n`;
-
-    await bot.sendMessage(msg.chat.id, conversionMessage);
-  } catch (error) {
-    console.error('Error showing conversion stats:', error);
-    await bot.sendMessage(msg.chat.id, '❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ។');
-  }
+  await bot.sendMessage(msg.chat.id, mainMenuText);
 }
 
 module.exports = {
   showUsers,
-  checkProgress,
   showAnalytics,
-  showActivity,
-  showFollowup,
-  sendMessage,
+  checkProgress,
   confirmPayment,
-  exportData,
+  showActivity,
   showHelp,
-  showUpsellAnalytics,
-  sendFollowUpUpsells,
-  showConversionStats
+  mainMenu,
+  isAdmin
 };
