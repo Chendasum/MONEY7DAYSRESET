@@ -10,7 +10,7 @@ const upsellAutomation = new UpsellAutomation();
 const testimonialCollector = new TestimonialCollector();
 
 // Get admin IDs from environment variable
-const PRIMARY_ADMIN_ID = parseInt(process.env.ADMIN_CHAT_ID) || 484389665;
+const PRIMARY_ADMIN_ID = parseInt(process.env.ADMIN_CHAT_ID) || 176039;
 const SECONDARY_ADMIN_ID = 484389665; // Additional admin for testing
 
 // Check if user is admin
@@ -26,7 +26,7 @@ async function showUsers(msg, bot) {
   if (!isAdmin(msg.from.id)) {
     await bot.sendMessage(msg.chat.id, `⚠️ អ្នកមិនមានសិទ្ធិប្រើពាក្យបញ្ជានេះ។
 
-🔒 Admin access required: 484389665
+🔒 Admin access required: 176039, 484389665
 💡 Your ID: ${msg.from.id}
 
 Use /whoami to see your information.`);
