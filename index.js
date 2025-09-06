@@ -411,31 +411,39 @@ bot.onText(/\/vip/i, async (msg) => {
 });
 
 // Route admin commands
+// FIXED ✅
 bot.onText(/\/admin_users/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
+  
+  // Check admin access first
+  const accessControl = new (require('./services/access-control'))();
+  const hasAdmin = await accessControl.hasAdminAccess(msg.from.id);
+  
+  if (!hasAdmin) {
+    await bot.sendMessage(msg.chat.id, "🔒 អ្នកមិនមានសិទ្ធិ Admin។");
+    return;
+  }
+  
   try {
-    if (adminCommands && adminCommands.showUsers) {
-      await adminCommands.showUsers(msg, bot, dbContext);
-    } else {
-      await bot.sendMessage(msg.chat.id, "👨‍💼 Admin users - កំពុងត្រូវបានអភិវឌ្ឍ។");
-    }
+    // Get users from database
+    const result = await pool.query('SELECT telegram_id, username, first_name, is_paid, tier, joined_at FROM users ORDER BY joined_at DESC LIMIT 20');
+    
+    let message = "👥 អ្នកប្រើប្រាស់ចុងក្រោយ:\n\n";
+    
+    result.rows.forEach((user, index) => {
+      const status = user.is_paid ? "✅" : "🔒";
+      const tier = user.tier || "free";
+      message += `${index + 1}. ${status} ${user.first_name || user.username || 'N/A'}\n`;
+      message += `   📱 ID: ${user.telegram_id}\n`;
+      message += `   🎯 Tier: ${tier}\n`;
+      message += `   📅 ${new Date(user.joined_at).toLocaleDateString()}\n\n`;
+    });
+    
+    await bot.sendMessage(msg.chat.id, message);
+    
   } catch (error) {
     console.error("Error in /admin_users:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
-});
-
-bot.onText(/\/admin_analytics/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    if (adminCommands && adminCommands.showAnalytics) {
-      await adminCommands.showAnalytics(msg, bot, dbContext);
-    } else {
-      await bot.sendMessage(msg.chat.id, "📊 Admin analytics - កំពុងត្រូវបានអភិវឌ្ឍ។");
-    }
-  } catch (error) {
-    console.error("Error in /admin_analytics:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ។");
   }
 });
 
