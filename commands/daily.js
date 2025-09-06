@@ -663,71 +663,39 @@ async function handle(msg, match, bot) {
 /**
  * Handle callback queries for interactive navigation
  */
+// Remove or comment out the handleDayNavigation function calls
+// Replace them with direct handle() calls
+
 async function handleCallback(query, bot) {
    const { data, message, from } = query;
    const userId = from.id;
    const chatId = message.chat.id;
-   const messageId = message.message_id;
 
    try {
       const [action, param] = data.split('_');
       
-      switch (action) {
-case 'day':
-   const dayNum = parseInt(param);
-   // Instead of handleDayNavigation, just send a new message
-   const progress = await Progress.findOne({ user_id: userId });
-   if (progress) {
-      const completedDays = [];
-      for (let i = 1; i <= 7; i++) {
-         if (progress[`day${i}Completed`]) {
-            completedDays.push(i);
-         }
+      if (action === 'day') {
+         const dayNum = parseInt(param);
+         // Just call handle directly - no editing needed
+         await handle({ from: { id: userId }, chat: { id: chatId } }, [null, dayNum.toString()], bot);
       }
       
-      const overviewMessage = createDayOverview(dayNum, { completedDays });
-      const keyboard = createNavigationKeyboard(dayNum, completedDays, progress.currentDay || 1);
-      
-      await bot.sendMessage(chatId, overviewMessage, {
-         parse_mode: 'Markdown',
-         reply_markup: keyboard
-      });
-   }
-   break;
-            
-         case 'complete':
-            const completeDay = parseInt(param);
-            const success = await markDayComplete(userId, completeDay);
-            if (success) {
-               await bot.answerCallbackQuery(query.id, { 
-                  text: "បានបញ្ចប់ថ្ងៃនេះ! 🎉",
-                  show_alert: true 
-               });
-               await handleDayNavigation(bot, chatId, messageId, userId, completeDay);
-            }
-            break;
-            
-         case 'overview':
-            await showProgramOverview(bot, chatId, messageId, userId);
-            break;
-            
-         case 'locked':
-            await bot.answerCallbackQuery(query.id, {
-               text: "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចូលប្រើថ្ងៃនេះ",
-               show_alert: true
-            });
-            break;
-            
-         default:
-            await bot.answerCallbackQuery(query.id);
+      if (action === 'start' && param.startsWith('lesson')) {
+         const lessonDay = parseInt(param.split('_')[1]);
+         await startLesson(bot, chatId, userId, lessonDay);
       }
+      
+      if (action === 'complete') {
+         const completeDay = parseInt(param);
+         await markDayComplete(userId, completeDay);
+         await bot.sendMessage(chatId, `🎉 បានបញ្ចប់ថ្ងៃទី ${completeDay}!`);
+      }
+      
+      await bot.answerCallbackQuery(query.id);
       
    } catch (error) {
       console.error("Error handling callback:", error);
-      await bot.answerCallbackQuery(query.id, {
-         text: "មានបញ្ហាបច្ចេកទេស",
-         show_alert: true
-      });
+      await bot.answerCallbackQuery(query.id, { text: "បញ្ហាបច្ចេកទេស" });
    }
 }
 
