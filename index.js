@@ -301,7 +301,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (dailyCommands && dailyCommands.handle) {
-      await dailyCommands.handle(msg, match, bot, dbContext);
+      await dailyCommands.handle(msg, match, bot);
     } else {
       await bot.sendMessage(msg.chat.id, `📚 ថ្ងៃទី ${match[1]} - មាតិកានឹងមកដល់ឆាប់ៗ\n\n📞 ទាក់ទង @Chendasum សម្រាប់មាតិកា។`);
     }
