@@ -310,7 +310,9 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
 // Enhanced Day 1 Content - 10/10 Version with Clean Formatting (No ** markdown)
 // Optimized for maximum value delivery and cultural relevance
 
-const enhancedDay1Content = `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
+// Daily lesson content (keeping your existing content)
+const dailyMessages = {
+   1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
 ---
 
 🚨 ការធានាថ្ងៃនេះ: អ្នកនឹងរកលុយបាន $50-200 ក្នុងរយៈពេល ៣០ នាទីតាមវិធីសាស្ត្រពិតប្រាកដ!
