@@ -667,10 +667,11 @@ async function handleCallback(query, bot) {
    const { data, message, from } = query;
    const userId = from.id;
    const chatId = message.chat.id;
-   const messageId = message.message_id;
 
    try {
-      const [action, param] = data.split('_');
+      console.log("=== CALLBACK DEBUG ===", { data, userId });
+      
+      const [action, param, param2] = data.split('_');
       
       switch (action) {
          case 'day':
@@ -687,17 +688,30 @@ async function handleCallback(query, bot) {
             }
             
             // Send fresh message for different day
-            await bot.sendMessage(chatId, `🔄 កំពុងផ្ទុកថ្ងៃទី ${dayNum}...`);
             await handle({ from: { id: userId }, chat: { id: chatId } }, [null, dayNum.toString()], bot);
             break;
             
          case 'start':
-            if (param.startsWith('lesson')) {
-               const lessonDay = parseInt(param.split('_')[1]);
+            // Fix: Handle both "start_lesson_X" and "start_X" formats
+            let lessonDay;
+            if (param === 'lesson') {
+               lessonDay = parseInt(param2); // start_lesson_1
+            } else {
+               lessonDay = parseInt(param); // start_1
+            }
+            
+            console.log("=== STARTING LESSON ===", { lessonDay });
+            
+            if (lessonDay && lessonDay >= 1 && lessonDay <= 7) {
                await startLesson(bot, chatId, userId, lessonDay);
                await bot.answerCallbackQuery(query.id, { 
-                  text: "កំពុងចាប់ផ្តើមមេរៀន...", 
+                  text: `កំពុងចាប់ផ្តើមមេរៀនថ្ងៃទី ${lessonDay}...`, 
                   show_alert: false 
+               });
+            } else {
+               await bot.answerCallbackQuery(query.id, { 
+                  text: "មេរៀនមិនមាន", 
+                  show_alert: true 
                });
             }
             break;
@@ -721,7 +735,7 @@ async function handleCallback(query, bot) {
             break;
             
          case 'overview':
-            await showProgramOverview(bot, chatId, messageId, userId);
+            await showProgramOverview(bot, chatId, message.message_id, userId);
             await bot.answerCallbackQuery(query.id, { 
                text: "ទិដ្ឋភាពទូទៅ", 
                show_alert: false 
@@ -736,6 +750,7 @@ async function handleCallback(query, bot) {
             break;
             
          default:
+            console.log("=== UNKNOWN CALLBACK ===", { action, param, param2 });
             await bot.answerCallbackQuery(query.id, { 
                text: "មុខងារកំពុងអភិវឌ្ឍ", 
                show_alert: false 
