@@ -307,10 +307,6 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
 }
 
 // Daily lesson content (keeping your existing content)
-// Enhanced Day 1 Content - 10/10 Version with Clean Formatting (No ** markdown)
-// Optimized for maximum value delivery and cultural relevance
-
-// Daily lesson content (keeping your existing content)
 const dailyMessages = {
    1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
 ---
@@ -2083,7 +2079,7 @@ Expense Calculator:
 បញ្ចប់? ចុច /day7`,
 };
 
-//**
+/**
  * Enhanced handle function with beautiful UI
  */
 async function handle(msg, match, bot) {
@@ -2579,4 +2575,3 @@ module.exports = {
    generateProgramOverview,
    generateProgressBar
 };
-
