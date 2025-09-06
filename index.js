@@ -178,6 +178,7 @@ const adminDatabase = safeRequire("./commands/admin-database", "Admin Database")
 const adminPerformance = safeRequire("./commands/admin-performance", "Admin Performance");
 const adminTestimonials = safeRequire("./commands/admin-testimonials", "Admin Testimonials");
 const AICommandHandler = safeRequire("./commands/ai-command-handler", "AI Command Handler");
+const adminCommands = safeRequire("./commands/admin", "Admin Commands");
 
 console.log("📦 Loading all service modules...");
 
