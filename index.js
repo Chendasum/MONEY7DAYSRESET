@@ -159,7 +159,7 @@ const startCommand = safeRequire("./commands/start", "Start Command");
 const dailyCommands = safeRequire("./commands/daily", "Daily Commands");
 const paymentCommands = safeRequire("./commands/payment", "Payment Commands");
 const vipCommands = safeRequire("./commands/vip", "VIP Commands");
-const adminCommands = safeRequire("./commands/admin", "Admin Commands");
+const adminCommands = safeRequire("./commands/admin", "Admin Commands"); // KEEP THIS ONE
 const badgesCommands = safeRequire("./commands/badges", "Badges Commands");
 const quotesCommands = safeRequire("./commands/quotes", "Quotes Commands");
 const bookingCommands = safeRequire("./commands/booking", "Booking Commands");
@@ -178,7 +178,7 @@ const adminDatabase = safeRequire("./commands/admin-database", "Admin Database")
 const adminPerformance = safeRequire("./commands/admin-performance", "Admin Performance");
 const adminTestimonials = safeRequire("./commands/admin-testimonials", "Admin Testimonials");
 const AICommandHandler = safeRequire("./commands/ai-command-handler", "AI Command Handler");
-const adminCommands = safeRequire("./commands/admin", "Admin Commands");
+// REMOVE THE DUPLICATE adminCommands LINE THAT WAS HERE
 
 console.log("📦 Loading all service modules...");
 
@@ -437,6 +437,89 @@ bot.onText(/\/admin_analytics/i, async (msg) => {
   } catch (error) {
     console.error("Error in /admin_analytics:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
+// Add missing admin routes
+bot.onText(/\/admin$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (adminCommands && adminCommands.mainMenu) {
+      await adminCommands.mainMenu(msg, bot, dbContext);
+    } else {
+      // Check if user is admin first
+      const adminIds = [484389665]; // Update with your real ID
+      if (!adminIds.includes(msg.from.id)) {
+        await bot.sendMessage(msg.chat.id, "🔒 អ្នកមិនមានសិទ្ធិ Admin។");
+        return;
+      }
+      
+      const adminMenu = `👨‍💼 Admin Panel
+
+📊 Available Commands:
+- /admin_users - View all users  
+- /admin_analytics - View analytics
+- /admin_broadcast - Send broadcast
+- /admin_payments - Manage payments
+- /admin_stats - System stats
+
+🔧 Quick Actions:
+- /set_paid [user_id] - Mark user as paid
+- /set_tier [user_id] [tier] - Change user tier
+- /admin_help - Admin help
+
+💬 Support: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, adminMenu);
+    }
+  } catch (error) {
+    console.error("Error in /admin:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+  }
+});
+
+bot.onText(/\/admin_broadcast/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (adminCommands && adminCommands.broadcast) {
+      await adminCommands.broadcast(msg, bot, dbContext);
+    } else {
+      await bot.sendMessage(msg.chat.id, "📢 Broadcast feature - Under development");
+    }
+  } catch (error) {
+    console.error("Error in /admin_broadcast:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+  }
+});
+
+bot.onText(/\/admin_stats/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (adminCommands && adminCommands.stats) {
+      await adminCommands.stats(msg, bot, dbContext);
+    } else {
+      await bot.sendMessage(msg.chat.id, "📊 Stats feature - Under development");
+    }
+  } catch (error) {
+    console.error("Error in /admin_stats:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
+  }
+});
+
+bot.onText(/\/set_paid\s+(\d+)/i, async (msg, match) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    const adminIds = [484389665]; // Update with your real ID
+    if (!adminIds.includes(msg.from.id)) {
+      await bot.sendMessage(msg.chat.id, "🔒 អ្នកមិនមានសិទ្ធិ Admin។");
+      return;
+    }
+    
+    const userId = parseInt(match[1]);
+    await pool.query('UPDATE users SET is_paid = true, tier = $1 WHERE telegram_id = $2', ['essential', userId]);
+    await bot.sendMessage(msg.chat.id, `✅ User ${userId} marked as paid (essential tier)`);
+  } catch (error) {
+    console.error("Error in /set_paid:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។");
   }
 });
 
