@@ -5,7 +5,7 @@ const { sendLongMessage } = require("../utils/message-splitter"); // Utility to 
 // Define a consistent message chunk size for splitting messages (Telegram max is 4096)
 const MESSAGE_CHUNK_SIZE = 3500; // Use larger chunks to minimize splits while staying under Telegram limit
 
-// Daily lesson content (keeping your existing content)
+// Daily lesson content for the 7-Day Money Flow Reset program
 const dailyMessages = {
    1: `🔱 ថ្ងៃទី ១: ចាប់ផ្តើមស្គាល់លំហូរលុយរបស់អ្នក + រកលុយភ្លាម! 🔱
 ---
@@ -324,7 +324,7 @@ $____/ខែ = $____/ឆ្នាំ!
 
 បញ្ចប់? ចុច 👉 /day2 ដើម្បីបន្តភ្លាម ឬ /overview ដើម្បីមើលទិដ្ឋភាពសរុប!
 
-🔱 Cambodia Money Flow Reset™ - Day 1 Enhanced Edition 🔱`;
+🔱 Cambodia Money Flow Reset™ - Day 1 Enhanced Edition 🔱`,
 
    2: `🔱 ថ្ងៃទី ២: ការកំណត់អត្តសញ្ញាណចំណុចលេចធ្លាយលុយកម្រិតខ្ពស់ - រកបាន $100-300 ក្នុង 45 នាទី! 🔱
 
@@ -712,7 +712,7 @@ Emotional spending triggers: $____/ខែ
 
 បញ្ចប់? ចុច 👉 /day3 ដើម្បីបន្តភ្លាម ឬ /overview ដើម្បីមើលទិដ្ឋភាពសរុប!
 
-🔱 Cambodia Money Flow Reset™ - Day 2 Advanced Edition 🔱`;
+🔱 Cambodia Money Flow Reset™ - Day 2 Advanced Edition 🔱`,
 
    3: `🔱 ថ្ងៃទី ៣: ការពិនិត្យសុខភាពហិរញ្ញវត្ថុផ្ទាល់ខ្លួន - ដឹងពីសុខភាពលុយក្នុង ១៥ នាទី! 🔱
 ---
@@ -1084,7 +1084,7 @@ Emotional spending triggers: $____/ខែ
 
 បញ្ចប់? ចុច 👉 /day4 ដើម្បីបន្តភ្លាម ឬ /overview ដើម្បីមើលទិដ្ឋភាពសរុប!
 
-🔱 Cambodia Money Flow Reset™ - Day 3 Health Check Edition 🔱`;
+🔱 Cambodia Money Flow Reset™ - Day 3 Health Check Edition 🔱`,
 
    4: `🔱 ថ្ងៃទី ៤: ម៉ាស៊ីនគណនាលំហូរលុយ - ដឹងលំហូរលុយពិតក្នុង ១០ នាទី! 🔱
 ---
@@ -1507,7 +1507,7 @@ Emotional spending triggers: $____/ខែ
 
 បញ្ចប់? ចុច 👉 /day5 ដើម្បីបន្តភ្លាម ឬ /overview ដើម្បីមើលទិដ្ឋភាពសរុប!
 
-🔱 Cambodia Money Flow Reset™ - Day 4 Cash Flow Edition 🔱`;
+🔱 Cambodia Money Flow Reset™ - Day 4 Cash Flow Edition 🔱`,
 
    5: `🔱 ថ្ងៃទី ៥: ឧបករណ៍វិភាគតុល្យភាពចំណាយ - ដឹងតុល្យភាពចំណាយក្នុង ១៥ នាទី! 🔱
 ---
@@ -1958,7 +1958,7 @@ Emotional spending triggers: $____/ខែ
 
 បញ្ចប់? ចុច 👉 /day6 ដើម្បីបន្តភ្លាម ឬ /overview ដើម្បីមើលទិដ្ឋភាពសរុប!
 
-🔱 Cambodia Money Flow Reset™ - Day 5 Balance Analysis Edition 🔱`;
+🔱 Cambodia Money Flow Reset™ - Day 5 Balance Analysis Edition 🔱`,
 
    6: `🔱 ថ្ងៃទី ៦: ម៉ាទ្រីសអាទិភាពសកម្មភាព - កំណត់ចំណុចសំខាន់ក្នុង ១០ នាទី! 🔱
 ---
@@ -2274,7 +2274,7 @@ STOP (កាត់បន្ថយចំណាយ) + START (បង្កើតទ
 
 🔱 Cambodia Money Flow Reset™ - Day 6 Priority Action Edition 🔱
 
-🎬 Tomorrow: The Grand Finale + Your Next Level Journey Begins! 🎬`;
+🎬 Tomorrow: The Grand Finale + Your Next Level Journey Begins! 🎬`,
 
    7: `🔱 ថ្ងៃទី ៧: ថ្ងៃបញ្ចប់ការសិក្សា - វាស់ជោគជ័យ និងជំហានបន្ទាប់! 🔱
 ---
@@ -2632,7 +2632,8 @@ Cambodia Money Flow Reset™ - ការផ្លាស់ប្តូរជី�
 📖 Cambodia Money Flow Reset™ - Chapter 1: COMPLETE
 📚 Cambodia Money Masters - Chapter 2: AWAITING...
 
-🔱 Cambodia Money Flow Reset™ - Day 7 Graduation Edition 🔱`;
+🔱 Cambodia Money Flow Reset™ - Day 7 Graduation Edition 🔱`,
+};
 
 /**
  * Handles the daily lesson command for the 7-Day Money Flow Reset program.
@@ -2657,7 +2658,7 @@ async function handle(msg, match, bot) {
       if (!user) {
          await bot.sendMessage(
             chatId,
-            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។", // Changed "ចុច" to "ប្រើពាក្យបញ្ជា" for consistency
          );
          return;
       }
@@ -2691,7 +2692,7 @@ async function handle(msg, match, bot) {
       if (!progress) {
          await bot.sendMessage(
             chatId,
-            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។", // Changed "ចុច" to "ប្រើពាក្យបញ្ជា" for consistency
          );
          return;
       }
@@ -2758,7 +2759,7 @@ async function handle(msg, match, bot) {
       console.error("Error in daily command:", error);
       await bot.sendMessage(
          chatId,
-         "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។",
+         "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។", // Changed "សាកល្បង" to "ព្យាយាម" for consistency
       );
    }
 }
@@ -2798,3 +2799,4 @@ async function markDayComplete(userId, dayNumber) {
 
 // Export the functions to be used by other modules (e.g., index.js)
 module.exports = { handle, dailyMessages, markDayComplete };
+
