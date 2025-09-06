@@ -4,81 +4,9 @@ const { sendLongMessage } = require("../utils/message-splitter");
 
 // Configuration constants
 const CONFIG = {
-    MESSAGE_CHUNK_SIZE: 2500, // Reduced for better delivery
+    MESSAGE_CHUNK_SIZE: 3500,
     TOTAL_DAYS: 7,
-    DEFAULT_DELAY: 1500 // Increased delay between chunks
-};
-
-// Content optimization functions
-const contentOptimization = {
-    optimizeContentDelivery: (content, maxLength = 2500) => {
-        if (content.length <= maxLength) return [content];
-        
-        // Split by sections first (look for multiple line breaks)
-        const sections = content.split(/\n\n\n+/);
-        const chunks = [];
-        let currentChunk = '';
-        
-        sections.forEach(section => {
-            if (currentChunk.length + section.length <= maxLength) {
-                currentChunk += section + '\n\n';
-            } else {
-                if (currentChunk.trim()) chunks.push(currentChunk.trim());
-                currentChunk = section + '\n\n';
-            }
-        });
-        
-        if (currentChunk.trim()) chunks.push(currentChunk.trim());
-        return chunks;
-    },
-    
-    generateVisualProgress: (completedDays, totalDays = 7) => {
-        const percentage = Math.round((completedDays.length / totalDays) * 100);
-        const filled = Math.floor(percentage / 10);
-        const empty = 10 - filled;
-        
-        return `📊 **វឌ្ឍនភាព: ${percentage}%**\n${'🟩'.repeat(filled)}${'⬜'.repeat(empty)} (${completedDays.length}/${totalDays})`;
-    }
-};
-
-// Gamification system
-const gamificationSystem = {
-    calculateAchievements: (userProgress) => {
-        const achievements = [];
-        const totalSaved = userProgress.totalMoneySaved || 0;
-        const completedDays = userProgress.completedDays || [];
-        
-        // Money achievements
-        if (totalSaved >= 50) achievements.push("💰 អ្នករកប្រាក់ Bronze");
-        if (totalSaved >= 100) achievements.push("💎 អ្នករកប្រាក់ Silver");
-        if (totalSaved >= 200) achievements.push("🏆 អ្នករកប្រាក់ Gold");
-        
-        // Consistency achievements
-        if (completedDays.length >= 3) achievements.push("🔥 ការប្តេជ្ញាចិត្ត 3 ថ្ងៃ");
-        if (completedDays.length >= 7) achievements.push("⭐ អ្នកចាំថ្ងៃ 7 ថ្ងៃ");
-        
-        return achievements;
-    }
-};
-
-// Error handling
-const errorHandling = {
-    gracefulFallback: async (bot, chatId, error, context) => {
-        console.error(`Error in ${context}:`, error);
-        
-        const fallbackMessage = `🔧 **មានបញ្ហាបច្ចេកទេសតូចៗ**
-
-💡 **ការដោះស្រាយ:**
-• ចុច /start ដើម្បីចាប់ផ្តើមឡើងវិញ
-• ទាក់ទង @Chendasum សម្រាប់ជំនួយ
-• ឬព្យាយាមម្តងទៀតក្នុងពេល ១-២ នាទី`;
-        
-        try {
-            await bot.sendMessage(chatId, fallbackMessage);
-        } catch (sendError) {
-            console.error("Failed to send fallback message:", sendError);
-        }
-    }
+    DEFAULT_DELAY: 500
 };
 
 // Day metadata for beautiful interface
@@ -190,23 +118,17 @@ const dayMeta = {
     }
 };
 
-// Enhanced progress bar visualization
+// Generate progress bar visualization
 function generateProgressBar(completedDays, totalDays = 7) {
     const percentage = Math.round((completedDays / totalDays) * 100);
     const filledBlocks = Math.floor((completedDays / totalDays) * 10);
     const emptyBlocks = 10 - filledBlocks;
     
     const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
-    
-    // Add achievements
-    let achievementText = '';
-    if (percentage >= 50) achievementText += '🏅 ';
-    if (percentage === 100) achievementText += '🎓 ';
-    
-    return `${achievementText}📊 **ការវឌ្ឍនភាព: ${percentage}%**\n\`${progressBar}\` (${completedDays}/${totalDays})\n`;
+    return `📊 **ការវឌ្ឍនភាព: ${percentage}%**\n\`${progressBar}\` (${completedDays}/${totalDays})\n`;
 }
 
-// Enhanced day overview with achievements
+// Create beautiful day overview
 function createDayOverview(dayNumber, userProgress = {}) {
     const day = dayMeta[dayNumber];
     const isCompleted = userProgress.completedDays?.includes(dayNumber) || false;
@@ -217,15 +139,15 @@ function createDayOverview(dayNumber, userProgress = {}) {
     message += `${day.color} **ថ្ងៃទី ${dayNumber}: ${day.title}**\n`;
     message += `${day.icon} *${day.subtitle}*\n\n`;
     
-    // Enhanced status with achievements
+    // Status with dynamic content
     if (isCompleted) {
-        message += `✅ **ស្ថានភាព:** បានបញ្ចប់ 🎉`;
+        message += `✅ **ស្ថានភាព:** បានបញ្ចប់`;
         if (completionDate) {
             message += ` (${new Date(completionDate).toLocaleDateString('km-KH')})`;
         }
         message += '\n';
     } else {
-        message += `🎯 **ស្ថានភាព:** រង់ចាំបញ្ចប់\n`;
+        message += `🟡 **ស្ថានភាព:** រង់ចាំបញ្ចប់\n`;
     }
     
     // Add timestamp to make content unique
@@ -238,10 +160,10 @@ function createDayOverview(dayNumber, userProgress = {}) {
     message += `📊 **កម្រិតលំបាក:** ${day.difficulty}\n`;
     message += `💎 **តម្លៃ:** ${day.value}\n\n`;
     
-    // Enhanced progress with visual elements
+    // Progress bar if we have completion data
     if (userProgress.completedDays) {
-        message += contentOptimization.generateVisualProgress(userProgress.completedDays);
-        message += '\n\n';
+        message += generateProgressBar(userProgress.completedDays.length);
+        message += '\n';
     }
     
     // Key objectives
@@ -253,7 +175,7 @@ function createDayOverview(dayNumber, userProgress = {}) {
     return message;
 }
 
-// Enhanced program overview
+// Generate program overview
 function generateProgramOverview(progress) {
     const completedDays = progress.completedDays || [];
     const currentDay = progress.currentDay || 1;
@@ -261,21 +183,14 @@ function generateProgramOverview(progress) {
     let message = `🔱 **7-Day Money Flow Reset™** 🔱\n`;
     message += `*កម្មវិធីកែលម្អលំហូរប្រាក់ ៧ ថ្ងៃ*\n\n`;
     
-    // Enhanced progress
+    // Progress
     message += generateProgressBar(completedDays.length);
     message += '\n';
     
-    // Current status with achievements
+    // Current status
     if (completedDays.length === 7) {
         message += `🎓 **ស្ថានភាព:** បានបញ្ចប់កម្មវិធី!\n`;
         message += `🏆 **កម្រិត:** Cambodia Money Flow Graduate\n\n`;
-        
-        // Add graduation level based on performance
-        const totalSaved = progress.totalMoneySaved || 0;
-        if (totalSaved >= 200) message += `💎 **ក្រាដ:** Platinum Graduate\n`;
-        else if (totalSaved >= 100) message += `🥇 **ក្រាដ:** Gold Graduate\n`;
-        else if (totalSaved >= 50) message += `🥈 **ក្រាដ:** Silver Graduate\n`;
-        else message += `🥉 **ក្រាដ:** Bronze Graduate\n`;
     } else {
         message += `📍 **ថ្ងៃបច្ចុប្បន្ន:** ថ្ងៃទី ${currentDay}\n`;
         message += `🎯 **បន្ទាប់:** ${dayMeta[currentDay]?.title || 'បញ្ចប់កម្មវិធី'}\n\n`;
@@ -300,7 +215,7 @@ function generateProgramOverview(progress) {
     return message;
 }
 
-// Enhanced navigation keyboard with achievements
+// Generate day navigation keyboard
 function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     const keyboard = [];
     
@@ -367,7 +282,7 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     
     keyboard.push(navRow);
     
-    // Enhanced action buttons
+    // Action buttons
     const actionRow = [];
     actionRow.push({
         text: "🎯 ចាប់ផ្តើមមេរៀន",
@@ -376,8 +291,8 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     
     if (completedDays.includes(currentDay)) {
         actionRow.push({
-            text: "🏆 បានបញ្ចប់",
-            callback_data: `achievements_${currentDay}`
+            text: "✅ បានបញ្ចប់",
+            callback_data: `completed_${currentDay}`
         });
     } else {
         actionRow.push({
@@ -387,19 +302,6 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     }
     
     keyboard.push(actionRow);
-    
-    // Add quick access row
-    const quickRow = [];
-    quickRow.push({
-        text: "💡 គន្លឹះថ្ងៃនេះ",
-        callback_data: `tip_${currentDay}`
-    });
-    quickRow.push({
-        text: "🏅 ជោគជ័យ",
-        callback_data: "achievements"
-    });
-    
-    keyboard.push(quickRow);
     
     return { inline_keyboard: keyboard };
 }
