@@ -523,6 +523,23 @@ bot.onText(/\/set_paid\s+(\d+)/i, async (msg, match) => {
   }
 });
 
+// Add this temporary debug command
+bot.onText(/\/whoami/i, async (msg) => {
+  await bot.sendMessage(msg.chat.id, `🔍 Debug Info:
+
+Your Telegram ID: ${msg.from.id}
+Expected Admin IDs: 176039, 484389665
+Are you admin? ${[176039, 484389665].includes(msg.from.id) ? 'YES ✅' : 'NO ❌'}
+
+Module Status:
+- adminCommands exists: ${!!adminCommands}
+- showUsers function exists: ${adminCommands ? !!adminCommands.showUsers : false}
+
+Database Context:
+- pool exists: ${!!pool}
+- dbContext exists: ${!!dbContext}`);
+});
+
 // Route badges and progress
 bot.onText(/\/badges/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
