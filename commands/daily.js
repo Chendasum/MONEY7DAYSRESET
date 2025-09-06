@@ -4,9 +4,81 @@ const { sendLongMessage } = require("../utils/message-splitter");
 
 // Configuration constants
 const CONFIG = {
-    MESSAGE_CHUNK_SIZE: 3500,
+    MESSAGE_CHUNK_SIZE: 2500, // Reduced for better delivery
     TOTAL_DAYS: 7,
-    DEFAULT_DELAY: 500
+    DEFAULT_DELAY: 1500 // Increased delay between chunks
+};
+
+// Content optimization functions
+const contentOptimization = {
+    optimizeContentDelivery: (content, maxLength = 2500) => {
+        if (content.length <= maxLength) return [content];
+        
+        // Split by sections first (look for multiple line breaks)
+        const sections = content.split(/\n\n\n+/);
+        const chunks = [];
+        let currentChunk = '';
+        
+        sections.forEach(section => {
+            if (currentChunk.length + section.length <= maxLength) {
+                currentChunk += section + '\n\n';
+            } else {
+                if (currentChunk.trim()) chunks.push(currentChunk.trim());
+                currentChunk = section + '\n\n';
+            }
+        });
+        
+        if (currentChunk.trim()) chunks.push(currentChunk.trim());
+        return chunks;
+    },
+    
+    generateVisualProgress: (completedDays, totalDays = 7) => {
+        const percentage = Math.round((completedDays.length / totalDays) * 100);
+        const filled = Math.floor(percentage / 10);
+        const empty = 10 - filled;
+        
+        return `📊 **វឌ្ឍនភាព: ${percentage}%**\n${'🟩'.repeat(filled)}${'⬜'.repeat(empty)} (${completedDays.length}/${totalDays})`;
+    }
+};
+
+// Gamification system
+const gamificationSystem = {
+    calculateAchievements: (userProgress) => {
+        const achievements = [];
+        const totalSaved = userProgress.totalMoneySaved || 0;
+        const completedDays = userProgress.completedDays || [];
+        
+        // Money achievements
+        if (totalSaved >= 50) achievements.push("💰 អ្នករកប្រាក់ Bronze");
+        if (totalSaved >= 100) achievements.push("💎 អ្នករកប្រាក់ Silver");
+        if (totalSaved >= 200) achievements.push("🏆 អ្នករកប្រាក់ Gold");
+        
+        // Consistency achievements
+        if (completedDays.length >= 3) achievements.push("🔥 ការប្តេជ្ញាចិត្ត 3 ថ្ងៃ");
+        if (completedDays.length >= 7) achievements.push("⭐ អ្នកចាំថ្ងៃ 7 ថ្ងៃ");
+        
+        return achievements;
+    }
+};
+
+// Error handling
+const errorHandling = {
+    gracefulFallback: async (bot, chatId, error, context) => {
+        console.error(`Error in ${context}:`, error);
+        
+        const fallbackMessage = `🔧 **មានបញ្ហាបច្ចេកទេសតូចៗ**
+
+💡 **ការដោះស្រាយ:**
+• ចុច /start ដើម្បីចាប់ផ្តើមឡើងវិញ
+• ទាក់ទង @Chendasum សម្រាប់ជំនួយ
+• ឬព្យាយាមម្តងទៀតក្នុងពេល ១-២ នាទី`;
+        
+        try {
+            await bot.sendMessage(chatId, fallbackMessage);
+        } catch (sendError) {
+            console.error("Failed to send fallback message:", sendError);
+        }
+    }
 };
 
 // Day metadata for beautiful interface
@@ -118,17 +190,23 @@ const dayMeta = {
     }
 };
 
-// Generate progress bar visualization
+// Enhanced progress bar visualization
 function generateProgressBar(completedDays, totalDays = 7) {
     const percentage = Math.round((completedDays / totalDays) * 100);
     const filledBlocks = Math.floor((completedDays / totalDays) * 10);
     const emptyBlocks = 10 - filledBlocks;
     
     const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
-    return `📊 **ការវឌ្ឍនភាព: ${percentage}%**\n\`${progressBar}\` (${completedDays}/${totalDays})\n`;
+    
+    // Add achievements
+    let achievementText = '';
+    if (percentage >= 50) achievementText += '🏅 ';
+    if (percentage === 100) achievementText += '🎓 ';
+    
+    return `${achievementText}📊 **ការវឌ្ឍនភាព: ${percentage}%**\n\`${progressBar}\` (${completedDays}/${totalDays})\n`;
 }
 
-// Create beautiful day overview
+// Enhanced day overview with achievements
 function createDayOverview(dayNumber, userProgress = {}) {
     const day = dayMeta[dayNumber];
     const isCompleted = userProgress.completedDays?.includes(dayNumber) || false;
@@ -139,15 +217,15 @@ function createDayOverview(dayNumber, userProgress = {}) {
     message += `${day.color} **ថ្ងៃទី ${dayNumber}: ${day.title}**\n`;
     message += `${day.icon} *${day.subtitle}*\n\n`;
     
-    // Status with dynamic content
+    // Enhanced status with achievements
     if (isCompleted) {
-        message += `✅ **ស្ថានភាព:** បានបញ្ចប់`;
+        message += `✅ **ស្ថានភាព:** បានបញ្ចប់ 🎉`;
         if (completionDate) {
             message += ` (${new Date(completionDate).toLocaleDateString('km-KH')})`;
         }
         message += '\n';
     } else {
-        message += `🟡 **ស្ថានភាព:** រង់ចាំបញ្ចប់\n`;
+        message += `🎯 **ស្ថានភាព:** រង់ចាំបញ្ចប់\n`;
     }
     
     // Add timestamp to make content unique
@@ -160,10 +238,10 @@ function createDayOverview(dayNumber, userProgress = {}) {
     message += `📊 **កម្រិតលំបាក:** ${day.difficulty}\n`;
     message += `💎 **តម្លៃ:** ${day.value}\n\n`;
     
-    // Progress bar if we have completion data
+    // Enhanced progress with visual elements
     if (userProgress.completedDays) {
-        message += generateProgressBar(userProgress.completedDays.length);
-        message += '\n';
+        message += contentOptimization.generateVisualProgress(userProgress.completedDays);
+        message += '\n\n';
     }
     
     // Key objectives
@@ -175,7 +253,7 @@ function createDayOverview(dayNumber, userProgress = {}) {
     return message;
 }
 
-// Generate program overview
+// Enhanced program overview
 function generateProgramOverview(progress) {
     const completedDays = progress.completedDays || [];
     const currentDay = progress.currentDay || 1;
@@ -183,14 +261,21 @@ function generateProgramOverview(progress) {
     let message = `🔱 **7-Day Money Flow Reset™** 🔱\n`;
     message += `*កម្មវិធីកែលម្អលំហូរប្រាក់ ៧ ថ្ងៃ*\n\n`;
     
-    // Progress
+    // Enhanced progress
     message += generateProgressBar(completedDays.length);
     message += '\n';
     
-    // Current status
+    // Current status with achievements
     if (completedDays.length === 7) {
         message += `🎓 **ស្ថានភាព:** បានបញ្ចប់កម្មវិធី!\n`;
         message += `🏆 **កម្រិត:** Cambodia Money Flow Graduate\n\n`;
+        
+        // Add graduation level based on performance
+        const totalSaved = progress.totalMoneySaved || 0;
+        if (totalSaved >= 200) message += `💎 **ក្រាដ:** Platinum Graduate\n`;
+        else if (totalSaved >= 100) message += `🥇 **ក្រាដ:** Gold Graduate\n`;
+        else if (totalSaved >= 50) message += `🥈 **ក្រាដ:** Silver Graduate\n`;
+        else message += `🥉 **ក្រាដ:** Bronze Graduate\n`;
     } else {
         message += `📍 **ថ្ងៃបច្ចុប្បន្ន:** ថ្ងៃទី ${currentDay}\n`;
         message += `🎯 **បន្ទាប់:** ${dayMeta[currentDay]?.title || 'បញ្ចប់កម្មវិធី'}\n\n`;
@@ -215,7 +300,7 @@ function generateProgramOverview(progress) {
     return message;
 }
 
-// Generate day navigation keyboard
+// Enhanced navigation keyboard with achievements
 function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     const keyboard = [];
     
@@ -282,7 +367,7 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     
     keyboard.push(navRow);
     
-    // Action buttons
+    // Enhanced action buttons
     const actionRow = [];
     actionRow.push({
         text: "🎯 ចាប់ផ្តើមមេរៀន",
@@ -291,8 +376,8 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     
     if (completedDays.includes(currentDay)) {
         actionRow.push({
-            text: "✅ បានបញ្ចប់",
-            callback_data: `completed_${currentDay}`
+            text: "🏆 បានបញ្ចប់",
+            callback_data: `achievements_${currentDay}`
         });
     } else {
         actionRow.push({
@@ -302,6 +387,19 @@ function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
     }
     
     keyboard.push(actionRow);
+    
+    // Add quick access row
+    const quickRow = [];
+    quickRow.push({
+        text: "💡 គន្លឹះថ្ងៃនេះ",
+        callback_data: `tip_${currentDay}`
+    });
+    quickRow.push({
+        text: "🏅 ជោគជ័យ",
+        callback_data: "achievements"
+    });
+    
+    keyboard.push(quickRow);
     
     return { inline_keyboard: keyboard };
 }
@@ -1530,7 +1628,7 @@ Expense Calculator:
 };
 
 /**
- * Enhanced handle function with beautiful UI
+ * Enhanced handle function with beautiful UI and improved error handling
  */
 async function handle(msg, match, bot) {
    const dayNumber = parseInt(match[1]);
@@ -1550,7 +1648,7 @@ async function handle(msg, match, bot) {
          return;
       }
 
-      // Find user and progress
+      // Find user and progress with enhanced error handling
       const [user, progress] = await Promise.all([
          User.findOne({ telegram_id: userId }),
          Progress.findOne({ user_id: userId })
@@ -1561,7 +1659,7 @@ async function handle(msg, match, bot) {
          return;
       }
 
-      // Check payment status
+      // Enhanced payment status check
       const isPaid = user.is_paid === true || user.is_paid === 't' || user.is_paid === 1;
       
       console.log("=== PAYMENT CHECK ===", {
@@ -1581,9 +1679,9 @@ async function handle(msg, match, bot) {
          return;
       }
 
-      // Auto-fix for Day 1 access
+      // Auto-fix for Day 1 access with enhanced logging
       if (dayNumber === 1 && !progress.ready_for_day_1) {
-         console.log(`🚨 Setting ready_for_day_1=true for user ${userId}`);
+         console.log(`🚨 Auto-fixing Day 1 access for user ${userId}`);
          await Progress.findOneAndUpdate(
             { user_id: userId },
             { ready_for_day_1: true, currentDay: 1 },
@@ -1591,7 +1689,7 @@ async function handle(msg, match, bot) {
          );
       }
 
-      // Calculate completed days and progress
+      // Enhanced completed days calculation
       const completedDays = [];
       for (let i = 1; i <= 7; i++) {
          if (progress[`day${i}Completed`]) {
@@ -1601,29 +1699,38 @@ async function handle(msg, match, bot) {
       
       const maxAccessibleDay = Math.max(dayNumber, progress.currentDay || 1);
       
-      // Check if day is accessible
-      if (dayNumber > 1 && dayNumber > progress.current_day) {
-         await bot.sendMessage(chatId, "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចាប់ផ្តើមថ្ងៃបន្ទាប់។");
+      // Enhanced day accessibility check
+      if (dayNumber > 1 && dayNumber > (progress.currentDay || 1)) {
+         await bot.sendMessage(chatId, `🔒 សូមបញ្ចប់ថ្ងៃទី ${(progress.currentDay || 1)} មុនដើម្បីចាប់ផ្តើមថ្ងៃទី ${dayNumber}។`);
          return;
       }
 
-      // Generate beautiful lesson overview
-      const overviewMessage = createDayOverview(dayNumber, {
+      // Generate enhanced lesson overview with achievements
+      const userProgressData = {
          completedDays,
-         currentDay: progress.currentDay,
-         [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`]
-      });
+         currentDay: progress.currentDay || 1,
+         totalMoneySaved: progress.totalMoneySaved || 0,
+         [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`],
+         timestamp: new Date().toLocaleTimeString('km-KH', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'Asia/Phnom_Penh'
+         })
+      };
       
-      // Generate interactive navigation
+      const overviewMessage = createDayOverview(dayNumber, userProgressData);
+      
+      // Generate enhanced interactive navigation
       const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
       
       // Send enhanced lesson overview with beautiful formatting
       await bot.sendMessage(chatId, overviewMessage, {
          parse_mode: 'Markdown',
-         reply_markup: keyboard
+         reply_markup: keyboard,
+         disable_web_page_preview: true
       });
 
-      // Update user progress
+      // Enhanced progress tracking with analytics
       await Promise.all([
          Progress.findOneAndUpdate(
             { user_id: userId },
@@ -1631,7 +1738,8 @@ async function handle(msg, match, bot) {
                currentDay: Math.max(dayNumber, progress.currentDay || 0),
                [`day${dayNumber}AccessedAt`]: new Date(),
                lastActiveDay: dayNumber,
-               updatedAt: new Date()
+               updatedAt: new Date(),
+               $inc: { [`day${dayNumber}Views`]: 1 }
             },
             { upsert: true }
          ),
@@ -1643,12 +1751,12 @@ async function handle(msg, match, bot) {
 
    } catch (error) {
       console.error("Error in enhanced daily command:", error);
-      await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។");
+      await errorHandling.gracefulFallback(bot, chatId, error, 'handle');
    }
 }
 
 /**
- * Handle callback queries for interactive navigation
+ * Enhanced callback handler with comprehensive action support
  */
 async function handleCallback(query, bot) {
    const { data, message, from } = query;
@@ -1656,7 +1764,7 @@ async function handleCallback(query, bot) {
    const chatId = message.chat.id;
 
    try {
-      console.log("=== CALLBACK DEBUG ===", { data, userId });
+      console.log("=== ENHANCED CALLBACK DEBUG ===", { data, userId });
       
       const [action, param, param2] = data.split('_');
       
@@ -1664,7 +1772,7 @@ async function handleCallback(query, bot) {
          case 'day':
             const dayNum = parseInt(param);
             
-            // Check if user is trying to navigate to the same day
+            // Enhanced same-day check
             const currentText = message.text || '';
             if (currentText.includes(`ថ្ងៃទី ${dayNum}:`)) {
                await bot.answerCallbackQuery(query.id, { 
@@ -1674,12 +1782,16 @@ async function handleCallback(query, bot) {
                return;
             }
             
-            // Send fresh message for different day
-            await handle({ from: { id: userId }, chat: { id: chatId } }, [null, dayNum.toString()], bot);
+            // Navigate to different day with enhanced handling
+            await handleDayNavigation(bot, chatId, message.message_id, userId, dayNum);
+            await bot.answerCallbackQuery(query.id, { 
+               text: `ថ្ងៃទី ${dayNum}`, 
+               show_alert: false 
+            });
             break;
             
          case 'start':
-            // Fix: Handle both "start_lesson_X" and "start_X" formats
+            // Enhanced lesson start handling
             let lessonDay;
             if (param === 'lesson') {
                lessonDay = parseInt(param2); // start_lesson_1
@@ -1687,7 +1799,7 @@ async function handleCallback(query, bot) {
                lessonDay = parseInt(param); // start_1
             }
             
-            console.log("=== STARTING LESSON ===", { lessonDay });
+            console.log("=== STARTING ENHANCED LESSON ===", { lessonDay });
             
             if (lessonDay && lessonDay >= 1 && lessonDay <= 7) {
                await startLesson(bot, chatId, userId, lessonDay);
@@ -1707,12 +1819,31 @@ async function handleCallback(query, bot) {
             const completeDay = parseInt(param);
             const success = await markDayComplete(userId, completeDay);
             if (success) {
+               // Enhanced completion with achievements
+               const progress = await Progress.findOne({ user_id: userId });
+               const achievements = gamificationSystem.calculateAchievements({
+                  completedDays: [completeDay],
+                  totalMoneySaved: progress?.totalMoneySaved || 0
+               });
+               
+               let completionMsg = `🎉 បានបញ្ចប់ថ្ងៃទី ${completeDay}!`;
+               if (achievements.length > 0) {
+                  completionMsg += `\n🏆 ${achievements[0]}`;
+               }
+               
                await bot.answerCallbackQuery(query.id, { 
-                  text: `🎉 បានបញ្ចប់ថ្ងៃទី ${completeDay}!`,
+                  text: completionMsg,
                   show_alert: true 
                });
-               // Send updated progress
-               await bot.sendMessage(chatId, `✅ **ថ្ងៃទី ${completeDay} បានបញ្ចប់!**\n\n🚀 **ចាប់ផ្តើម:** /day${completeDay + 1 <= 7 ? completeDay + 1 : 7}`, { parse_mode: 'Markdown' });
+               
+               // Send enhanced completion message
+               let nextMsg = `✅ **ថ្ងៃទី ${completeDay} បានបញ្ចប់!**\n\n`;
+               if (achievements.length > 0) {
+                  nextMsg += `🎖️ **ជោគជ័យថ្មី:** ${achievements.join(', ')}\n\n`;
+               }
+               nextMsg += `🚀 **បន្ទាប់:** /day${completeDay + 1 <= 7 ? completeDay + 1 : 7}`;
+               
+               await bot.sendMessage(chatId, nextMsg, { parse_mode: 'Markdown' });
             } else {
                await bot.answerCallbackQuery(query.id, { 
                   text: "មានបញ្ហាកត់ត្រា", 
@@ -1725,6 +1856,23 @@ async function handleCallback(query, bot) {
             await showProgramOverview(bot, chatId, message.message_id, userId);
             await bot.answerCallbackQuery(query.id, { 
                text: "ទិដ្ឋភាពទូទៅ", 
+               show_alert: false 
+            });
+            break;
+            
+         case 'achievements':
+            await showUserAchievements(bot, chatId, userId);
+            await bot.answerCallbackQuery(query.id, { 
+               text: "ជោគជ័យរបស់អ្នក", 
+               show_alert: false 
+            });
+            break;
+
+         case 'tip':
+            const tipDay = parseInt(param);
+            await sendPersonalizedTip(bot, chatId, userId, tipDay);
+            await bot.answerCallbackQuery(query.id, { 
+               text: "គន្លឹះពិសេស", 
                show_alert: false 
             });
             break;
@@ -1745,155 +1893,163 @@ async function handleCallback(query, bot) {
       }
       
    } catch (error) {
-      console.error("Error handling callback:", error);
+      console.error("Error handling enhanced callback:", error);
       await bot.answerCallbackQuery(query.id, {
          text: "មានបញ្ហាបច្ចេកទេស",
          show_alert: true
       });
    }
 }
+
 /**
- * Handle day navigation
+ * Enhanced day navigation with smooth transitions
  */
 async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
-   const progress = await Progress.findOne({ user_id: userId });
-   if (!progress) return;
-   
-   const completedDays = [];
-   for (let i = 1; i <= 7; i++) {
-      if (progress[`day${i}Completed`]) {
-         completedDays.push(i);
-      }
-   }
-   
-   const maxAccessibleDay = progress.currentDay || 1;
-   
-   // Add timestamp to make content unique
-   const timestamp = new Date().toLocaleTimeString('km-KH', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      timeZone: 'Asia/Phnom_Penh'
-   });
-   
-   const overviewMessage = createDayOverview(dayNumber, {
-      completedDays,
-      currentDay: progress.currentDay,
-      [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`],
-      timestamp // Add this to make content unique
-   });
-   
-   const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
-   
    try {
-      await bot.editMessageText(overviewMessage, {
-         chat_id: chatId,
-         message_id: messageId,
-         parse_mode: 'Markdown',
-         reply_markup: keyboard
-      });
+      const progress = await Progress.findOne({ user_id: userId });
+      if (!progress) return;
+      
+      const completedDays = [];
+      for (let i = 1; i <= 7; i++) {
+         if (progress[`day${i}Completed`]) {
+            completedDays.push(i);
+         }
+      }
+      
+      const maxAccessibleDay = progress.currentDay || 1;
+      
+      // Enhanced progress data with achievements
+      const userProgressData = {
+         completedDays,
+         currentDay: progress.currentDay || 1,
+         totalMoneySaved: progress.totalMoneySaved || 0,
+         [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`],
+         timestamp: new Date().toLocaleTimeString('km-KH', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'Asia/Phnom_Penh'
+         })
+      };
+      
+      const overviewMessage = createDayOverview(dayNumber, userProgressData);
+      const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
+      
+      try {
+         await bot.editMessageText(overviewMessage, {
+            chat_id: chatId,
+            message_id: messageId,
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+            disable_web_page_preview: true
+         });
+      } catch (error) {
+         // Fallback: send new message if edit fails
+         console.log("Edit failed, sending new message:", error.message);
+         await bot.sendMessage(chatId, overviewMessage, {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+            disable_web_page_preview: true
+         });
+      }
    } catch (error) {
-      // If still fails, send new message
-      console.log("Edit failed, sending new message:", error.message);
-      await bot.sendMessage(chatId, overviewMessage, {
-         parse_mode: 'Markdown',
-         reply_markup: keyboard
-      });
+      console.error("Error in handleDayNavigation:", error);
+      await errorHandling.gracefulFallback(bot, chatId, error, 'handleDayNavigation');
    }
 }
 
 /**
- * Start lesson content
+ * Enhanced lesson delivery with smart chunking and error recovery
  */
 async function startLesson(bot, chatId, userId, dayNumber) {
-   console.log("=== START LESSON CALLED ===", { userId, dayNumber });
+   console.log("=== ENHANCED START LESSON ===", { userId, dayNumber });
    
    try {
-      if (dailyMessages[dayNumber]) {
-         // Send a starting message first
-         await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងផ្ទុក...`, { parse_mode: 'Markdown' });
-         
-         // Check content length
-         const content = dailyMessages[dayNumber];
-         console.log("=== LESSON CONTENT LENGTH ===", content.length);
-         
-         try {
-            // Try sending in smaller, safer chunks
-            const maxChunkSize = 3000; // Smaller chunks
-            const chunks = [];
-            
-            // Split content into smaller pieces
-            for (let i = 0; i < content.length; i += maxChunkSize) {
-               chunks.push(content.slice(i, i + maxChunkSize));
-            }
-            
-            console.log("=== SENDING CHUNKS ===", { totalChunks: chunks.length });
-            
-            // Send each chunk with delay
-            for (let i = 0; i < chunks.length; i++) {
-               console.log(`=== SENDING CHUNK ${i + 1}/${chunks.length} ===`);
-               
-               try {
-                  await bot.sendMessage(chatId, chunks[i], { parse_mode: 'Markdown' });
-                  
-                  // Wait between chunks
-                  if (i < chunks.length - 1) {
-                     await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
-                  }
-               } catch (chunkError) {
-                  console.error(`Error sending chunk ${i + 1}:`, chunkError.message);
-                  
-                  // Try without Markdown if it fails
-                  try {
-                     await bot.sendMessage(chatId, chunks[i]);
-                  } catch (plainError) {
-                     console.error(`Plain text chunk ${i + 1} also failed:`, plainError.message);
-                     await bot.sendMessage(chatId, `❌ មានបញ្ហាផ្នែកទី ${i + 1} នៃមេរៀន`);
-                  }
-               }
-            }
-            
-            // Update access timestamp
-            await Progress.findOneAndUpdate(
-               { user_id: userId },
-               {
-                  [`day${dayNumber}AccessedAt`]: new Date(),
-                  lastActive: new Date()
-               }
-            );
-            
-            // Send completion message
-            await bot.sendMessage(chatId, `✅ **មេរៀនថ្ងៃទី ${dayNumber} ត្រូវបានផ្ញើរួចរាល់!**
+      if (!dailyMessages[dayNumber]) {
+         await bot.sendMessage(chatId, `❌ **មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន**\n\n📞 **ទាក់ទង:** @Chendasum សម្រាប់មេរៀន`, { parse_mode: 'Markdown' });
+         return;
+      }
 
-💡 **បន្ទាប់:**
-- អនុវត្តតាមសកម្មភាពក្នុងមេរៀន
-- ចុច /day${dayNumber} ដើម្បីត្រលប់ទៅមេនុ
-- ឬចុច ⭐ ដើម្បីបញ្ចប់ថ្ងៃនេះ`, { parse_mode: 'Markdown' });
+      // Send enhanced starting message
+      await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងត្រៀមខ្លឹមសារ...`, { 
+         parse_mode: 'Markdown' 
+      });
+      
+      // Get and optimize content using enhanced chunking
+      const content = dailyMessages[dayNumber];
+      const chunks = contentOptimization.optimizeContentDelivery(content, CONFIG.MESSAGE_CHUNK_SIZE);
+      
+      console.log(`=== SENDING ${chunks.length} ENHANCED CHUNKS ===`);
+      
+      // Send each chunk with improved error handling
+      for (let i = 0; i < chunks.length; i++) {
+         try {
+            await bot.sendMessage(chatId, chunks[i], { 
+               parse_mode: 'Markdown',
+               disable_web_page_preview: true 
+            });
             
-         } catch (contentError) {
-            console.error("Error sending lesson content:", contentError);
+            // Smart delay between chunks
+            if (i < chunks.length - 1) {
+               await new Promise(resolve => setTimeout(resolve, CONFIG.DEFAULT_DELAY));
+            }
+         } catch (chunkError) {
+            console.error(`Error sending chunk ${i + 1}:`, chunkError.message);
             
-            // Send simplified lesson instead
-            const simplifiedLesson = getSimplifiedLesson(dayNumber);
-            
+            // Enhanced fallback strategy
             try {
-               await bot.sendMessage(chatId, simplifiedLesson, { parse_mode: 'Markdown' });
-               await bot.sendMessage(chatId, `📞 **សម្រាប់មេរៀនពេញលេញ:** ទាក់ទង @Chendasum\n🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
-            } catch (simpleError) {
-               // Last resort - plain text
-               await bot.sendMessage(chatId, `មេរៀនថ្ងៃទី ${dayNumber} - សូមទាក់ទង @Chendasum សម្រាប់មេរៀនពេញលេញ`);
+               // Try without markdown
+               await bot.sendMessage(chatId, chunks[i]);
+            } catch (plainError) {
+               // Last resort: error message
+               await bot.sendMessage(chatId, `❌ មានបញ្ហាផ្នែកទី ${i + 1} - ទាក់ទង @Chendasum`);
             }
          }
-         
-      } else {
-         await bot.sendMessage(chatId, `❌ **មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន**\n\n📞 **ទាក់ទង:** @Chendasum សម្រាប់មេរៀន\n🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
       }
       
+      // Enhanced progress tracking
+      await Progress.findOneAndUpdate(
+         { user_id: userId },
+         {
+            [`day${dayNumber}AccessedAt`]: new Date(),
+            lastActive: new Date(),
+            $inc: { [`day${dayNumber}Views`]: 1 }
+         }
+      );
+      
+      // Send enhanced completion message with achievements
+      const progress = await Progress.findOne({ user_id: userId });
+      const completedDays = [];
+      for (let i = 1; i <= 7; i++) {
+         if (progress && progress[`day${i}Completed`]) completedDays.push(i);
+      }
+      
+      const achievements = gamificationSystem.calculateAchievements({
+         completedDays,
+         totalMoneySaved: progress?.totalMoneySaved || 0
+      });
+      
+      let completionMsg = `✅ **មេរៀនថ្ងៃទី ${dayNumber} ត្រូវបានផ្ញើរួចរាល់!**\n\n`;
+      
+      if (achievements.length > 0) {
+         completionMsg += `🎖️ **ជោគជ័យរបស់អ្នក:**\n${achievements.join('\n')}\n\n`;
+      }
+      
+      completionMsg += `💡 **បន្ទាប់:**
+- អនុវត្តតាមសកម្មភាពក្នុងមេរៀន
+- ចុច /day${dayNumber} ដើម្បីត្រលប់ទៅមេនុ
+- ឬចុច ⭐ ដើម្បីបញ្ចប់ថ្ងៃនេះ`;
+      
+      await bot.sendMessage(chatId, completionMsg, { parse_mode: 'Markdown' });
+      
    } catch (error) {
-      console.error("Error in startLesson:", error);
-      await bot.sendMessage(chatId, `❌ មានបញ្ហាបច្ចេកទេស។ ទាក់ទង @Chendasum`);
+      console.error("Error in enhanced startLesson:", error);
+      await errorHandling.gracefulFallback(bot, chatId, error, 'startLesson');
    }
 }
 
+/**
+ * Enhanced simplified lesson fallback
+ */
 function getSimplifiedLesson(dayNumber) {
    const simplified = {
       1: `🔱 **ថ្ងៃទី ១៖ រកប្រាក់ភ្លាមៗ $50-150** 🔱
@@ -1939,53 +2095,174 @@ function getSimplifiedLesson(dayNumber) {
 
 📞 **ជំនួយ:** @Chendasum`,
 
-      // Add simplified versions for other days...
+      2: `🔱 **ថ្ងៃទី ២៖ ស្វែងរកចំណុចលេចលុយកម្រិតខ្ពស់** 🔱
+
+🎯 **គោលដៅ:** រកចំណុចលេចលុយ $100+ ក្នុង ៤៥ នាទី
+
+⚡ **បេសកកម្មទី១:** អន្ទាក់បណ្តាញសង្គម (១៥ នាទី)
+📱 ពិនិត្យ Facebook/Instagram/TikTok payment history
+🔍 រកការចំណាយដោយមិនចាំបាច់
+
+⚡ **បេសកកម្មទី២:** ការជាវលាក់កំបាំង (១៥ នាទី)
+📧 ស្វែងរក email "subscription", "renewal"
+🏦 ពិនិត្យ bank statement រកការកាត់ស្វ័យប្រវត្តិ
+
+⚡ **បេសកកម្មទី៣:** ទម្លាប់តូចៗប្រចាំថ្ងៃ (១៥ នាទី)
+☕ កាហ្វេ, ភេសជ្ជៈ, បារី
+🚗 ការធ្វើដំណើរមិនចាំបាច់
+
+📞 **ជំនួយ:** @Chendasum`,
+
+      3: `🔱 **ថ្ងៃទី ៣៖ ពិនិត្យសុខភាពហិរញ្ញវត្ថុ** 🔱
+
+📊 **គោលដៅ:** ទទួលពិន្ទុសុខភាពហិរញ្ញវត្ថុក្នុង ១៥ នាទី
+
+⚡ **ការវាយតម្លៃ ៣ ផ្នែក:**
+1. ការតាមដាន (Tracking): A-F
+2. ការរៀបចំផែនការ (Planning): A-F  
+3. មូលនិធិបន្ទាន់ (Emergency Fund): A-F
+
+🏆 **ពិន្ទុសរុប:**
+- 90-100%: A+ ពិសេស
+- 80-89%: A ល្អណាស់
+- 70-79%: B ល្អ
+- 60-69%: C មធ្យម
+- 50-59%: D ត្រូវកែលម្អ
+- < 50%: F ត្រូវការជំនួយ
+
+📞 **ជំនួយ:** @Chendasum`,
+
+      4: `🔱 **ថ្ងៃទី ៤៖ គណនាលំហូរប្រាក់ពិត** 🔱
+
+📈 **គោលដៅ:** យល់ពីលំហូរប្រាក់ពិតក្នុង ១០ នាទី
+
+⚡ **ជំហានគណនា:**
+1. ចំណូលសរុប: $____
+2. ចំណាយសរុប: $____
+3. លំហូរប្រាក់ = ចំណូល - ចំណាយ: $____
+
+🎯 **លទ្ធផល:**
+- វិជ្ជមាន (+): ល្អ!
+- សូន្យ (0): គ្រោះថ្នាក់
+- អវិជ្ជមាន (-): បន្ទាន់!
+
+📞 **ជំនួយ:** @Chendasum`,
+
+      5: `🔱 **ថ្ងៃទី ៥៖ វិភាគតុល្យភាពចំណាយ** 🔱
+
+⚖️ **គោលដៅ:** យល់ពីតុល្យភាពចំណាយក្នុង ១៥ នាទី
+
+⚡ **ចំណាយ ៣ ប្រភេទ:**
+1. ការរស់រាន (Survival): 50-65%
+2. ការលូតលាស់ (Growth): 20-30%
+3. របៀបរស់នៅ (Lifestyle): 10-25%
+
+🎯 **តុល្យភាពដ៏ល្អ:** 60/25/15
+
+📞 **ជំនួយ:** @Chendasum`,
+
+      6: `🔱 **ថ្ងៃទី ៦៖ ម៉ាទ្រីសអាទិភាព** 🔱
+
+🎬 **គោលដៅ:** កំណត់សកម្មភាព ៣ យ៉ាងក្នុង ១០ នាទី
+
+⚡ **ម៉ាទ្រីស Stop/Start/Continue:**
+🛑 STOP: បញ្ឈប់អ្វី? (ចំណាយមិនល្អ)
+▶️ START: ចាប់ផ្តើមអ្វី? (ទម្លាប់ល្អ)
+🔄 CONTINUE: បន្តអ្វី? (អ្វីដែលធ្វើបានល្អ)
+
+🗓️ **ផែនការ ៣០ ថ្ងៃ:** ការអនុវត្តច្បាស់លាស់
+
+📞 **ជំនួយ:** @Chendasum`,
+
+      7: `🔱 **ថ្ងៃទី ៧៖ បញ្ចប់ការសិក្សា** 🔱
+
+🎓 **គោលដៅ:** វាស់ជោគជ័យ និងជំហានបន្ទាប់
+
+⚡ **សមិទ្ធផលរបស់អ្នក:**
+💰 ប្រាក់សន្សំបាន: $____/ខែ
+📈 កម្រិតបញ្ចប់: Bronze/Silver/Gold/Platinum
+
+🏆 **ក្រាដបញ្ចប់ការសិក្សា:**
+- $50+: Bronze Graduate 🥉
+- $100+: Silver Graduate 🥈  
+- $200+: Gold Graduate 🥇
+- $300+: Platinum Graduate 💎
+
+🚀 **ជំហានបន្ទាប់:** ការបន្តទម្លាប់ល្អ
+
+📞 **ជំនួយ:** @Chendasum`
    };
    
    return simplified[dayNumber] || `📚 មេរៀនថ្ងៃទី ${dayNumber} កំពុងត្រូវបានត្រៀម...\n\n📞 ទាក់ទង @Chendasum`;
 }
 
 /**
- * Show program overview
+ * Enhanced program overview with achievements
  */
 async function showProgramOverview(bot, chatId, messageId, userId) {
-   const progress = await Progress.findOne({ user_id: userId });
-   if (!progress) return;
-   
-   const completedDays = [];
-   for (let i = 1; i <= 7; i++) {
-      if (progress[`day${i}Completed`]) {
-         completedDays.push(i);
+   try {
+      const progress = await Progress.findOne({ user_id: userId });
+      if (!progress) return;
+      
+      const completedDays = [];
+      for (let i = 1; i <= 7; i++) {
+         if (progress[`day${i}Completed`]) {
+            completedDays.push(i);
+         }
       }
+      
+      const overviewMessage = generateProgramOverview({ 
+         completedDays, 
+         currentDay: progress.currentDay || 1,
+         totalMoneySaved: progress.totalMoneySaved || 0
+      });
+      
+      const backKeyboard = {
+         inline_keyboard: [[
+            { text: "🔙 ត្រលប់ក្រោយ", callback_data: `day_${progress.currentDay || 1}` },
+            { text: "🏅 ជោគជ័យ", callback_data: "achievements" }
+         ]]
+      };
+      
+      await bot.editMessageText(overviewMessage, {
+         chat_id: chatId,
+         message_id: messageId,
+         parse_mode: 'Markdown',
+         reply_markup: backKeyboard
+      });
+   } catch (error) {
+      console.error("Error in showProgramOverview:", error);
+      await errorHandling.gracefulFallback(bot, chatId, error, 'showProgramOverview');
    }
-   
-   const overviewMessage = generateProgramOverview({ 
-      completedDays, 
-      currentDay: progress.currentDay || 1
-   });
-   
-   const backKeyboard = {
-      inline_keyboard: [[
-         { text: "🔙 ត្រលប់ក្រោយ", callback_data: `day_${progress.currentDay || 1}` }
-      ]]
-   };
-   
-   await bot.editMessageText(overviewMessage, {
-      chat_id: chatId,
-      message_id: messageId,
-      parse_mode: 'Markdown',
-      reply_markup: backKeyboard
-   });
 }
 
 /**
- * Mark day as complete with next day unlock
+ * Enhanced day completion with achievement tracking
  */
 async function markDayComplete(userId, dayNumber) {
    try {
+      const progress = await Progress.findOne({ user_id: userId });
+      
+      // Calculate estimated money saved based on day
+      const moneySavedEstimates = {
+         1: 75,   // Day 1: Quick wins
+         2: 100,  // Day 2: Advanced leak detection
+         3: 50,   // Day 3: Health check improvements
+         4: 80,   // Day 4: Cash flow optimization
+         5: 120,  // Day 5: Balance improvements
+         6: 60,   // Day 6: Action prioritization
+         7: 90    // Day 7: Final optimizations
+      };
+      
+      let totalMoneySaved = progress?.totalMoneySaved || 0;
+      if (!progress?.[`day${dayNumber}Completed`]) {
+         totalMoneySaved += moneySavedEstimates[dayNumber] || 0;
+      }
+      
       const completionData = {
          [`day${dayNumber}Completed`]: true,
          [`day${dayNumber}CompletedAt`]: new Date(),
+         totalMoneySaved: totalMoneySaved,
          completionPercentage: Math.floor((dayNumber / CONFIG.TOTAL_DAYS) * 100),
          lastActive: new Date()
       };
@@ -1995,16 +2272,22 @@ async function markDayComplete(userId, dayNumber) {
          completionData.currentDay = dayNumber + 1;
       }
 
-      // Mark program as complete if Day 7
+      // Enhanced program completion with graduation levels
       if (dayNumber === CONFIG.TOTAL_DAYS) {
          completionData.programCompleted = true;
          completionData.completionDate = new Date();
+         
+         // Determine graduation level
+         if (totalMoneySaved >= 300) completionData.graduationLevel = 'Platinum';
+         else if (totalMoneySaved >= 200) completionData.graduationLevel = 'Gold';
+         else if (totalMoneySaved >= 100) completionData.graduationLevel = 'Silver';
+         else completionData.graduationLevel = 'Bronze';
       }
 
       await Progress.findOneAndUpdate(
          { user_id: userId }, 
          completionData, 
-         { new: true }
+         { new: true, upsert: true }
       );
 
       return true;
@@ -2014,14 +2297,136 @@ async function markDayComplete(userId, dayNumber) {
    }
 }
 
-// Export functions
+/**
+ * Show user achievements
+ */
+async function showUserAchievements(bot, chatId, userId) {
+   try {
+      const progress = await Progress.findOne({ user_id: userId });
+      const completedDays = [];
+      for (let i = 1; i <= 7; i++) {
+         if (progress && progress[`day${i}Completed`]) completedDays.push(i);
+      }
+      
+      const achievements = gamificationSystem.calculateAchievements({
+         completedDays,
+         totalMoneySaved: progress?.totalMoneySaved || 0
+      });
+      
+      let message = `🏆 **ជោគជ័យរបស់អ្នក**\n\n`;
+      
+      if (achievements.length > 0) {
+         message += achievements.join('\n') + '\n\n';
+         message += `💰 **សរុបប្រាក់សន្សំបាន:** ${progress?.totalMoneySaved || 0}/ខែ\n`;
+         message += `📊 **វឌ្ឍនភាព:** ${completedDays.length}/7 ថ្ងៃ (${Math.round(completedDays.length/7*100)}%)\n\n`;
+      } else {
+         message += `🎯 **ចាប់ផ្តើមជោគជ័យដំបូង!**\nបញ្ចប់ថ្ងៃទី 1 ដើម្បីទទួលសញ្ញាបត្រដំបូង\n\n`;
+      }
+      
+      // Show next milestone
+      const nextMilestone = getNextMilestone(progress?.totalMoneySaved || 0, completedDays.length);
+      if (nextMilestone) {
+         message += `🎯 **គោលដៅបន្ទាប់:** ${nextMilestone}`;
+      }
+      
+      await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+   } catch (error) {
+      console.error("Error showing achievements:", error);
+      await errorHandling.gracefulFallback(bot, chatId, error, 'showUserAchievements');
+   }
+}
+
+/**
+ * Send personalized tip
+ */
+async function sendPersonalizedTip(bot, chatId, userId, dayNumber) {
+   try {
+      const progress = await Progress.findOne({ user_id: userId });
+      const tips = {
+         1: `💡 **គន្លឹះថ្ងៃទី 1:** 
+ស្វែងរក "micro-subscriptions" - ការជាវតូចៗដែលគេតែងភ្លេច!
+• Apple iCloud storage $0.99/ខែ
+• Google Photos storage $1.99/ខែ  
+• កម្មវិធីកែរូប $4.99/ខែ
+នេះអាចជាប្រាក់ $100+ ក្នុងមួយឆ្នាំ!`,
+
+         2: `💡 **គន្លឹះថ្ងៃទី 2:**
+ពិនិត្យ "social spending triggers" - ពេលណាអ្នកចំណាយច្រើន?
+• នៅពេលស្ត្រេស? 
+• ជាមួយមិត្តភក្តិ?
+• នៅពេលយប់?
+ការយល់ដឹងពីនេះជួយបញ្ឈប់ការចំណាយដោយអារម្មណ៍!`,
+
+         3: `💡 **គន្លឹះថ្ងៃទី 3:**
+ប្រើ "តេស្ត 72 ម៉ោង" សម្រាប់ការទិញធំៗ:
+ថ្ងៃទី 1: ចង់ទិញ
+ថ្ងៃទី 2: នៅតែចង់ទិញ?
+ថ្ងៃទី 3: នៅតែត្រូវការពិតៗ?
+80% នៃការចង់ទិញនឹងបាត់ទៅ!`,
+
+         4: `💡 **គន្លឹះថ្ងៃទី 4:**
+បង្កើត "Visual Cash Flow" ដោយប្រើកែវ 2 ใบ:
+កែវ 1: លុយចូល (ដាក់ថ្ម)
+កែវ 2: លុយចេញ (ដកថ្ម)
+មើលឃើញភ្លាមៗថាតើអ្នកកំពុងរីកចម្រើន ឬ ក្រីក្រ!`,
+
+         5: `💡 **គន្លឹះថ្ងៃទី 5:**
+ប្រើគោលការណ៍ "50-30-20 Cambodia Style":
+• 50% ចំណាយចាំបាច់ (ផ្ទះ, អាហារ)
+• 30% ការលូតលាស់ (ការសិក្សា, ការវិនិយោគ)  
+• 20% ការកម្សាន្ត
+ផ្លាស់ប្តូរពី "បច្ចិម" 50-20-30!`,
+
+         6: `💡 **គន្លឹះថ្ងៃទី 6:**
+បង្កើត "មន្ត្រថ្ងៃនេះ":
+"តើវានឹងជួយខ្ញុំឱ្យកាន់តែរីកចម្រើនដែរឬទេ?"
+សួរមុនពេលសម្រេចចិត្តរាល់ការចំណាយ!`,
+
+         7: `💡 **គន្លឹះបញ្ចប់:**
+បង្កើត "Money Flow Ritual" ប្រចាំសប្តាហ៍:
+ថ្ងៃអាទិត្យ ល្ងាច = 15 នាទីពិនិត្យលុយ
+• មើលអ្វីដែលបានចំណាយ
+• គ្រោងសម្រាប់សប្តាហ៍បន្ទាប់
+• អបអរជោគជ័យតូចៗ
+ទម្លាប់នេះនឹងផ្លាស់ប្តូរជីវិតអ្នក!`
+      };
+      
+      const tip = tips[dayNumber] || `💡 **គន្លឹះទូទៅ:** ចងចាំថាការផ្លាស់ប្តូរតូចៗអាចបង្កើតលទ្ធផលធំ!`;
+      
+      await bot.sendMessage(chatId, tip, { parse_mode: 'Markdown' });
+   } catch (error) {
+      console.error("Error sending personalized tip:", error);
+      await errorHandling.gracefulFallback(bot, chatId, error, 'sendPersonalizedTip');
+   }
+}
+
+/**
+ * Get next milestone for user motivation
+ */
+function getNextMilestone(totalSaved, completedDays) {
+   if (completedDays < 3) return "បញ្ចប់ថ្ងៃទី 3 ដើម្បីទទួល '🔥 ការប្តេជ្ញាចិត្ត 3 ថ្ងៃ'";
+   if (totalSaved < 100) return "សន្សំ $100 ដើម្បីទទួល '💎 អ្នករកប្រាក់ Silver'";
+   if (completedDays < 7) return "បញ្ចប់កម្មវិធីដើម្បីទទួល '⭐ អ្នកចាំថ្ងៃ 7 ថ្ងៃ'";
+   if (totalSaved < 200) return "សន្សំ $200 ដើម្បីទទួល '🏆 អ្នករកប្រាក់ Gold'";
+   return "អ្នកបានសម្រេចគោលដៅទាំងអស់! 🎉";
+}
+
+// Export enhanced functions
 module.exports = { 
    handle, 
    handleCallback,
-   dailyMessages, 
+   handleDayNavigation,
+   startLesson,
+   getSimplifiedLesson,
+   showProgramOverview,
+   showUserAchievements,
+   sendPersonalizedTip,
    markDayComplete,
    createDayOverview,
    createNavigationKeyboard,
    generateProgramOverview,
-   generateProgressBar
+   generateProgressBar,
+   contentOptimization,
+   gamificationSystem,
+   errorHandling
 };
