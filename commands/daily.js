@@ -1,310 +1,9 @@
 const User = require("../models/User");
 const Progress = require("../models/Progress");
-const { sendLongMessage } = require("../utils/message-splitter");
+const { sendLongMessage } = require("../utils/message-splitter"); // Utility to split long messages
 
-// Configuration constants
-const CONFIG = {
-    MESSAGE_CHUNK_SIZE: 3500,
-    TOTAL_DAYS: 7,
-    DEFAULT_DELAY: 500
-};
-
-// Day metadata for beautiful interface
-const dayMeta = {
-    1: { 
-        icon: "💰", 
-        title: "រកប្រាក់ភ្លាមៗ", 
-        subtitle: "$50-150 ក្នុង ៣០ នាទី", 
-        color: "🟢",
-        duration: "៣០ នាទី",
-        difficulty: "ងាយស្រួល",
-        value: "$300+",
-        objectives: [
-            "រកប្រាក់បាន $50-150 ភ្លាមៗ",
-            "ស្វែងរកការជាវលាក់កំបាំង",
-            "វិភាគទម្លាប់ចំណាយកម្ពុជា",
-            "ទទួលឧបករណ៍គណនាលំហូរប្រាក់"
-        ]
-    },
-    2: { 
-        icon: "🎯", 
-        title: "ស្វែងរកចំណុចលេច", 
-        subtitle: "$100-400 ក្នុង ៤៥ នាទី", 
-        color: "🔵",
-        duration: "៤៥ នាទី",
-        difficulty: "មធ្យម",
-        value: "$500+",
-        objectives: [
-            "កំណត់ចំណុចលេចធ្លាយកម្រិតខ្ពស់",
-            "ស្វែងរកអន្ទាក់បណ្តាញសង្គម",
-            "ត្រួតពិនិត្យការជាវលាក់កំបាំង",
-            "បង្កើតយុទ្ធសាស្ត្របិទចំណុចលេច"
-        ]
-    },
-    3: { 
-        icon: "📊", 
-        title: "ពិនិត្យសុខភាពហិរញ្ញវត្ថុ", 
-        subtitle: "ដឹងពីសុខភាពប្រាក់ក្នុង ១៥ នាទី", 
-        color: "🟣",
-        duration: "១៥ នាទី",
-        difficulty: "ងាយស្រួល",
-        value: "$200+",
-        objectives: [
-            "ទទួលពិន្ទុសុខភាពហិរញ្ញវត្ថុ",
-            "វាយតម្លៃការតាមដានប្រាក់",
-            "ពិនិត្យផែនការប្រាក់",
-            "កែលម្អតាមលទ្ធភាព"
-        ]
-    },
-    4: { 
-        icon: "📈", 
-        title: "គណនាលំហូរប្រាក់", 
-        subtitle: "ដឹងលំហូរប្រាក់ពិតក្នុង ១០ នាទី", 
-        color: "🟠",
-        duration: "១០ នាទី",
-        difficulty: "មធ្យម",
-        value: "$250+",
-        objectives: [
-            "វិភាគគំរូលំហូរប្រាក់ពិតប្រាកដ",
-            "កំណត់ទិសដៅកែលម្អ",
-            "ពិនិត្យប្រភពចំណូល",
-            "បង្កើនប្រសិទ្ធភាពចំណាយ"
-        ]
-    },
-    5: { 
-        icon: "⚖️", 
-        title: "វិភាគតុល្យភាពចំណាយ", 
-        subtitle: "ដឹងតុល្យភាពក្នុង ១៥ នាទី", 
-        color: "🟦",
-        duration: "១៥ នាទី",
-        difficulty: "បន្តិចពិបាក",
-        value: "$350+",
-        objectives: [
-            "វិភាគការរស់រានមានជីវិត vs ការលូតលាស់",
-            "កំណត់អាទិភាពចំណាយ",
-            "បង្កើតតុល្យភាពល្អ",
-            "រៀបចំផែនការកែលម្អ"
-        ]
-    },
-    6: { 
-        icon: "🎬", 
-        title: "ម៉ាទ្រីសអាទិភាព", 
-        subtitle: "កំណត់ចំណុចសំខាន់ក្នុង ១០ នាទី", 
-        color: "🔴",
-        duration: "១០ នាទី",
-        difficulty: "បន្តិចពិបាក",
-        value: "$400+",
-        objectives: [
-            "ផែនការសកម្មភាព ៣ ចំណុច",
-            "ផែនការ ៣០ ថ្ងៃច្បាស់លាស់",
-            "កំណត់អាទិភាពផ្ទាល់ខ្លួន",
-            "បង្កើតការទទួលខុសត្រូវ"
-        ]
-    },
-    7: { 
-        icon: "🎓", 
-        title: "បញ្ចប់ការសិក្សា", 
-        subtitle: "វាស់ជោគជ័យ និងជំហានបន្ទាប់", 
-        color: "🟩",
-        duration: "២០ នាទី",
-        difficulty: "ងាយស្រួល",
-        value: "$500+",
-        objectives: [
-            "វាស់វែងសមិទ្ធផលរយៈពេល ៧ ថ្ងៃ",
-            "ទទួលកម្រិតបញ្ចប់ការសិក្សា",
-            "បង្កើតទម្លាប់យូរអង្វែង",
-            "ត្រៀមខ្លួនសម្រាប់កម្រិតបន្ទាប់"
-        ]
-    }
-};
-
-// Generate progress bar visualization
-function generateProgressBar(completedDays, totalDays = 7) {
-    const percentage = Math.round((completedDays / totalDays) * 100);
-    const filledBlocks = Math.floor((completedDays / totalDays) * 10);
-    const emptyBlocks = 10 - filledBlocks;
-    
-    const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
-    return `📊 **ការវឌ្ឍនភាព: ${percentage}%**\n\`${progressBar}\` (${completedDays}/${totalDays})\n`;
-}
-
-// Create beautiful day overview
-function createDayOverview(dayNumber, userProgress = {}) {
-    const day = dayMeta[dayNumber];
-    const isCompleted = userProgress.completedDays?.includes(dayNumber) || false;
-    const completionDate = userProgress[`day${dayNumber}CompletedAt`];
-    const timestamp = userProgress.timestamp;
-    
-    let message = `🔱 **7-Day Money Flow Reset™** 🔱\n\n`;
-    message += `${day.color} **ថ្ងៃទី ${dayNumber}: ${day.title}**\n`;
-    message += `${day.icon} *${day.subtitle}*\n\n`;
-    
-    // Status with dynamic content
-    if (isCompleted) {
-        message += `✅ **ស្ថានភាព:** បានបញ្ចប់`;
-        if (completionDate) {
-            message += ` (${new Date(completionDate).toLocaleDateString('km-KH')})`;
-        }
-        message += '\n';
-    } else {
-        message += `🟡 **ស្ថានភាព:** រង់ចាំបញ្ចប់\n`;
-    }
-    
-    // Add timestamp to make content unique
-    if (timestamp) {
-        message += `🕐 **បានមើល:** ${timestamp}\n`;
-    }
-    
-    // Rest of your existing content...
-    message += `⏱️ **រយៈពេល:** ${day.duration}\n`;
-    message += `📊 **កម្រិតលំបាក:** ${day.difficulty}\n`;
-    message += `💎 **តម្លៃ:** ${day.value}\n\n`;
-    
-    // Progress bar if we have completion data
-    if (userProgress.completedDays) {
-        message += generateProgressBar(userProgress.completedDays.length);
-        message += '\n';
-    }
-    
-    // Key objectives
-    message += `**🎯 គោលដៅថ្ងៃនេះ:**\n`;
-    day.objectives.forEach((objective, index) => {
-        message += `${index + 1}. ${objective}\n`;
-    });
-    
-    return message;
-}
-
-// Generate program overview
-function generateProgramOverview(progress) {
-    const completedDays = progress.completedDays || [];
-    const currentDay = progress.currentDay || 1;
-    
-    let message = `🔱 **7-Day Money Flow Reset™** 🔱\n`;
-    message += `*កម្មវិធីកែលម្អលំហូរប្រាក់ ៧ ថ្ងៃ*\n\n`;
-    
-    // Progress
-    message += generateProgressBar(completedDays.length);
-    message += '\n';
-    
-    // Current status
-    if (completedDays.length === 7) {
-        message += `🎓 **ស្ថានភាព:** បានបញ្ចប់កម្មវិធី!\n`;
-        message += `🏆 **កម្រិត:** Cambodia Money Flow Graduate\n\n`;
-    } else {
-        message += `📍 **ថ្ងៃបច្ចុប្បន្ន:** ថ្ងៃទី ${currentDay}\n`;
-        message += `🎯 **បន្ទាប់:** ${dayMeta[currentDay]?.title || 'បញ្ចប់កម្មវិធី'}\n\n`;
-    }
-    
-    // Weekly overview
-    message += `**📅 ទិដ្ឋភាពសប្តាហ៍:**\n`;
-    for (let day = 1; day <= 7; day++) {
-        const meta = dayMeta[day];
-        const isCompleted = completedDays.includes(day);
-        const isCurrent = day === currentDay;
-        
-        let status = "";
-        if (isCompleted) status = "✅";
-        else if (isCurrent) status = "▶️";
-        else if (day <= currentDay) status = "🟡";
-        else status = "🔒";
-        
-        message += `${status} **ថ្ងៃ ${day}:** ${meta.title}\n`;
-    }
-    
-    return message;
-}
-
-// Generate day navigation keyboard
-function createNavigationKeyboard(currentDay, completedDays, maxAccessibleDay) {
-    const keyboard = [];
-    
-    // Day navigation row 1 (days 1-4)
-    const row1 = [];
-    for (let i = 1; i <= 4; i++) {
-        const isAccessible = i <= maxAccessibleDay;
-        const isCompleted = completedDays.includes(i);
-        const isCurrent = i === currentDay;
-        
-        let emoji = "";
-        if (isCompleted) emoji = "✅";
-        else if (isCurrent) emoji = "▶️";
-        else if (isAccessible) emoji = "🟡";
-        else emoji = "🔒";
-        
-        row1.push({
-            text: `${emoji} ${i}`,
-            callback_data: isAccessible ? `day_${i}` : `locked_${i}`
-        });
-    }
-    keyboard.push(row1);
-    
-    // Day navigation row 2 (days 5-7)
-    const row2 = [];
-    for (let i = 5; i <= 7; i++) {
-        const isAccessible = i <= maxAccessibleDay;
-        const isCompleted = completedDays.includes(i);
-        const isCurrent = i === currentDay;
-        
-        let emoji = "";
-        if (isCompleted) emoji = "✅";
-        else if (isCurrent) emoji = "▶️";
-        else if (isAccessible) emoji = "🟡";
-        else emoji = "🔒";
-        
-        row2.push({
-            text: `${emoji} ${i}`,
-            callback_data: isAccessible ? `day_${i}` : `locked_${i}`
-        });
-    }
-    keyboard.push(row2);
-    
-    // Navigation controls
-    const navRow = [];
-    if (currentDay > 1) {
-        navRow.push({
-            text: `⬅️ ថ្ងៃមុន`,
-            callback_data: `day_${currentDay - 1}`
-        });
-    }
-    
-    navRow.push({
-        text: "📋 ទិដ្ឋភាពទូទៅ",
-        callback_data: "overview"
-    });
-    
-    if (currentDay < 7 && currentDay < maxAccessibleDay) {
-        navRow.push({
-            text: `ថ្ងៃបន្ទាប់ ➡️`,
-            callback_data: `day_${currentDay + 1}`
-        });
-    }
-    
-    keyboard.push(navRow);
-    
-    // Action buttons
-    const actionRow = [];
-    actionRow.push({
-        text: "🎯 ចាប់ផ្តើមមេរៀន",
-        callback_data: `start_lesson_${currentDay}`
-    });
-    
-    if (completedDays.includes(currentDay)) {
-        actionRow.push({
-            text: "✅ បានបញ្ចប់",
-            callback_data: `completed_${currentDay}`
-        });
-    } else {
-        actionRow.push({
-            text: "⭐ បញ្ចប់ថ្ងៃនេះ",
-            callback_data: `complete_${currentDay}`
-        });
-    }
-    
-    keyboard.push(actionRow);
-    
-    return { inline_keyboard: keyboard };
-}
+// Define a consistent message chunk size for splitting messages (Telegram max is 4096)
+const MESSAGE_CHUNK_SIZE = 3500; // Use larger chunks to minimize splits while staying under Telegram limit
 
 // Daily lesson content (keeping your existing content)
 const dailyMessages = {
@@ -2333,498 +2032,166 @@ Emotional spending triggers: $____/ខែ
 };
 
 /**
- * Enhanced handle function with beautiful UI
+ * Handles the daily lesson command for the 7-Day Money Flow Reset program.
+ * It checks user access, updates progress, and sends the appropriate daily content.
+ * @param {Object} msg - The Telegram message object.
+ * @param {Array} match - The regex match array from bot.onText.
+ * @param {Object} bot - The Telegram bot instance.
  */
 async function handle(msg, match, bot) {
-   const dayNumber = parseInt(match[1]);
+   const dayNumber = parseInt(match[1]); // Extract day number from the command (e.g., /day1 -> 1)
    const userId = msg.from.id;
    const chatId = msg.chat.id;
    
-   console.log("=== ENHANCED DAILY HANDLER ===", { 
-       user_id: userId,
-       dayNumber: dayNumber,
-       timestamp: new Date().toISOString()
-   });
+   console.log("=== DAILY HANDLER CALLED ===", { user_id: userId,
+     dayNumber: dayNumber,
+     timestamp: new Date().toISOString()
+    });
 
    try {
-      // Validate day number
-      if (dayNumber < 1 || dayNumber > CONFIG.TOTAL_DAYS) {
-         await bot.sendMessage(chatId, "ថ្ងៃមិនត្រឹមត្រូវ។ សូមជ្រើសរើសពី ១ ដល់ ៧។");
-         return;
-      }
-
-      // Find user and progress
-      const [user, progress] = await Promise.all([
-         User.findOne({ telegram_id: userId }),
-         Progress.findOne({ user_id: userId })
-      ]);
-
+      // Find the user in the database
+      const user = await User.findOne({ telegram_id: userId });
       if (!user) {
-         await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។");
+         await bot.sendMessage(
+            chatId,
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
+         );
          return;
       }
 
-      // Check payment status
+      // Check if user has paid access before proceeding - handle PostgreSQL boolean conversion
       const isPaid = user.is_paid === true || user.is_paid === 't' || user.is_paid === 1;
       
-      console.log("=== PAYMENT CHECK ===", {
-         user_id: userId,
+      // Force console log to appear
+      const debugInfo = { user_id: userId,
          is_paid_raw: user.is_paid,
          is_paid_converted: isPaid,
-         tier: user.tier
-      });
+         is_paid_type: typeof user.is_paid,
+         tier: user.tier,
+         timestamp: new Date().toISOString()
+       };
+      console.log("=== DAILY COMMAND DEBUG ===", JSON.stringify(debugInfo, null, 2));
       
       if (!isPaid) {
-         await bot.sendMessage(chatId, "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។");
+         console.log("=== PAYMENT CHECK FAILED ===", userId);
+         await bot.sendMessage(
+            chatId,
+            "🔒 សូមទូទាត់មុនដើម្បីចូលរួមកម្មវិធី។ ប្រើ /pricing ដើម្បីមើលព័ត៌មាន។"
+         );
          return;
       }
+      
+      console.log("=== PAYMENT CHECK PASSED ===", userId);
 
+      // Find the user's progress in the database
+      const progress = await Progress.findOne({ user_id: userId });
       if (!progress) {
-         await bot.sendMessage(chatId, "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។");
+         await bot.sendMessage(
+            chatId,
+            "សូមចុច /start ដើម្បីចាប់ផ្តើមកម្មវិធី។",
+         );
          return;
       }
 
-      // Auto-fix for Day 1 access
+      // URGENT FIX: Auto-set ready_for_day_1 for paid users to fix customer access
       if (dayNumber === 1 && !progress.ready_for_day_1) {
-         console.log(`🚨 Setting ready_for_day_1=true for user ${userId}`);
+         console.log(`🚨 URGENT: Setting ready_for_day_1=true for paid user ${userId}`);
          await Progress.findOneAndUpdate(
             { user_id: userId },
-            { ready_for_day_1: true, currentDay: 1 },
+            { ready_for_day_1: true },
             { upsert: true }
          );
-      }
-
-      // Calculate completed days and progress
-      const completedDays = [];
-      for (let i = 1; i <= 7; i++) {
-         if (progress[`day${i}Completed`]) {
-            completedDays.push(i);
+         // Refresh progress data
+         const updatedProgress = await Progress.findOne({ user_id: userId });
+         if (updatedProgress) {
+            Object.assign(progress, updatedProgress);
          }
       }
-      
-      const maxAccessibleDay = Math.max(dayNumber, progress.currentDay || 1);
-      
-      // Check if day is accessible
+
+      // For subsequent days (Day 2-7), ensure the user has completed the previous day
+      // and is not trying to skip ahead.
       if (dayNumber > 1 && dayNumber > progress.current_day) {
-         await bot.sendMessage(chatId, "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចាប់ផ្តើមថ្ងៃបន្ទាប់។");
+         await bot.sendMessage(
+            chatId,
+            "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចាប់ផ្តើមថ្ងៃបន្ទាប់។",
+         );
          return;
       }
 
-      // Generate beautiful lesson overview
-      const overviewMessage = createDayOverview(dayNumber, {
-         completedDays,
-         currentDay: progress.currentDay,
-         [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`]
-      });
-      
-      // Generate interactive navigation
-      const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
-      
-      // Send enhanced lesson overview with beautiful formatting
-      await bot.sendMessage(chatId, overviewMessage, {
-         parse_mode: 'Markdown',
-         reply_markup: keyboard
-      });
-
-      // Update user progress
-      await Promise.all([
-         Progress.findOneAndUpdate(
-            { user_id: userId },
-            {
-               currentDay: Math.max(dayNumber, progress.currentDay || 0),
-               [`day${dayNumber}AccessedAt`]: new Date(),
-               lastActiveDay: dayNumber,
-               updatedAt: new Date()
-            },
-            { upsert: true }
-         ),
-         User.findOneAndUpdate(
-            { telegram_id: userId },
-            { last_active: new Date() }
-         )
-      ]);
-
-   } catch (error) {
-      console.error("Error in enhanced daily command:", error);
-      await bot.sendMessage(chatId, "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។");
-   }
-}
-
-/**
- * Handle callback queries for interactive navigation
- */
-async function handleCallback(query, bot) {
-   const { data, message, from } = query;
-   const userId = from.id;
-   const chatId = message.chat.id;
-
-   try {
-      console.log("=== CALLBACK DEBUG ===", { data, userId });
-      
-      const [action, param, param2] = data.split('_');
-      
-      switch (action) {
-         case 'day':
-            const dayNum = parseInt(param);
-            
-            // Check if user is trying to navigate to the same day
-            const currentText = message.text || '';
-            if (currentText.includes(`ថ្ងៃទី ${dayNum}:`)) {
-               await bot.answerCallbackQuery(query.id, { 
-                  text: `អ្នកកំពុងនៅថ្ងៃទី ${dayNum} ហើយ`, 
-                  show_alert: false 
-               });
-               return;
-            }
-            
-            // Send fresh message for different day
-            await handle({ from: { id: userId }, chat: { id: chatId } }, [null, dayNum.toString()], bot);
-            break;
-            
-         case 'start':
-            // Fix: Handle both "start_lesson_X" and "start_X" formats
-            let lessonDay;
-            if (param === 'lesson') {
-               lessonDay = parseInt(param2); // start_lesson_1
-            } else {
-               lessonDay = parseInt(param); // start_1
-            }
-            
-            console.log("=== STARTING LESSON ===", { lessonDay });
-            
-            if (lessonDay && lessonDay >= 1 && lessonDay <= 7) {
-               await startLesson(bot, chatId, userId, lessonDay);
-               await bot.answerCallbackQuery(query.id, { 
-                  text: `កំពុងចាប់ផ្តើមមេរៀនថ្ងៃទី ${lessonDay}...`, 
-                  show_alert: false 
-               });
-            } else {
-               await bot.answerCallbackQuery(query.id, { 
-                  text: "មេរៀនមិនមាន", 
-                  show_alert: true 
-               });
-            }
-            break;
-            
-         case 'complete':
-            const completeDay = parseInt(param);
-            const success = await markDayComplete(userId, completeDay);
-            if (success) {
-               await bot.answerCallbackQuery(query.id, { 
-                  text: `🎉 បានបញ្ចប់ថ្ងៃទី ${completeDay}!`,
-                  show_alert: true 
-               });
-               // Send updated progress
-               await bot.sendMessage(chatId, `✅ **ថ្ងៃទី ${completeDay} បានបញ្ចប់!**\n\n🚀 **ចាប់ផ្តើម:** /day${completeDay + 1 <= 7 ? completeDay + 1 : 7}`, { parse_mode: 'Markdown' });
-            } else {
-               await bot.answerCallbackQuery(query.id, { 
-                  text: "មានបញ្ហាកត់ត្រា", 
-                  show_alert: true 
-               });
-            }
-            break;
-            
-         case 'overview':
-            await showProgramOverview(bot, chatId, message.message_id, userId);
-            await bot.answerCallbackQuery(query.id, { 
-               text: "ទិដ្ឋភាពទូទៅ", 
-               show_alert: false 
-            });
-            break;
-            
-         case 'locked':
-            await bot.answerCallbackQuery(query.id, {
-               text: "សូមបញ្ចប់ថ្ងៃមុនដើម្បីចូលប្រើ",
-               show_alert: true
-            });
-            break;
-            
-         default:
-            console.log("=== UNKNOWN CALLBACK ===", { action, param, param2 });
-            await bot.answerCallbackQuery(query.id, { 
-               text: "មុខងារកំពុងអភិវឌ្ឍ", 
-               show_alert: false 
-            });
-      }
-      
-   } catch (error) {
-      console.error("Error handling callback:", error);
-      await bot.answerCallbackQuery(query.id, {
-         text: "មានបញ្ហាបច្ចេកទេស",
-         show_alert: true
-      });
-   }
-}
-/**
- * Handle day navigation
- */
-async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
-   const progress = await Progress.findOne({ user_id: userId });
-   if (!progress) return;
-   
-   const completedDays = [];
-   for (let i = 1; i <= 7; i++) {
-      if (progress[`day${i}Completed`]) {
-         completedDays.push(i);
-      }
-   }
-   
-   const maxAccessibleDay = progress.currentDay || 1;
-   
-   // Add timestamp to make content unique
-   const timestamp = new Date().toLocaleTimeString('km-KH', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      timeZone: 'Asia/Phnom_Penh'
-   });
-   
-   const overviewMessage = createDayOverview(dayNumber, {
-      completedDays,
-      currentDay: progress.currentDay,
-      [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`],
-      timestamp // Add this to make content unique
-   });
-   
-   const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
-   
-   try {
-      await bot.editMessageText(overviewMessage, {
-         chat_id: chatId,
-         message_id: messageId,
-         parse_mode: 'Markdown',
-         reply_markup: keyboard
-      });
-   } catch (error) {
-      // If still fails, send new message
-      console.log("Edit failed, sending new message:", error.message);
-      await bot.sendMessage(chatId, overviewMessage, {
-         parse_mode: 'Markdown',
-         reply_markup: keyboard
-      });
-   }
-}
-
-/**
- * Start lesson content
- */
-async function startLesson(bot, chatId, userId, dayNumber) {
-   console.log("=== START LESSON CALLED ===", { userId, dayNumber });
-   
-   try {
+      // If the daily message content exists for the requested day
       if (dailyMessages[dayNumber]) {
-         // Send a starting message first
-         await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងផ្ទុក...`, { parse_mode: 'Markdown' });
-         
-         // Check content length
-         const content = dailyMessages[dayNumber];
-         console.log("=== LESSON CONTENT LENGTH ===", content.length);
-         
-         try {
-            // Try sending in smaller, safer chunks
-            const maxChunkSize = 3000; // Smaller chunks
-            const chunks = [];
-            
-            // Split content into smaller pieces
-            for (let i = 0; i < content.length; i += maxChunkSize) {
-               chunks.push(content.slice(i, i + maxChunkSize));
-            }
-            
-            console.log("=== SENDING CHUNKS ===", { totalChunks: chunks.length });
-            
-            // Send each chunk with delay
-            for (let i = 0; i < chunks.length; i++) {
-               console.log(`=== SENDING CHUNK ${i + 1}/${chunks.length} ===`);
-               
-               try {
-                  await bot.sendMessage(chatId, chunks[i], { parse_mode: 'Markdown' });
-                  
-                  // Wait between chunks
-                  if (i < chunks.length - 1) {
-                     await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
-                  }
-               } catch (chunkError) {
-                  console.error(`Error sending chunk ${i + 1}:`, chunkError.message);
-                  
-                  // Try without Markdown if it fails
-                  try {
-                     await bot.sendMessage(chatId, chunks[i]);
-                  } catch (plainError) {
-                     console.error(`Plain text chunk ${i + 1} also failed:`, plainError.message);
-                     await bot.sendMessage(chatId, `❌ មានបញ្ហាផ្នែកទី ${i + 1} នៃមេរៀន`);
-                  }
-               }
-            }
-            
-            // Update access timestamp
-            await Progress.findOneAndUpdate(
-               { user_id: userId },
-               {
-                  [`day${dayNumber}AccessedAt`]: new Date(),
-                  lastActive: new Date()
-               }
-            );
-            
-            // Send completion message
-            await bot.sendMessage(chatId, `✅ **មេរៀនថ្ងៃទី ${dayNumber} ត្រូវបានផ្ញើរួចរាល់!**
+         // Send the main content for the day using the message splitter utility
+         await sendLongMessage(
+            bot,
+            chatId,
+            dailyMessages[dayNumber],
+            {},
+            500 // delay between chunks in milliseconds
+         );
 
-💡 **បន្ទាប់:**
-- អនុវត្តតាមសកម្មភាពក្នុងមេរៀន
-- ចុច /day${dayNumber} ដើម្បីត្រលប់ទៅមេនុ
-- ឬចុច ⭐ ដើម្បីបញ្ចប់ថ្ងៃនេះ`, { parse_mode: 'Markdown' });
-            
-         } catch (contentError) {
-            console.error("Error sending lesson content:", contentError);
-            
-            // Send simplified lesson instead
-            const simplifiedLesson = getSimplifiedLesson(dayNumber);
-            
-            try {
-               await bot.sendMessage(chatId, simplifiedLesson, { parse_mode: 'Markdown' });
-               await bot.sendMessage(chatId, `📞 **សម្រាប់មេរៀនពេញលេញ:** ទាក់ទង @Chendasum\n🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
-            } catch (simpleError) {
-               // Last resort - plain text
-               await bot.sendMessage(chatId, `មេរៀនថ្ងៃទី ${dayNumber} - សូមទាក់ទង @Chendasum សម្រាប់មេរៀនពេញលេញ`);
-            }
-         }
-         
+         // Update the user's progress: mark the day as accessed, update last accessed day,
+         // calculate completion percentage, and update last active timestamp.
+         await Progress.findOneAndUpdate(
+            { user_id: userId  },
+            {
+               currentDay: Math.max(dayNumber, progress.currentDay || 0), // Update current day
+               [`day${dayNumber}Completed`]: false, // Mark day as accessed but not completed
+               updatedAt: new Date(), // Update timestamp
+            },
+            { upsert: true }, // Create if not exists
+         );
+
+         // Also update the user's general last active timestamp in the User model
+         await User.findOneAndUpdate(
+            { telegram_id: userId },
+            { last_active: new Date() },
+         );
       } else {
-         await bot.sendMessage(chatId, `❌ **មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន**\n\n📞 **ទាក់ទង:** @Chendasum សម្រាប់មេរៀន\n🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
+         // If content for the requested day is not found
+         await bot.sendMessage(chatId, "រកមិនឃើញខ្លឹមសារសម្រាប់ថ្ងៃនេះ។");
       }
-      
    } catch (error) {
-      console.error("Error in startLesson:", error);
-      await bot.sendMessage(chatId, `❌ មានបញ្ហាបច្ចេកទេស។ ទាក់ទង @Chendasum`);
+      // Log and send a generic error message to the user
+      console.error("Error in daily command:", error);
+      await bot.sendMessage(
+         chatId,
+         "សូមអភ័យទោស! មានបញ្ហាបច្ចេកទេស។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។",
+      );
    }
 }
 
-function getSimplifiedLesson(dayNumber) {
-   const simplified = {
-      1: `🔱 **ថ្ងៃទី ១៖ រកប្រាក់ភ្លាមៗ $50-150** 🔱
-
-🚨 **ការធានាថ្ងៃនេះ:** អ្នកនឹងរកប្រាក់បាន $50-150 ក្នុងរយៈពេល ៣០ នាទី!
-
-💎 **បេសកកម្មរកប្រាក់ភ្លាមៗ:**
-
-⚡ **បេសកកម្មទី១:** ស្វែងរកការជាវលាក់កំបាំង (៨ នាទី = $15-85)
-🎯 **ការធានា:** រកបាន $15+ ភ្លាមៗ!
-
-**ជំហានស្វែងរក:**
-📱 បើកការកំណត់ទូរស័ព្ទ → Subscriptions
-🔍 រកមើលកម្មវិធីដែលអ្នកភ្លេចថាកំពុងបង់ប្រាក់
-💸 គណនាចំនួនប្រាក់ដែលកំពុងខាតបង់
-
-🇰🇭 **ចំណុចលេចធ្លាយប្រាក់ឌីជីថលទូទៅនៅកម្ពុជា:**
-
-📺 Netflix/YouTube Premium ដែលលែងមើល៖ $12-15/ខែ = $144-180/ឆ្នាំ
-🎵 Spotify Premium ដែលលែងស្ដាប់៖ $10/ខែ = $120/ឆ្នាំ
-🎮 កម្មវិធីហ្គេម (PUBG UC, Free Fire)៖ $8-25/ខែ = $96-300/ឆ្នាំ
-🔒 VPN ពីមុន ដែលភ្លេចបិទ៖ $5-12/ខែ = $60-144/ឆ្នាំ
-
-⚡ **បេសកកម្មទី២:** វិភាគទម្លាប់ចំណាយកម្ពុជា (១២ នាទី = $25-50)
-
-🚗 **ការធ្វើដំណើរ (ចំណុចសន្សំធំបំផុត):**
-- Grab ចម្ងាយខ្លី ក្រោម ២ គីឡូម៉ែត្រ៖ $3-5/ដង × 12ដង/ខែ = $36-60/ខែ
-- ឆ្លាតវៃ៖ ជិះម៉ូតូដូប/កង់ ចម្ងាយ < 1km = សន្សំ $30/ខែ + ហាត់ប្រាណ
-
-☕ **កាហ្វេ និង ភេសជ្ជៈ (កន្លែងសន្សំងាយបំផុត):**
-- កាហ្វេហាង (Brown/Amazon/Starbucks)៖ $2.5/ថ្ងៃ × 20ថ្ងៃ = $50/ខែ
-- ឆ្លាតវៃ៖ កាហ្វេនៅផ្ទះ $0.5/ថ្ងៃ = សន្សំ $40/ខែ = $480/ឆ្នាំ
-
-🍔 **ថ្លៃដឹកជញ្ជូនអាហារ (ចំណុចលាក់សំខាន់):**
-- FoodPanda/Grab Food delivery fee + tips៖ $1-2 × 15ដង = $15-30/ខែ
-- ឆ្លាតវៃ៖ meal prep ថ្ងៃអាទិត្យ + ទុកទូកត្រជាក់ = សន្សំ $40-80/ខែ
-
-🏆 **សរុបប្រាក់ដែលទើបរកបាន:**
-ខែនេះ៖ $____ | ឆ្នាំនេះ៖ $____
-
-✅ **ការបញ្ចប់បេសកកម្មថ្ងៃទី១:**
-📢 សូមសរសេរសារបញ្ចាក់៖ "DAY 1 COMPLETE - រកបាន $____/ខែ"
-
-📞 **ជំនួយ:** @Chendasum`,
-
-      // Add simplified versions for other days...
-   };
-   
-   return simplified[dayNumber] || `📚 មេរៀនថ្ងៃទី ${dayNumber} កំពុងត្រូវបានត្រៀម...\n\n📞 ទាក់ទង @Chendasum`;
-}
-
 /**
- * Show program overview
- */
-async function showProgramOverview(bot, chatId, messageId, userId) {
-   const progress = await Progress.findOne({ user_id: userId });
-   if (!progress) return;
-   
-   const completedDays = [];
-   for (let i = 1; i <= 7; i++) {
-      if (progress[`day${i}Completed`]) {
-         completedDays.push(i);
-      }
-   }
-   
-   const overviewMessage = generateProgramOverview({ 
-      completedDays, 
-      currentDay: progress.currentDay || 1
-   });
-   
-   const backKeyboard = {
-      inline_keyboard: [[
-         { text: "🔙 ត្រលប់ក្រោយ", callback_data: `day_${progress.currentDay || 1}` }
-      ]]
-   };
-   
-   await bot.editMessageText(overviewMessage, {
-      chat_id: chatId,
-      message_id: messageId,
-      parse_mode: 'Markdown',
-      reply_markup: backKeyboard
-   });
-}
-
-/**
- * Mark day as complete with next day unlock
+ * Marks a specific day as complete for a user in the database.
+ * This function is typically called after a user sends a "DAY X COMPLETE" message.
+ * @param {number} userId - The Telegram user ID.
+ * @param {number} dayNumber - The day number to mark as complete.
+ * @returns {boolean} - True if the update was successful, false otherwise.
  */
 async function markDayComplete(userId, dayNumber) {
    try {
-      const completionData = {
-         [`day${dayNumber}Completed`]: true,
-         [`day${dayNumber}CompletedAt`]: new Date(),
-         completionPercentage: Math.floor((dayNumber / CONFIG.TOTAL_DAYS) * 100),
-         lastActive: new Date()
+      const updateData = {
+         [`day${dayNumber}Completed`]: true, // Mark this specific day as completed
+         completionPercentage: Math.floor((dayNumber / 7) * 100), // Recalculate completion percentage
+         last_active: new Date(), // Update last active timestamp
       };
 
-      // Unlock next day
-      if (dayNumber < CONFIG.TOTAL_DAYS) {
-         completionData.currentDay = dayNumber + 1;
+      // If Day 7 is being completed, mark the entire program as complete
+      if (dayNumber === 7) {
+         updateData.programCompleted = true;
+         updateData.completionDate = new Date(); // Record program completion date
       }
 
-      // Mark program as complete if Day 7
-      if (dayNumber === CONFIG.TOTAL_DAYS) {
-         completionData.programCompleted = true;
-         completionData.completionDate = new Date();
-      }
+      // Find and update the user's progress document
+      await Progress.findOneAndUpdate({ user_id: userId }, updateData, {
+         new: true,
+      });
 
-      await Progress.findOneAndUpdate(
-         { user_id: userId }, 
-         completionData, 
-         { new: true }
-      );
-
-      return true;
+      return true; // Indicate success
    } catch (error) {
       console.error("Error marking day complete:", error);
-      return false;
+      return false; // Indicate failure
    }
 }
 
-// Export functions
-module.exports = { 
-   handle, 
-   handleCallback,
-   dailyMessages, 
-   markDayComplete,
-   createDayOverview,
-   createNavigationKeyboard,
-   generateProgramOverview,
-   generateProgressBar
-};
+// Export the functions to be used by other modules (e.g., index.js)
+module.exports = { handle, dailyMessages, markDayComplete };
