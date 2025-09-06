@@ -3,7 +3,7 @@ const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const cron = require("node-cron");
 
-console.log("🚀 Starting 7-Day Money Flow Bot - Enhanced UI Edition");
+console.log("🚀 Starting 7-Day Money Flow Bot - Complete Orchestrator Mode");
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
 
@@ -14,7 +14,6 @@ const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = re
 const { eq } = require('drizzle-orm');
 
 // Database Schema
-
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
   telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
@@ -46,30 +45,14 @@ const progress = pgTable('progress', {
   ready_for_day_1: boolean('ready_for_day_1').default(false),
   day_0_completed: boolean('day_0_completed').default(false),
   day_1_completed: boolean('day_1_completed').default(false),
-  day_1_completed_at: timestamp('day_1_completed_at'),
-  day_1_accessed_at: timestamp('day_1_accessed_at'),
   day_2_completed: boolean('day_2_completed').default(false),
-  day_2_completed_at: timestamp('day_2_completed_at'),
-  day_2_accessed_at: timestamp('day_2_accessed_at'),
   day_3_completed: boolean('day_3_completed').default(false),
-  day_3_completed_at: timestamp('day_3_completed_at'),
-  day_3_accessed_at: timestamp('day_3_accessed_at'),
   day_4_completed: boolean('day_4_completed').default(false),
-  day_4_completed_at: timestamp('day_4_completed_at'),
-  day_4_accessed_at: timestamp('day_4_accessed_at'),
   day_5_completed: boolean('day_5_completed').default(false),
-  day_5_completed_at: timestamp('day_5_completed_at'),
-  day_5_accessed_at: timestamp('day_5_accessed_at'),
   day_6_completed: boolean('day_6_completed').default(false),
-  day_6_completed_at: timestamp('day_6_completed_at'),
-  day_6_accessed_at: timestamp('day_6_accessed_at'),
   day_7_completed: boolean('day_7_completed').default(false),
-  day_7_completed_at: timestamp('day_7_completed_at'),
-  day_7_accessed_at: timestamp('day_7_accessed_at'),
   program_completed: boolean('program_completed').default(false),
   program_completed_at: timestamp('program_completed_at'),
-  completion_percentage: integer('completion_percentage').default(0),
-  last_active_day: integer('last_active_day').default(1),
   responses: jsonb('responses'),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
@@ -86,13 +69,13 @@ const pool = new Pool({
 
 const db = drizzle(pool, { schema: { users, progress } });
 
-// Database initialization with enhanced fields
+// Database initialization
 async function initDatabase() {
   try {
     await pool.query('SELECT 1 as test');
     console.log("✅ Database connection successful");
     
-    // Create enhanced users table
+    // Create tables with extended_progress field
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -119,7 +102,6 @@ async function initDatabase() {
       )
     `);
     
-    // Create enhanced progress table with completion timestamps
     await pool.query(`
       CREATE TABLE IF NOT EXISTS progress (
         id SERIAL PRIMARY KEY,
@@ -128,67 +110,36 @@ async function initDatabase() {
         ready_for_day_1 BOOLEAN DEFAULT FALSE,
         day_0_completed BOOLEAN DEFAULT FALSE,
         day_1_completed BOOLEAN DEFAULT FALSE,
-        day_1_completed_at TIMESTAMP,
-        day_1_accessed_at TIMESTAMP,
         day_2_completed BOOLEAN DEFAULT FALSE,
-        day_2_completed_at TIMESTAMP,
-        day_2_accessed_at TIMESTAMP,
         day_3_completed BOOLEAN DEFAULT FALSE,
-        day_3_completed_at TIMESTAMP,
-        day_3_accessed_at TIMESTAMP,
         day_4_completed BOOLEAN DEFAULT FALSE,
-        day_4_completed_at TIMESTAMP,
-        day_4_accessed_at TIMESTAMP,
         day_5_completed BOOLEAN DEFAULT FALSE,
-        day_5_completed_at TIMESTAMP,
-        day_5_accessed_at TIMESTAMP,
         day_6_completed BOOLEAN DEFAULT FALSE,
-        day_6_completed_at TIMESTAMP,
-        day_6_accessed_at TIMESTAMP,
         day_7_completed BOOLEAN DEFAULT FALSE,
-        day_7_completed_at TIMESTAMP,
-        day_7_accessed_at TIMESTAMP,
         program_completed BOOLEAN DEFAULT FALSE,
         program_completed_at TIMESTAMP,
-        completion_percentage INTEGER DEFAULT 0,
-        last_active_day INTEGER DEFAULT 1,
         responses JSONB,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
     
-    // Add new columns if they don't exist
-    const columnsToAdd = [
-      'day_1_completed_at', 'day_1_accessed_at',
-      'day_2_completed_at', 'day_2_accessed_at',
-      'day_3_completed_at', 'day_3_accessed_at',
-      'day_4_completed_at', 'day_4_accessed_at',
-      'day_5_completed_at', 'day_5_accessed_at',
-      'day_6_completed_at', 'day_6_accessed_at',
-      'day_7_completed_at', 'day_7_accessed_at',
-      'completion_percentage', 'last_active_day'
-    ];
-    
-    for (const column of columnsToAdd) {
-      try {
-        if (column.includes('percentage') || column.includes('active_day')) {
-          await pool.query(`ALTER TABLE progress ADD COLUMN IF NOT EXISTS ${column} INTEGER DEFAULT 0`);
-        } else {
-          await pool.query(`ALTER TABLE progress ADD COLUMN IF NOT EXISTS ${column} TIMESTAMP`);
-        }
-      } catch (error) {
-        // Column might already exist
-      }
+    // Add extended_progress column if it doesn't exist
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS extended_progress JSONB
+      `);
+    } catch (error) {
+      // Column might already exist, that's fine
     }
     
-    console.log("✅ Enhanced database tables verified/created");
+    console.log("✅ Database tables verified/created");
   } catch (error) {
     console.error("❌ Database initialization failed:", error.message);
   }
 }
 
-// Enhanced MODULE LOADER with fallback
+// MODULE LOADER with fallback
 function safeRequire(modulePath, moduleName) {
   try {
     const module = require(modulePath);
@@ -200,12 +151,12 @@ function safeRequire(modulePath, moduleName) {
   }
 }
 
-// LOAD ALL MODULES
-console.log("📦 Loading enhanced command modules...");
+// LOAD ALL MODULES FROM YOUR PROJECT
+console.log("📦 Loading all command modules...");
 
-// ENHANCED COMMAND MODULES
+// ALL COMMAND MODULES
 const startCommand = safeRequire("./commands/start", "Start Command");
-const dailyCommands = safeRequire("./commands/daily", "Enhanced Daily Commands"); // This is our new enhanced version
+const dailyCommands = safeRequire("./commands/daily", "Daily Commands");
 const paymentCommands = safeRequire("./commands/payment", "Payment Commands");
 const vipCommands = safeRequire("./commands/vip", "VIP Commands");
 const adminCommands = safeRequire("./commands/admin", "Admin Commands");
@@ -228,9 +179,9 @@ const adminPerformance = safeRequire("./commands/admin-performance", "Admin Perf
 const adminTestimonials = safeRequire("./commands/admin-testimonials", "Admin Testimonials");
 const AICommandHandler = safeRequire("./commands/ai-command-handler", "AI Command Handler");
 
-console.log("📦 Loading service modules...");
+console.log("📦 Loading all service modules...");
 
-// SERVICE MODULES (keeping your existing ones)
+// ALL SERVICE MODULES
 const scheduler = safeRequire("./services/scheduler", "Scheduler");
 const analytics = safeRequire("./services/analytics", "Analytics");
 const celebrations = safeRequire("./services/celebrations", "Celebrations");
@@ -275,74 +226,43 @@ console.log("📦 Loading config modules...");
 // CONFIG MODULES
 const aiConfig = safeRequire("./config/ai-config", "AI Config");
 
-// Initialize bot with enhanced polling options
-const bot = new TelegramBot(process.env.BOT_TOKEN, { 
-  polling: false,
-  request: {
-    agentOptions: {
-      keepAlive: true,
-      family: 4
-    }
-  }
-});
-
+// Initialize bot
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false });
 const app = express();
 
-// Enhanced middleware
+// Middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Enhanced message deduplication
+// Message deduplication
 const processedMessages = new Set();
 function isDuplicateMessage(msg) {
-  const messageId = `${msg.chat.id}-${msg.message_id}-${Date.now()}`;
+  const messageId = `${msg.chat.id}-${msg.message_id}`;
   if (processedMessages.has(messageId)) return true;
   processedMessages.add(messageId);
-  
-  // Clean up old messages every 1000 entries
-  if (processedMessages.size > 1000) {
-    const oldEntries = Array.from(processedMessages).slice(0, 500);
-    oldEntries.forEach(entry => processedMessages.delete(entry));
+  if (processedMessages.size > 200) {
+    processedMessages.clear();
   }
   return false;
 }
 
-// Enhanced database context for all modules
-const dbContext = { 
-  db, 
-  users, 
-  progress, 
-  eq, 
-  pool,
-  // Add helper functions for the enhanced daily commands
-  findUser: async (telegramId) => {
-    return await db.select().from(users).where(eq(users.telegram_id, telegramId)).limit(1);
-  },
-  findProgress: async (userId) => {
-    return await db.select().from(progress).where(eq(progress.user_id, userId)).limit(1);
-  },
-  updateProgress: async (userId, updateData) => {
-    return await db.update(progress).set(updateData).where(eq(progress.user_id, userId));
-  },
-  updateUser: async (telegramId, updateData) => {
-    return await db.update(users).set(updateData).where(eq(users.telegram_id, telegramId));
-  }
-};
+// Database context for all modules
+const dbContext = { db, users, progress, eq, pool };
 
-// Initialize AI Command Handler with enhanced database context
+// Initialize AI Command Handler with database context
 let aiHandler = null;
 if (AICommandHandler) {
   try {
     aiHandler = new AICommandHandler(dbContext);
-    console.log("✅ AI Command Handler initialized with enhanced database context");
+    console.log("✅ AI Command Handler initialized with database context");
   } catch (error) {
     console.log("⚠️ AI Command Handler initialization failed:", error.message);
   }
 }
 
-console.log("🔌 Setting up enhanced command routing...");
+console.log("🔌 Setting up command routing...");
 
-// ENHANCED ROUTE HANDLERS WITH BEAUTIFUL UI
+// ROUTE ALL COMMANDS TO MODULES OR FALLBACKS
 
 // Route /start command
 bot.onText(/\/start/i, async (msg) => {
@@ -351,25 +271,24 @@ bot.onText(/\/start/i, async (msg) => {
     if (startCommand && startCommand.handle) {
       await startCommand.handle(msg, bot, dbContext);
     } else {
-      // Enhanced fallback start command
-      const welcomeMessage = `🔱 **សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!** 🔱
+      // Fallback start command
+      const welcomeMessage = `🌟 សូមស្វាគមន៍មកកាន់ 7-Day Money Flow Reset™!
 
-💰 *កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ*
+💰 កម្មវិធីគ្រប់គ្រងលុយ ៧ ថ្ងៃ ជាភាសាខ្មែរ
 
-🎯 **តម្លៃពិសេស:** $24 USD (បញ្ចុះពី $47)
-🏷️ **កូដ:** LAUNCH50
+🎯 តម្លៃពិសេស: $24 USD (បញ្ចុះពី $47)
+🏷️ កូដ: LAUNCH50
 
-**📚 អ្វីដែលអ្នកនឹងទទួលបាន:**
+📚 អ្វីដែលអ្នកនឹងទទួលបាន:
 ✅ មេរៀន ៧ ថ្ងៃពេញលេញ
 ✅ ការគ្រប់គ្រងលុយបានល្អ
 ✅ ការកាត់បន្ថយចំណាយ
 ✅ ការបង្កើនចំណូល
 ✅ ផែនការហិរញ្ញវត្ថុច្បាស់
 
-🚀 **ចាប់ផ្តើម:** /pricing ដើម្បីមើលតម្លៃ
-💬 **ជំនួយ:** @Chendasum`;
-
-      await bot.sendMessage(msg.chat.id, welcomeMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum
+👉 /pricing ដើម្បីមើលតម្លៃ`;
+      await bot.sendMessage(msg.chat.id, welcomeMessage);
     }
   } catch (error) {
     console.error("Error in /start:", error);
@@ -377,29 +296,14 @@ bot.onText(/\/start/i, async (msg) => {
   }
 });
 
-// Enhanced /day commands with beautiful UI
+// Route /day commands
 bot.onText(/\/day([1-7])/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (dailyCommands && dailyCommands.handle) {
-      // Use our enhanced daily commands with beautiful UI
-      await dailyCommands.handle(msg, match, bot);
+      await dailyCommands.handle(msg, match, bot, dbContext);
     } else {
-      // Enhanced fallback with basic UI
-      const dayNumber = match[1];
-      const fallbackMessage = `🔱 **ថ្ងៃទី ${dayNumber}: មេរៀនកំពុងមកដល់** 🔱
-
-📚 *មាតិកានឹងមកដល់ឆាប់ៗ*
-
-💎 **តម្លៃរំពឹងទុក:** $300+
-⏱️ **រយៈពេល:** 30 នាទី
-📊 **កម្រិត:** ងាយស្រួល
-
-🎯 **សូមរង់ចាំ:** មេរៀនកំពុងត្រូវបានរៀបចំ
-
-📞 **ទាក់ទង:** @Chendasum សម្រាប់មាតិកា`;
-
-      await bot.sendMessage(msg.chat.id, fallbackMessage, { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, `📚 ថ្ងៃទី ${match[1]} - មាតិកានឹងមកដល់ឆាប់ៗ\n\n📞 ទាក់ទង @Chendasum សម្រាប់មាតិកា។`);
     }
   } catch (error) {
     console.error("Error in /day:", error);
@@ -407,50 +311,26 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
   }
 });
 
-// Enhanced callback query handler for beautiful UI interactions
-bot.on('callback_query', async (query) => {
-  try {
-    if (dailyCommands && dailyCommands.handleCallback) {
-      // Route to our enhanced daily commands callback handler
-      await dailyCommands.handleCallback(query, bot);
-    } else {
-      // Basic fallback
-      await bot.answerCallbackQuery(query.id, { 
-        text: "មុខងារកំពុងត្រូវបានអភិវឌ្ឍ", 
-        show_alert: false 
-      });
-    }
-  } catch (error) {
-    console.error("Error in callback query:", error);
-    await bot.answerCallbackQuery(query.id, { 
-      text: "មានបញ្ហាបច្ចេកទេស", 
-      show_alert: true 
-    });
-  }
-});
-
-// Enhanced /pricing command
+// Route /pricing command
 bot.onText(/\/pricing/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (paymentCommands && paymentCommands.pricing) {
       await paymentCommands.pricing(msg, bot, dbContext);
     } else {
-      const pricingMessage = `💰 **តម្លៃកម្មវិធី 7-Day Money Flow Reset™**
+      const pricingMessage = `💰 តម្លៃកម្មវិធី 7-Day Money Flow Reset™
 
-🎯 **កម្មវិធីសាមញ្ញ (Essential Program)**
-💵 **តម្លៃ:** $24 USD
+🎯 កម្មវិធីសាមញ្ញ (Essential Program)
+💵 តម្លៃ: $24 USD
 
-💎 **វិធីទូទាត់:**
-• **ABA Bank:** 000 194 742
-• **ACLEDA Bank:** 092 798 169  
-• **Wing:** 102 534 677
-• **ឈ្មោះ:** SUM CHENDA
+💎 វិធីទូទាត់:
+• ABA Bank: 000 194 742
+• ACLEDA Bank: 092 798 169  
+• Wing: 102 534 677
+• ឈ្មោះ: SUM CHENDA
 
-🚀 **ការធានា:** រកប្រាក់បាន $50+ ក្នុង ៧ ថ្ងៃ ឬ សងប្រាក់វិញ!
-
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, pricingMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, pricingMessage);
     }
   } catch (error) {
     console.error("Error in /pricing:", error);
@@ -458,29 +338,23 @@ bot.onText(/\/pricing/i, async (msg) => {
   }
 });
 
-// Enhanced /payment command
+// Route /payment command
 bot.onText(/\/payment/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (paymentCommands && paymentCommands.instructions) {
       await paymentCommands.instructions(msg, bot, dbContext);
     } else {
-      const paymentMessage = `💳 **ការណែនាំទូទាត់**
+      const paymentMessage = `💳 ការណែនាំទូទាត់
 
-🏦 **ABA Bank:** 000 194 742
-📱 **Wing:** 102 534 677
-🏦 **ACLEDA Bank:** 092 798 169
-• **ឈ្មោះ:** SUM CHENDA
-• **ចំនួន:** $24 USD
+🏦 ABA Bank: 000 194 742
+📱 Wing: 102 534 677
+🏦 ACLEDA Bank: 092 798 169
+• ឈ្មោះ: SUM CHENDA
+• ចំនួន: $24 USD
 
-📸 **ជំហាន:**
-1. ទូទាត់តាមគណនីខាងលើ
-2. ថតរូបបង្កាន់ដៃ
-3. ផ្ញើរូបភាពមក @Chendasum
-4. រង់ចាំការបញ្ជាក់ (1-2 ម៉ោង)
-
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, paymentMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, paymentMessage);
     }
   } catch (error) {
     console.error("Error in /payment:", error);
@@ -488,37 +362,32 @@ bot.onText(/\/payment/i, async (msg) => {
   }
 });
 
-// Enhanced /help command
+// Route /help command
 bot.onText(/\/help/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (accessControl && accessControl.getTierSpecificHelp) {
       await accessControl.getTierSpecificHelp(msg, bot, dbContext);
     } else {
-      const helpMessage = `📱 **ជំនួយ (Help)**
+      const helpMessage = `📱 ជំនួយ (Help):
 
-🌟 **7-Day Money Flow Reset™**
+🌟 7-Day Money Flow Reset™ 
 
-📱 **ពាក្យបញ្ជាសំខាន់:**
-• \`/start\` - ចាប់ផ្តើម
-• \`/pricing\` - មើលតម្លៃ
-• \`/payment\` - ការទូទាត់
-• \`/help\` - ជំនួយ
-• \`/ai_help\` - ជំនួយ AI
+📱 ពាក្យបញ្ជាសំខាន់:
+- /start - ចាប់ផ្តើម
+- /pricing - មើលតម្លៃ
+- /payment - ការទូទាត់
+- /help - ជំនួយ
+- /ai_help - ជំនួយ AI
 
-📚 **មេរៀន:**
-• \`/day1\` - ថ្ងៃទី ១
-• \`/day2\` - ថ្ងៃទី ២
-• ... ដល់ \`/day7\`
+🤖 AI Commands:
+- /ask [សំណួរ] - សួរ AI
+- /analyze - វិភាគហិរញ្ញវត្ថុ
+- /coach - ការណែនាំផ្ទាល់ខ្លួន
+- /find_leaks - រកមើល Money Leaks
 
-🤖 **AI Commands:**
-• \`/ask [សំណួរ]\` - សួរ AI
-• \`/analyze\` - វិភាគហិរញ្ញវត្ថុ
-• \`/coach\` - ការណែនាំផ្ទាល់ខ្លួន
-• \`/find_leaks\` - រកមើល Money Leaks
-
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, helpMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, helpMessage);
     }
   } catch (error) {
     console.error("Error in /help:", error);
@@ -533,7 +402,7 @@ bot.onText(/\/vip/i, async (msg) => {
     if (vipCommands && vipCommands.info) {
       await vipCommands.info(msg, bot, dbContext);
     } else {
-      await bot.sendMessage(msg.chat.id, "👑 **VIP Program** - ព័ត៌មានកំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "👑 VIP Program - ព័ត៌មានកំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum");
     }
   } catch (error) {
     console.error("Error in /vip:", error);
@@ -541,14 +410,14 @@ bot.onText(/\/vip/i, async (msg) => {
   }
 });
 
-// Enhanced admin commands
+// Route admin commands
 bot.onText(/\/admin_users/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (adminCommands && adminCommands.showUsers) {
       await adminCommands.showUsers(msg, bot, dbContext);
     } else {
-      await bot.sendMessage(msg.chat.id, "👨‍💼 **Admin users** - កំពុងត្រូវបានអភិវឌ្ឍ។", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "👨‍💼 Admin users - កំពុងត្រូវបានអភិវឌ្ឍ។");
     }
   } catch (error) {
     console.error("Error in /admin_users:", error);
@@ -562,7 +431,7 @@ bot.onText(/\/admin_analytics/i, async (msg) => {
     if (adminCommands && adminCommands.showAnalytics) {
       await adminCommands.showAnalytics(msg, bot, dbContext);
     } else {
-      await bot.sendMessage(msg.chat.id, "📊 **Admin analytics** - កំពុងត្រូវបានអភិវឌ្ឍ។", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "📊 Admin analytics - កំពុងត្រូវបានអភិវឌ្ឍ។");
     }
   } catch (error) {
     console.error("Error in /admin_analytics:", error);
@@ -577,7 +446,7 @@ bot.onText(/\/badges/i, async (msg) => {
     if (badgesCommands && badgesCommands.showBadges) {
       await badgesCommands.showBadges(msg, bot, dbContext);
     } else {
-      await bot.sendMessage(msg.chat.id, "🏆 **Badges** - កំពុងត្រូវបានអភិវឌ្ឍ។", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "🏆 Badges - កំពុងត្រូវបានអភិវឌ្ឍ។");
     }
   } catch (error) {
     console.error("Error in /badges:", error);
@@ -591,38 +460,7 @@ bot.onText(/\/progress/i, async (msg) => {
     if (badgesCommands && badgesCommands.showProgress) {
       await badgesCommands.showProgress(msg, bot, dbContext);
     } else {
-      // Enhanced progress fallback
-      if (dailyCommands && dailyCommands.generateProgramOverview) {
-        // Try to show progress using our enhanced daily commands
-        const userId = msg.from.id;
-        try {
-          const userResult = await db.select().from(users).where(eq(users.telegram_id, userId)).limit(1);
-          const progressResult = await db.select().from(progress).where(eq(progress.user_id, userId)).limit(1);
-          
-          if (userResult.length > 0 && progressResult.length > 0) {
-            const userProgress = progressResult[0];
-            const completedDays = [];
-            for (let i = 1; i <= 7; i++) {
-              if (userProgress[`day_${i}_completed`]) {
-                completedDays.push(i);
-              }
-            }
-            
-            const overviewMessage = dailyCommands.generateProgramOverview({
-              completedDays,
-              currentDay: userProgress.current_day || 1
-            });
-            
-            await bot.sendMessage(msg.chat.id, overviewMessage, { parse_mode: 'Markdown' });
-          } else {
-            await bot.sendMessage(msg.chat.id, "📈 **Progress** - សូមចុច /start ដើម្បីចាប់ផ្តើម។", { parse_mode: 'Markdown' });
-          }
-        } catch (error) {
-          await bot.sendMessage(msg.chat.id, "📈 **Progress** - កំពុងត្រូវបានអភិវឌ្ឍ។", { parse_mode: 'Markdown' });
-        }
-      } else {
-        await bot.sendMessage(msg.chat.id, "📈 **Progress** - កំពុងត្រូវបានអភិវឌ្ឍ។", { parse_mode: 'Markdown' });
-      }
+      await bot.sendMessage(msg.chat.id, "📈 Progress - កំពុងត្រូវបានអភិវឌ្ឍ។");
     }
   } catch (error) {
     console.error("Error in /progress:", error);
@@ -637,15 +475,7 @@ bot.onText(/\/quote/i, async (msg) => {
     if (quotesCommands && quotesCommands.dailyQuote) {
       await quotesCommands.dailyQuote(msg, bot, dbContext);
     } else {
-      const quotes = [
-        "💰 \"ការសន្សំតិចៗប្រចាំថ្ងៃ នាំឱ្យមានទ្រព្យសម្បត្តិធំ\"",
-        "🎯 \"គោលដៅដោយគ្មានផែនការ គ្រាន់តែជាក្តីស្រមៃ\"",
-        "📈 \"ការវិនិយោគលើខ្លួនឯង គឺជាការវិនិយោគល្អបំផុត\"",
-        "💎 \"លុយមិនអាចទិញសេចក្តីសុខ តែអាចជួយកាត់បន្ថយបញ្ហាបាន\"",
-        "🚀 \"ការចាប់ផ្តើមគឺពាក់កណ្តាលនៃជោគជ័យ\""
-      ];
-      const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-      await bot.sendMessage(msg.chat.id, `📜 **Quote ប្រចាំថ្ងៃ**\n\n${randomQuote}\n\n🌟 *7-Day Money Flow Reset™*`, { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "📜 Quote - កំពុងត្រូវបានអភិវឌ្ឍ។");
     }
   } catch (error) {
     console.error("Error in /quote:", error);
@@ -660,7 +490,7 @@ bot.onText(/\/financial_quiz/i, async (msg) => {
     if (financialQuiz && financialQuiz.startQuiz) {
       await financialQuiz.startQuiz(msg, bot, dbContext);
     } else {
-      await bot.sendMessage(msg.chat.id, "📊 **Financial Quiz** - កំពុងត្រូវបានអភិវឌ្ឍ។", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "📊 Financial Quiz - កំពុងត្រូវបានអភិវឌ្ឍ។");
     }
   } catch (error) {
     console.error("Error in /financial_quiz:", error);
@@ -668,39 +498,40 @@ bot.onText(/\/financial_quiz/i, async (msg) => {
   }
 });
 
-// Enhanced /faq command
+// Route /faq command
 bot.onText(/\/faq|FAQ|faq/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (accessControl && accessControl.getFAQ) {
       await accessControl.getFAQ(msg, bot, dbContext);
     } else {
-      const faqMessage = `❓ **សំណួរញឹកញាប់ (FAQ)**
+      // Fallback FAQ
+      const faqMessage = `❓ សំណួរញឹកញាប់ (FAQ)
 
-📱 **ពាក្យបញ្ជាសំខាន់:**
-• \`/start\` - ចាប់ផ្តើម
-• \`/pricing\` - មើលតម្លៃ
-• \`/payment\` - ការទូទាត់
-• \`/help\` - ជំនួយ
-• \`/faq\` - សំណួរញឹកញាប់
+📱 ពាក្យបញ្ជាសំខាន់:
+• /start - ចាប់ផ្តើម
+• /pricing - មើលតម្លៃ
+• /payment - ការទូទាត់
+• /help - ជំនួយ
+• /faq - សំណួរញឹកញាប់
 
-💰 **អំពីតម្លៃ:**
-• **តម្លៃ:** $24 USD (Essential)
-• **ទូទាត់តាម:** ABA, ACLEDA, Wing
-• **បញ្ជាក់ការទូទាត់:** 1-2 ម៉ោង
+💰 អំពីតម្លៃ:
+• តម្លៃ: $24 USD (Essential)
+• ទូទាត់តាម: ABA, ACLEDA, Wing
+• បញ្ជាក់ការទូទាត់: 1-2 ម៉ោង
 
-📚 **អំពីកម្មវិធី:**
-• **រយៈពេល:** 7 ថ្ងៃ
-• **ភាសា:** ខ្មែរ 100%
-• **ចំណាយពេល:** 15-20 នាទី/ថ្ងៃ
+📚 អំពីកម្មវិធី:
+• រយៈពេល: 7 ថ្ងៃ
+• ភាសា: ខ្មែរ 100%
+• ចំណាយពេល: 15-20 នាទី/ថ្ងៃ
 
-🔧 **បច្ចេកទេស:**
-• **ប្រើ:** Telegram app
-• **ទិន្នន័យ:** រក្សាទុកសុវត្ថិភាព
-• **ជំនួយ:** 24/7
+🔧 បច្ចេកទេស:
+• ប្រើ: Telegram app
+• ទិន្នន័យ: រក្សាទុកសុវត្ថិភាព
+• ជំនួយ: 24/7
 
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, faqMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, faqMessage);
     }
   } catch (error) {
     console.error("Error in /faq:", error);
@@ -715,7 +546,7 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
     if (extendedContent && extendedContent.handleExtendedDay) {
       await extendedContent.handleExtendedDay(msg, bot, parseInt(match[1]));
     } else {
-      await bot.sendMessage(msg.chat.id, `📚 **Extended Day ${match[1]}** - កំពុងត្រូវបានអភិវឌ្ឍ។`, { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, `📚 Extended Day ${match[1]} - កំពុងត្រូវបានអភិវឌ្ឍ។`);
     }
   } catch (error) {
     console.error("Error in /extended:", error);
@@ -723,28 +554,29 @@ bot.onText(/\/extended(\d+)/i, async (msg, match) => {
   }
 });
 
-// ENHANCED AI COMMAND ROUTES - Updated with beautiful formatting
+// AI COMMAND ROUTES - Updated to use the new AI handler
 bot.onText(/\/ask\s+(.+)/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (aiHandler) {
       await aiHandler.handleAskCommand(bot, msg);
     } else {
+      // Fallback AI response
       const question = match[1];
-      const response = `🤖 **Claude AI ជំនួយ**
+      const response = `🤖 Claude AI ជំនួយ:
 
-**សំណួរ:** "${question}"
+សំណួរ: "${question}"
 
-💡 **ការឆ្លើយតប:** Claude AI កំពុងត្រូវបានកែលម្អ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយផ្ទាល់។
+💡 ការឆ្លើយតប: Claude AI កំពុងត្រូវបានកែលម្អ។ សូមទាក់ទង @Chendasum សម្រាប់ជំនួយផ្ទាល់។
 
-🎯 **អ្នកអាចសួរអំពី:**
+🎯 អ្នកអាចសួរអំពី:
 • ការគ្រប់គ្រងលុយ
 • ការសន្សំ
 • ការវិនិយោគ
 • បញ្ហាហិរញ្ញវត្ថុ
 
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, response);
     }
   } catch (error) {
     console.error("Error in /ask:", error);
@@ -758,7 +590,7 @@ bot.onText(/\/analyze/i, async (msg) => {
     if (aiHandler) {
       await aiHandler.handleAnalyzeCommand(bot, msg);
     } else {
-      await bot.sendMessage(msg.chat.id, "📊 **Financial Analysis** - កំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "📊 Financial Analysis - កំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum");
     }
   } catch (error) {
     console.error("Error in /analyze:", error);
@@ -772,21 +604,21 @@ bot.onText(/\/coach/i, async (msg) => {
     if (aiHandler) {
       await aiHandler.handleCoachCommand(bot, msg);
     } else {
-      const coachMessage = `🎯 **AI Coach - ការណែនាំផ្ទាល់ខ្លួន**
+      const coachMessage = `🎯 AI Coach - ការណែនាំផ្ទាល់ខ្លួន
 
-💪 **សូមស្វាគមន៍មកកាន់ AI Coach!**
+💪 សូមស្វាគមន៍មកកាន់ AI Coach!
 
-📊 **បច្ចុប្បន្ន AI Coach កំពុងត្រូវបានអភិវឌ្ឍ។**
+📊 បច្ចុប្បន្ន AI Coach កំពុងត្រូវបានអភិវឌ្ឍ។
 
-🎯 **អ្នកអាចប្រើ:**
-• \`/ask [សំណួរ]\` - សួរ Claude AI
-• \`/help\` - ជំនួយទូទៅ
+🎯 អ្នកអាចប្រើ:
+• /ask [សំណួរ] - សួរ Claude AI
+• /help - ជំនួយទូទៅ
 • @Chendasum - ការប្រឹក្សាផ្ទាល់
 
-💡 **ឧទាហរណ៍:** \`/ask តើខ្ញុំគួរសន្សំយ៉ាងណា?\`
+💡 ឧទាហរណ៍: /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?
 
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, coachMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, coachMessage);
     }
   } catch (error) {
     console.error("Error in /coach:", error);
@@ -800,7 +632,7 @@ bot.onText(/\/find_leaks/i, async (msg) => {
     if (aiHandler) {
       await aiHandler.handleFindLeaksCommand(bot, msg);
     } else {
-      await bot.sendMessage(msg.chat.id, "🔍 **Money Leak Detection** - កំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum", { parse_mode: 'Markdown' });
+      await bot.sendMessage(msg.chat.id, "🔍 Money Leak Detection - កំពុងត្រូវបានអភិវឌ្ឍ។ ទាក់ទង @Chendasum");
     }
   } catch (error) {
     console.error("Error in /find_leaks:", error);
@@ -814,30 +646,30 @@ bot.onText(/\/ai_help/i, async (msg) => {
     if (aiHandler) {
       await aiHandler.handleAIHelpCommand(bot, msg);
     } else {
-      const helpMessage = `🤖 **Claude AI ជំនួយ**
+      const helpMessage = `🤖 Claude AI ជំនួយ
 
-🎯 **ពាក្យបញ្ជា AI:**
-• \`/ask [សំណួរ]\` - សួរ Claude AI អ្វីក៏បាន
-• \`/analyze\` - វិភាគហិរញ្ញវត្ថុ
-• \`/coach\` - ការណែនាំផ្ទាល់ខ្លួន
-• \`/find_leaks\` - រកមើល Money Leaks
-• \`/ai_help\` - មើលមេនុនេះ
+🎯 ពាក្យបញ្ជា AI:
+• /ask [សំណួរ] - សួរ Claude AI អ្វីក៏បាន
+• /analyze - វិភាគហិរញ្ញវត្ថុ
+• /coach - ការណែនាំផ្ទាល់ខ្លួន
+• /find_leaks - រកមើល Money Leaks
+• /ai_help - មើលមេនុនេះ
 
-💡 **ឧទាហរណ៍សំណួរ:**
-• \`/ask តើខ្ញុំគួរសន្សំយ៉ាងណា?\`
-• \`/ask ចំណាយអ្វីខ្លះដែលអាចកាត់បន្ថយ?\`
-• \`/ask តើធ្វើយ៉ាងណាដើម្បីបង្កើនចំណូល?\`
+💡 ឧទាហរណ៍សំណួរ:
+• /ask តើខ្ញុំគួរសន្សំយ៉ាងណា?
+• /ask ចំណាយអ្វីខ្លះដែលអាចកាត់បន្ថយ?
+• /ask តើធ្វើយ៉ាងណាដើម្បីបង្កើនចំណូល?
 
-🔮 **Claude AI ពិសេសបំផុត:**
+🔮 Claude AI ពិសេសបំផុត:
 • ឆ្លាតវៃ និងយល់ពីបរិបទ
 • ការវិភាគហិរញ្ញវត្ថុផ្ទាល់ខ្លួន
 • ការណែនាំតាមស្ថានការណ៍ពិត
 • ជំនួយជាភាសាខ្មែរពេញលេញ
 
-🚀 **ចាប់ផ្តើម:** \`/ask តើខ្ញុំអាចសន្សំបានយ៉ាងណា?\`
+🚀 ចាប់ផ្តើម: /ask តើខ្ញុំអាចសន្សំបានយ៉ាងណា?
 
-💬 **ជំនួយ:** @Chendasum`;
-      await bot.sendMessage(msg.chat.id, helpMessage, { parse_mode: 'Markdown' });
+💬 ជំនួយ: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, helpMessage);
     }
   } catch (error) {
     console.error("Error in /ai_help:", error);
@@ -845,25 +677,17 @@ bot.onText(/\/ai_help/i, async (msg) => {
   }
 });
 
-// Enhanced text message handling
+// Route text message handling to appropriate modules
 bot.on("message", async (msg) => {
   if (!msg.text || msg.text.startsWith('/')) return;
   
   const text = msg.text.toUpperCase().trim();
   
   try {
-    // Route completion messages to enhanced daily commands
+    // Route completion messages to daily commands
     if (text.match(/^DAY\s*\d+\s*COMPLETE$/)) {
-      if (dailyCommands && dailyCommands.markDayComplete) {
-        const dayMatch = text.match(/^DAY\s*(\d+)\s*COMPLETE$/);
-        if (dayMatch) {
-          const dayNumber = parseInt(dayMatch[1]);
-          const userId = msg.from.id;
-          const success = await dailyCommands.markDayComplete(userId, dayNumber);
-          if (success) {
-            await bot.sendMessage(msg.chat.id, `🎉 **បានបញ្ចប់ថ្ងៃទី ${dayNumber}!**\n\n✅ **ការវឌ្ឍនភាព:** បានកត់ត្រារួចរាល់\n🚀 **បន្ទាប់:** /day${dayNumber + 1 <= 7 ? dayNumber + 1 : 7}`, { parse_mode: 'Markdown' });
-          }
-        }
+      if (dailyCommands && dailyCommands.handleCompletion) {
+        await dailyCommands.handleCompletion(msg, bot, dbContext);
       }
       return;
     }
@@ -880,14 +704,6 @@ bot.on("message", async (msg) => {
     if (text === "PROGRAM COMPLETE") {
       if (dailyCommands && dailyCommands.handleProgramComplete) {
         await dailyCommands.handleProgramComplete(msg, bot, dbContext);
-      } else {
-        await bot.sendMessage(msg.chat.id, `🎓 **អបអរសាទរ! អ្នកបានបញ្ចប់កម្មវិធី!**
-
-🏆 **Cambodia Money Flow Graduate**
-💰 **សមិទ្ធផល:** អ្នកបានរៀនគ្រប់គ្រងលុយបានល្អ
-🚀 **បន្ទាប់:** កម្មវិធី VIP នឹងមកដល់ឆាប់ៗ
-
-💬 **ជំនួយ:** @Chendasum`, { parse_mode: 'Markdown' });
       }
       return;
     }
@@ -896,27 +712,20 @@ bot.on("message", async (msg) => {
     if (text.includes("READY FOR DAY 1") || text === "READY") {
       if (dailyCommands && dailyCommands.handleReadyForDay1) {
         await dailyCommands.handleReadyForDay1(msg, bot, dbContext);
-      } else {
-        await bot.sendMessage(msg.chat.id, `🚀 **ត្រៀមខ្លួនរួចរាល់!**
-
-✅ **សូមចាប់ផ្តើម:** /day1
-🎯 **គោលដៅ:** រកប្រាក់ $50+ ក្នុង ៣០ នាទី
-
-💪 **អ្នកអាចធ្វើបាន!**`, { parse_mode: 'Markdown' });
       }
       return;
     }
     
   } catch (error) {
-    console.error("Error in enhanced message handler:", error);
+    console.error("Error in message handler:", error);
   }
 });
 
-// Enhanced Express routes for health checks
+// Express routes for health checks
 app.get("/", (req, res) => {
   const loadedModules = [
     startCommand ? 'start' : null,
-    dailyCommands ? 'enhanced-daily' : null,
+    dailyCommands ? 'daily' : null,
     paymentCommands ? 'payment' : null,
     vipCommands ? 'vip' : null,
     adminCommands ? 'admin' : null,
@@ -935,21 +744,13 @@ app.get("/", (req, res) => {
   ].filter(Boolean);
 
   res.json({
-    status: "7-Day Money Flow Bot - Enhanced UI Edition",
-    version: "4.0-enhanced-ui",
-    mode: "Enhanced daily commands with beautiful interface",
+    status: "7-Day Money Flow Bot - Complete Orchestrator with AI",
+    version: "3.1-ai-integrated",
+    mode: "All modules routing with AI support",
     modules_loaded: loadedModules.length,
     loaded_modules: loadedModules,
     ai_status: aiHandler ? "active" : "fallback",
-    ui_features: [
-      "Interactive day navigation",
-      "Beautiful progress bars",
-      "Enhanced Markdown formatting",
-      "Callback query handling",
-      "Rich lesson overviews",
-      "Visual completion tracking"
-    ],
-    architecture: "Enhanced orchestrator with beautiful UI and AI integration"
+    architecture: "Complete orchestrator with AI integration and fallbacks"
   });
 });
 
@@ -959,78 +760,60 @@ app.get("/health", (req, res) => {
     database: "connected",
     bot: "active",
     modules: "loaded",
-    ai: aiHandler ? "active" : "fallback",
-    ui: "enhanced",
-    daily_commands: dailyCommands ? "enhanced" : "fallback"
+    ai: aiHandler ? "active" : "fallback"
   });
 });
 
-// Enhanced webhook endpoint
+// Webhook endpoint
 app.post(`/bot${process.env.BOT_TOKEN}`, async (req, res) => {
   try {
     await bot.processUpdate(req.body);
     res.sendStatus(200);
   } catch (error) {
-    console.error("Enhanced webhook error:", error.message);
+    console.error("Webhook error:", error.message);
     res.sendStatus(500);
   }
 });
 
-// Initialize enhanced scheduler
+// Initialize scheduler if available
 if (scheduler && scheduler.sendDailyMessages) {
   cron.schedule("0 9 * * *", async () => {
-    console.log("🕘 Sending enhanced daily messages...");
+    console.log("🕘 Sending daily messages...");
     try {
       await scheduler.sendDailyMessages(bot);
     } catch (error) {
-      console.error("Error sending enhanced daily messages:", error);
+      console.error("Error sending daily messages:", error);
     }
   });
-  console.log("✅ Enhanced daily messages cron job scheduled");
+  console.log("✅ Daily messages cron job scheduled");
 }
 
-// Initialize content scheduler
+// Initialize content scheduler if available
 if (contentScheduler) {
   try {
     const contentSchedulerInstance = new contentScheduler(bot);
     contentSchedulerInstance.start();
-    console.log("✅ Enhanced content scheduler started");
+    console.log("✅ Content scheduler started");
   } catch (error) {
     console.log("⚠️ Content scheduler not started:", error.message);
   }
 }
 
-// Enhanced error handling
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
-
-// Enhanced server startup
+// Initialize and start server
 async function startServer() {
   await initDatabase();
   
   // Set webhook
   const webhookUrl = `https://money7daysreset-production.up.railway.app/bot${process.env.BOT_TOKEN}`;
-  try {
-    await bot.setWebHook(webhookUrl);
-    console.log("✅ Enhanced webhook configured");
-  } catch (error) {
-    console.error("❌ Webhook setup failed:", error.message);
-  }
+  await bot.setWebHook(webhookUrl);
+  console.log("✅ Webhook configured");
   
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`🚀 Enhanced 7-Day Money Flow Bot running on port ${PORT}`);
-    console.log("📁 All modules loaded with enhanced UI system");
-    console.log("🔌 Commands routed to enhanced modules with beautiful interface");
+    console.log(`🚀 Complete orchestrator with AI running on port ${PORT}`);
+    console.log("📁 All modules loaded with fallback system");
+    console.log("🔌 Commands routed to external modules or fallbacks");
     console.log(`🤖 AI Integration: ${aiHandler ? 'Active' : 'Fallback Mode'}`);
-    console.log("🎨 UI Features: Interactive navigation, progress bars, rich formatting");
-    console.log("💎 Enhanced daily commands with website-like experience");
   });
 }
 
