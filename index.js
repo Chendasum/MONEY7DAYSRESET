@@ -461,6 +461,37 @@ bot.onText(/\/admin_analytics/i, async (msg) => {
   }
 });
 
+// Add general /admin command
+bot.onText(/\/admin$/i, async (msg) => {
+  if (isDuplicateMessage(msg)) return;
+  try {
+    if (adminCommands && adminCommands.mainMenu) {
+      await adminCommands.mainMenu(msg, bot, dbContext);
+    } else {
+      // Fallback admin menu
+      const adminMenu = `👨‍💼 Admin Panel
+
+📊 Available Commands:
+- /admin_users - View all users
+- /admin_analytics - View analytics
+- /admin_payments - Manage payments
+- /admin_broadcast - Send broadcast
+- /admin_stats - System stats
+
+🔧 System Status:
+- Database: Connected
+- Bot: Active
+- Modules: Loaded
+
+💬 Support: @Chendasum`;
+      await bot.sendMessage(msg.chat.id, adminMenu);
+    }
+  } catch (error) {
+    console.error("Error in /admin:", error);
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
+  }
+});
+
 // Route badges and progress
 bot.onText(/\/badges/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
