@@ -2,6 +2,7 @@
  * Access Control Service for Tier-Based Features
  * Updated for Drizzle ORM compatibility
  */
+
 const { drizzle } = require('drizzle-orm/node-postgres');
 const { Pool } = require('pg');
 const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
@@ -264,11 +265,7 @@ ${baseCommands}${paidCommands}${specificFeatures}
    * @returns {Promise<boolean>} Whether user has admin access
    */
   async hasAdminAccess(telegramId) {
-    UPDATE users 
-    SET tier = 'admin', 
-    is_paid = true, 
-    is_vip = true 
-    WHERE telegram_id = 484389665;
+    const adminIds = [484389665]; // Your admin ID
     return adminIds.includes(telegramId);
   }
 
