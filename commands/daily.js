@@ -825,26 +825,42 @@ async function startLesson(bot, chatId, userId, dayNumber) {
          // Send a starting message first
          await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងផ្ទុក...`, { parse_mode: 'Markdown' });
          
-         // Try to send the lesson content
+         // Check content length
+         const content = dailyMessages[dayNumber];
+         console.log("=== LESSON CONTENT LENGTH ===", content.length);
+         
          try {
-            if (messageSplitter && messageSplitter.sendLongMessage) {
-               // Use the message splitter utility if available
-               await messageSplitter.sendLongMessage(
-                  bot,
-                  chatId,
-                  dailyMessages[dayNumber],
-                  { parse_mode: 'Markdown' },
-                  500
-               );
-            } else {
-               // Fallback: Send in chunks manually
-               const content = dailyMessages[dayNumber];
-               const chunks = content.match(/[\s\S]{1,3500}/g) || [content];
+            // Try sending in smaller, safer chunks
+            const maxChunkSize = 3000; // Smaller chunks
+            const chunks = [];
+            
+            // Split content into smaller pieces
+            for (let i = 0; i < content.length; i += maxChunkSize) {
+               chunks.push(content.slice(i, i + maxChunkSize));
+            }
+            
+            console.log("=== SENDING CHUNKS ===", { totalChunks: chunks.length });
+            
+            // Send each chunk with delay
+            for (let i = 0; i < chunks.length; i++) {
+               console.log(`=== SENDING CHUNK ${i + 1}/${chunks.length} ===`);
                
-               for (let i = 0; i < chunks.length; i++) {
+               try {
                   await bot.sendMessage(chatId, chunks[i], { parse_mode: 'Markdown' });
+                  
+                  // Wait between chunks
                   if (i < chunks.length - 1) {
-                     await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between chunks
+                     await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                  }
+               } catch (chunkError) {
+                  console.error(`Error sending chunk ${i + 1}:`, chunkError.message);
+                  
+                  // Try without Markdown if it fails
+                  try {
+                     await bot.sendMessage(chatId, chunks[i]);
+                  } catch (plainError) {
+                     console.error(`Plain text chunk ${i + 1} also failed:`, plainError.message);
+                     await bot.sendMessage(chatId, `❌ មានបញ្ហាផ្នែកទី ${i + 1} នៃមេរៀន`);
                   }
                }
             }
@@ -859,36 +875,87 @@ async function startLesson(bot, chatId, userId, dayNumber) {
             );
             
             // Send completion message
-            await bot.sendMessage(chatId, `✅ **មេរៀនថ្ងៃទី ${dayNumber} ត្រូវបានផ្ញើរួចរាល់!**\n\n💡 **ចុចទីនេះ:** /day${dayNumber} ដើម្បីត្រលប់ទៅមេនុ`, { parse_mode: 'Markdown' });
+            await bot.sendMessage(chatId, `✅ **មេរៀនថ្ងៃទី ${dayNumber} ត្រូវបានផ្ញើរួចរាល់!**
+
+💡 **បន្ទាប់:**
+- អនុវត្តតាមសកម្មភាពក្នុងមេរៀន
+- ចុច /day${dayNumber} ដើម្បីត្រលប់ទៅមេនុ
+- ឬចុច ⭐ ដើម្បីបញ្ចប់ថ្ងៃនេះ`, { parse_mode: 'Markdown' });
             
          } catch (contentError) {
             console.error("Error sending lesson content:", contentError);
             
-            // Send error message with fallback option
-            await bot.sendMessage(chatId, `❌ **មានបញ្ហាក្នុងការផ្ញើមេរៀន**
-
-🔧 **ដំណោះស្រាយ:**
-- ទាក់ទង @Chendasum សម្រាប់មេរៀនផ្ទាល់
-- ប្រើ /help សម្រាប់ជំនួយ
-- ឬចុច /day${dayNumber} ដើម្បីមើលទិដ្ឋភាពថ្ងៃនេះ
-
-💬 **ជំនួយ:** @Chendasum`, { parse_mode: 'Markdown' });
+            // Send simplified lesson instead
+            const simplifiedLesson = getSimplifiedLesson(dayNumber);
+            
+            try {
+               await bot.sendMessage(chatId, simplifiedLesson, { parse_mode: 'Markdown' });
+               await bot.sendMessage(chatId, `📞 **សម្រាប់មេរៀនពេញលេញ:** ទាក់ទង @Chendasum\n🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
+            } catch (simpleError) {
+               // Last resort - plain text
+               await bot.sendMessage(chatId, `មេរៀនថ្ងៃទី ${dayNumber} - សូមទាក់ទង @Chendasum សម្រាប់មេរៀនពេញលេញ`);
+            }
          }
          
       } else {
-         await bot.sendMessage(chatId, `❌ **មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន**
-
-📞 **ទាក់ទង:** @Chendasum សម្រាប់មេរៀន
-🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
+         await bot.sendMessage(chatId, `❌ **មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន**\n\n📞 **ទាក់ទង:** @Chendasum សម្រាប់មេរៀន\n🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
       }
       
    } catch (error) {
       console.error("Error in startLesson:", error);
-      await bot.sendMessage(chatId, `❌ **មានបញ្ហាបច្ចេកទេស**
-
-💬 **ជំនួយ:** @Chendasum
-🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, `❌ មានបញ្ហាបច្ចេកទេស។ ទាក់ទង @Chendasum`);
    }
+}
+
+function getSimplifiedLesson(dayNumber) {
+   const simplified = {
+      1: `🔱 **ថ្ងៃទី ១៖ រកប្រាក់ភ្លាមៗ $50-150** 🔱
+
+🚨 **ការធានាថ្ងៃនេះ:** អ្នកនឹងរកប្រាក់បាន $50-150 ក្នុងរយៈពេល ៣០ នាទី!
+
+💎 **បេសកកម្មរកប្រាក់ភ្លាមៗ:**
+
+⚡ **បេសកកម្មទី១:** ស្វែងរកការជាវលាក់កំបាំង (៨ នាទី = $15-85)
+🎯 **ការធានា:** រកបាន $15+ ភ្លាមៗ!
+
+**ជំហានស្វែងរក:**
+📱 បើកការកំណត់ទូរស័ព្ទ → Subscriptions
+🔍 រកមើលកម្មវិធីដែលអ្នកភ្លេចថាកំពុងបង់ប្រាក់
+💸 គណនាចំនួនប្រាក់ដែលកំពុងខាតបង់
+
+🇰🇭 **ចំណុចលេចធ្លាយប្រាក់ឌីជីថលទូទៅនៅកម្ពុជា:**
+
+📺 Netflix/YouTube Premium ដែលលែងមើល៖ $12-15/ខែ = $144-180/ឆ្នាំ
+🎵 Spotify Premium ដែលលែងស្ដាប់៖ $10/ខែ = $120/ឆ្នាំ
+🎮 កម្មវិធីហ្គេម (PUBG UC, Free Fire)៖ $8-25/ខែ = $96-300/ឆ្នាំ
+🔒 VPN ពីមុន ដែលភ្លេចបិទ៖ $5-12/ខែ = $60-144/ឆ្នាំ
+
+⚡ **បេសកកម្មទី២:** វិភាគទម្លាប់ចំណាយកម្ពុជា (១២ នាទី = $25-50)
+
+🚗 **ការធ្វើដំណើរ (ចំណុចសន្សំធំបំផុត):**
+- Grab ចម្ងាយខ្លី ក្រោម ២ គីឡូម៉ែត្រ៖ $3-5/ដង × 12ដង/ខែ = $36-60/ខែ
+- ឆ្លាតវៃ៖ ជិះម៉ូតូដូប/កង់ ចម្ងាយ < 1km = សន្សំ $30/ខែ + ហាត់ប្រាណ
+
+☕ **កាហ្វេ និង ភេសជ្ជៈ (កន្លែងសន្សំងាយបំផុត):**
+- កាហ្វេហាង (Brown/Amazon/Starbucks)៖ $2.5/ថ្ងៃ × 20ថ្ងៃ = $50/ខែ
+- ឆ្លាតវៃ៖ កាហ្វេនៅផ្ទះ $0.5/ថ្ងៃ = សន្សំ $40/ខែ = $480/ឆ្នាំ
+
+🍔 **ថ្លៃដឹកជញ្ជូនអាហារ (ចំណុចលាក់សំខាន់):**
+- FoodPanda/Grab Food delivery fee + tips៖ $1-2 × 15ដង = $15-30/ខែ
+- ឆ្លាតវៃ៖ meal prep ថ្ងៃអាទិត្យ + ទុកទូកត្រជាក់ = សន្សំ $40-80/ខែ
+
+🏆 **សរុបប្រាក់ដែលទើបរកបាន:**
+ខែនេះ៖ $____ | ឆ្នាំនេះ៖ $____
+
+✅ **ការបញ្ចប់បេសកកម្មថ្ងៃទី១:**
+📢 សូមសរសេរសារបញ្ចាក់៖ "DAY 1 COMPLETE - រកបាន $____/ខែ"
+
+📞 **ជំនួយ:** @Chendasum`,
+
+      // Add simplified versions for other days...
+   };
+   
+   return simplified[dayNumber] || `📚 មេរៀនថ្ងៃទី ${dayNumber} កំពុងត្រូវបានត្រៀម...\n\n📞 ទាក់ទង @Chendasum`;
 }
 
 /**
