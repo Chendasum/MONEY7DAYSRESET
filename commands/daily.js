@@ -133,12 +133,13 @@ function createDayOverview(dayNumber, userProgress = {}) {
     const day = dayMeta[dayNumber];
     const isCompleted = userProgress.completedDays?.includes(dayNumber) || false;
     const completionDate = userProgress[`day${dayNumber}CompletedAt`];
+    const timestamp = userProgress.timestamp;
     
     let message = `🔱 **7-Day Money Flow Reset™** 🔱\n\n`;
     message += `${day.color} **ថ្ងៃទី ${dayNumber}: ${day.title}**\n`;
     message += `${day.icon} *${day.subtitle}*\n\n`;
     
-    // Status
+    // Status with dynamic content
     if (isCompleted) {
         message += `✅ **ស្ថានភាព:** បានបញ្ចប់`;
         if (completionDate) {
@@ -149,7 +150,12 @@ function createDayOverview(dayNumber, userProgress = {}) {
         message += `🟡 **ស្ថានភាព:** រង់ចាំបញ្ចប់\n`;
     }
     
-    // Lesson details
+    // Add timestamp to make content unique
+    if (timestamp) {
+        message += `🕐 **បានមើល:** ${timestamp}\n`;
+    }
+    
+    // Rest of your existing content...
     message += `⏱️ **រយៈពេល:** ${day.duration}\n`;
     message += `📊 **កម្រិតលំបាក:** ${day.difficulty}\n`;
     message += `💎 **តម្លៃ:** ${day.value}\n\n`;
@@ -728,7 +734,6 @@ case 'day':
 /**
  * Handle day navigation
  */
-// Replace the handleDayNavigation function with this safer version:
 async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
    const progress = await Progress.findOne({ user_id: userId });
    if (!progress) return;
@@ -742,16 +747,23 @@ async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
    
    const maxAccessibleDay = progress.currentDay || 1;
    
+   // Add timestamp to make content unique
+   const timestamp = new Date().toLocaleTimeString('km-KH', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: 'Asia/Phnom_Penh'
+   });
+   
    const overviewMessage = createDayOverview(dayNumber, {
       completedDays,
       currentDay: progress.currentDay,
-      [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`]
+      [`day${dayNumber}CompletedAt`]: progress[`day${dayNumber}CompletedAt`],
+      timestamp // Add this to make content unique
    });
    
    const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
    
    try {
-      // Try to edit the message first
       await bot.editMessageText(overviewMessage, {
          chat_id: chatId,
          message_id: messageId,
@@ -759,7 +771,7 @@ async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
          reply_markup: keyboard
       });
    } catch (error) {
-      // If editing fails, send a new message instead
+      // If still fails, send new message
       console.log("Edit failed, sending new message:", error.message);
       await bot.sendMessage(chatId, overviewMessage, {
          parse_mode: 'Markdown',
