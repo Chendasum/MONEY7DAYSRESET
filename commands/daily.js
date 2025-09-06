@@ -803,13 +803,19 @@ async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
  * Start lesson content
  */
 async function startLesson(bot, chatId, userId, dayNumber) {
+   console.log("=== START LESSON CALLED ===", { userId, dayNumber });
+   
    if (dailyMessages[dayNumber]) {
+      // Send a starting message first
+      await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងផ្ទុក...`, { parse_mode: 'Markdown' });
+      
+      // Then send the full lesson content
       await sendLongMessage(
          bot,
          chatId,
          dailyMessages[dayNumber],
          { parse_mode: 'Markdown' },
-         CONFIG.DEFAULT_DELAY
+         CONFIG.DEFAULT_DELAY || 500
       );
       
       // Update access timestamp
@@ -820,9 +826,10 @@ async function startLesson(bot, chatId, userId, dayNumber) {
             lastActive: new Date()
          }
       );
+   } else {
+      await bot.sendMessage(chatId, `❌ មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន`, { parse_mode: 'Markdown' });
    }
 }
-
 /**
  * Show program overview
  */
