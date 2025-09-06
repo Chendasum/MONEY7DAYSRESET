@@ -820,31 +820,77 @@ async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
 async function startLesson(bot, chatId, userId, dayNumber) {
    console.log("=== START LESSON CALLED ===", { userId, dayNumber });
    
-   if (dailyMessages[dayNumber]) {
-      // Send a starting message first
-      await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងផ្ទុក...`, { parse_mode: 'Markdown' });
-      
-      // Then send the full lesson content
-      await sendLongMessage(
-         bot,
-         chatId,
-         dailyMessages[dayNumber],
-         { parse_mode: 'Markdown' },
-         CONFIG.DEFAULT_DELAY || 500
-      );
-      
-      // Update access timestamp
-      await Progress.findOneAndUpdate(
-         { user_id: userId },
-         {
-            [`day${dayNumber}AccessedAt`]: new Date(),
-            lastActive: new Date()
+   try {
+      if (dailyMessages[dayNumber]) {
+         // Send a starting message first
+         await bot.sendMessage(chatId, `🚀 **ចាប់ផ្តើមមេរៀនថ្ងៃទី ${dayNumber}**\n\nកំពុងផ្ទុក...`, { parse_mode: 'Markdown' });
+         
+         // Try to send the lesson content
+         try {
+            if (messageSplitter && messageSplitter.sendLongMessage) {
+               // Use the message splitter utility if available
+               await messageSplitter.sendLongMessage(
+                  bot,
+                  chatId,
+                  dailyMessages[dayNumber],
+                  { parse_mode: 'Markdown' },
+                  500
+               );
+            } else {
+               // Fallback: Send in chunks manually
+               const content = dailyMessages[dayNumber];
+               const chunks = content.match(/[\s\S]{1,3500}/g) || [content];
+               
+               for (let i = 0; i < chunks.length; i++) {
+                  await bot.sendMessage(chatId, chunks[i], { parse_mode: 'Markdown' });
+                  if (i < chunks.length - 1) {
+                     await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between chunks
+                  }
+               }
+            }
+            
+            // Update access timestamp
+            await Progress.findOneAndUpdate(
+               { user_id: userId },
+               {
+                  [`day${dayNumber}AccessedAt`]: new Date(),
+                  lastActive: new Date()
+               }
+            );
+            
+            // Send completion message
+            await bot.sendMessage(chatId, `✅ **មេរៀនថ្ងៃទី ${dayNumber} ត្រូវបានផ្ញើរួចរាល់!**\n\n💡 **ចុចទីនេះ:** /day${dayNumber} ដើម្បីត្រលប់ទៅមេនុ`, { parse_mode: 'Markdown' });
+            
+         } catch (contentError) {
+            console.error("Error sending lesson content:", contentError);
+            
+            // Send error message with fallback option
+            await bot.sendMessage(chatId, `❌ **មានបញ្ហាក្នុងការផ្ញើមេរៀន**
+
+🔧 **ដំណោះស្រាយ:**
+- ទាក់ទង @Chendasum សម្រាប់មេរៀនផ្ទាល់
+- ប្រើ /help សម្រាប់ជំនួយ
+- ឬចុច /day${dayNumber} ដើម្បីមើលទិដ្ឋភាពថ្ងៃនេះ
+
+💬 **ជំនួយ:** @Chendasum`, { parse_mode: 'Markdown' });
          }
-      );
-   } else {
-      await bot.sendMessage(chatId, `❌ មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន`, { parse_mode: 'Markdown' });
+         
+      } else {
+         await bot.sendMessage(chatId, `❌ **មេរៀនថ្ងៃទី ${dayNumber} មិនទាន់មាន**
+
+📞 **ទាក់ទង:** @Chendasum សម្រាប់មេរៀន
+🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
+      }
+      
+   } catch (error) {
+      console.error("Error in startLesson:", error);
+      await bot.sendMessage(chatId, `❌ **មានបញ្ហាបច្ចេកទេស**
+
+💬 **ជំនួយ:** @Chendasum
+🔙 **ត្រលប់:** /day${dayNumber}`, { parse_mode: 'Markdown' });
    }
 }
+
 /**
  * Show program overview
  */
