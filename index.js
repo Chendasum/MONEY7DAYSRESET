@@ -301,7 +301,7 @@ bot.onText(/\/day([1-7])/i, async (msg, match) => {
   if (isDuplicateMessage(msg)) return;
   try {
     if (dailyCommands && dailyCommands.handle) {
-      await dailyCommands.handle(msg, match, bot);
+      await dailyCommands.handle(msg, match, bot, dbContext);
     } else {
       await bot.sendMessage(msg.chat.id, `📚 ថ្ងៃទី ${match[1]} - មាតិកានឹងមកដល់ឆាប់ៗ\n\n📞 ទាក់ទង @Chendasum សម្រាប់មាតិកា។`);
     }
@@ -411,39 +411,17 @@ bot.onText(/\/vip/i, async (msg) => {
 });
 
 // Route admin commands
-// FIXED ✅
 bot.onText(/\/admin_users/i, async (msg) => {
   if (isDuplicateMessage(msg)) return;
-  
-  // Check admin access first
-  const accessControl = new (require('./services/access-control'))();
-  const hasAdmin = await accessControl.hasAdminAccess(msg.from.id);
-  
-  if (!hasAdmin) {
-    await bot.sendMessage(msg.chat.id, "🔒 អ្នកមិនមានសិទ្ធិ Admin។");
-    return;
-  }
-  
   try {
-    // Get users from database
-    const result = await pool.query('SELECT telegram_id, username, first_name, is_paid, tier, joined_at FROM users ORDER BY joined_at DESC LIMIT 20');
-    
-    let message = "👥 អ្នកប្រើប្រាស់ចុងក្រោយ:\n\n";
-    
-    result.rows.forEach((user, index) => {
-      const status = user.is_paid ? "✅" : "🔒";
-      const tier = user.tier || "free";
-      message += `${index + 1}. ${status} ${user.first_name || user.username || 'N/A'}\n`;
-      message += `   📱 ID: ${user.telegram_id}\n`;
-      message += `   🎯 Tier: ${tier}\n`;
-      message += `   📅 ${new Date(user.joined_at).toLocaleDateString()}\n\n`;
-    });
-    
-    await bot.sendMessage(msg.chat.id, message);
-    
+    if (adminCommands && adminCommands.showUsers) {
+      await adminCommands.showUsers(msg, bot, dbContext);
+    } else {
+      await bot.sendMessage(msg.chat.id, "👨‍💼 Admin users - កំពុងត្រូវបានអភិវឌ្ឍ។");
+    }
   } catch (error) {
     console.error("Error in /admin_users:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហាក្នុងការទាញយកទិន្នន័យ។");
+    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
   }
 });
 
@@ -457,37 +435,6 @@ bot.onText(/\/admin_analytics/i, async (msg) => {
     }
   } catch (error) {
     console.error("Error in /admin_analytics:", error);
-    await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
-  }
-});
-
-// Add general /admin command
-bot.onText(/\/admin$/i, async (msg) => {
-  if (isDuplicateMessage(msg)) return;
-  try {
-    if (adminCommands && adminCommands.mainMenu) {
-      await adminCommands.mainMenu(msg, bot, dbContext);
-    } else {
-      // Fallback admin menu
-      const adminMenu = `👨‍💼 Admin Panel
-
-📊 Available Commands:
-- /admin_users - View all users
-- /admin_analytics - View analytics
-- /admin_payments - Manage payments
-- /admin_broadcast - Send broadcast
-- /admin_stats - System stats
-
-🔧 System Status:
-- Database: Connected
-- Bot: Active
-- Modules: Loaded
-
-💬 Support: @Chendasum`;
-      await bot.sendMessage(msg.chat.id, adminMenu);
-    }
-  } catch (error) {
-    console.error("Error in /admin:", error);
     await bot.sendMessage(msg.chat.id, "❌ មានបញ្ហា។ សូមសាកល្បងម្តងទៀត។");
   }
 });
