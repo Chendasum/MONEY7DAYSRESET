@@ -667,17 +667,27 @@ async function handleCallback(query, bot) {
       const [action, param] = data.split('_');
       
       switch (action) {
-         case 'day':
-            const dayNum = parseInt(param);
-            await handleDayNavigation(bot, chatId, messageId, userId, dayNum);
-            break;
-            
-         case 'start':
-            if (param.startsWith('lesson')) {
-               const lessonDay = parseInt(param.split('_')[1]);
-               await startLesson(bot, chatId, userId, lessonDay);
-            }
-            break;
+case 'day':
+   const dayNum = parseInt(param);
+   // Instead of handleDayNavigation, just send a new message
+   const progress = await Progress.findOne({ user_id: userId });
+   if (progress) {
+      const completedDays = [];
+      for (let i = 1; i <= 7; i++) {
+         if (progress[`day${i}Completed`]) {
+            completedDays.push(i);
+         }
+      }
+      
+      const overviewMessage = createDayOverview(dayNum, { completedDays });
+      const keyboard = createNavigationKeyboard(dayNum, completedDays, progress.currentDay || 1);
+      
+      await bot.sendMessage(chatId, overviewMessage, {
+         parse_mode: 'Markdown',
+         reply_markup: keyboard
+      });
+   }
+   break;
             
          case 'complete':
             const completeDay = parseInt(param);
