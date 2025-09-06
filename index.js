@@ -14,6 +14,7 @@ const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = re
 const { eq } = require('drizzle-orm');
 
 // Database Schema
+
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
   telegram_id: bigint('telegram_id', { mode: 'number' }).notNull().unique(),
