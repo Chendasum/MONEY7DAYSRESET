@@ -2,7 +2,6 @@
  * Access Control Service for Tier-Based Features
  * Updated for Drizzle ORM compatibility
  */
-
 const { drizzle } = require('drizzle-orm/node-postgres');
 const { Pool } = require('pg');
 const { pgTable, serial, text, integer, bigint, boolean, timestamp, jsonb } = require('drizzle-orm/pg-core');
