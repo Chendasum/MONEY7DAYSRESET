@@ -718,6 +718,7 @@ async function handleCallback(query, bot) {
 /**
  * Handle day navigation
  */
+// Replace the handleDayNavigation function with this safer version:
 async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
    const progress = await Progress.findOne({ user_id: userId });
    if (!progress) return;
@@ -739,12 +740,22 @@ async function handleDayNavigation(bot, chatId, messageId, userId, dayNumber) {
    
    const keyboard = createNavigationKeyboard(dayNumber, completedDays, maxAccessibleDay);
    
-   await bot.editMessageText(overviewMessage, {
-      chat_id: chatId,
-      message_id: messageId,
-      parse_mode: 'Markdown',
-      reply_markup: keyboard
-   });
+   try {
+      // Try to edit the message first
+      await bot.editMessageText(overviewMessage, {
+         chat_id: chatId,
+         message_id: messageId,
+         parse_mode: 'Markdown',
+         reply_markup: keyboard
+      });
+   } catch (error) {
+      // If editing fails, send a new message instead
+      console.log("Edit failed, sending new message:", error.message);
+      await bot.sendMessage(chatId, overviewMessage, {
+         parse_mode: 'Markdown',
+         reply_markup: keyboard
+      });
+   }
 }
 
 /**
